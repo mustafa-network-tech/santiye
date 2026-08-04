@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Archive,
+  ClipboardList,
   FolderKanban,
   LayoutDashboard,
   LogOut,
@@ -17,12 +18,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { BrandLogo } from "@/components/layout/brand-logo";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Projeler", icon: FolderKanban },
+  { href: "/work-plans", label: "İş Planı", icon: ClipboardList },
   { href: "/archive", label: "Arşiv", icon: Archive },
   { href: "/search", label: "Arama", icon: Search },
   { href: "/settings", label: "Ayarlar", icon: Settings },
@@ -78,9 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="mx-auto flex min-h-screen max-w-[1600px]">
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border/70 bg-background/80 backdrop-blur-xl md:flex">
           <div className="flex items-center gap-3 px-5 py-6">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-[10px] font-bold leading-tight text-primary-foreground">
-              AZG
-            </div>
+            <BrandLogo size={40} priority />
             <div>
               <p className="text-sm font-semibold tracking-tight">
                 AZG İLETİŞİM
@@ -116,6 +117,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               >
                 {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </Button>
+              <BrandLogo size={28} />
               <span className="text-sm font-semibold">AZG İLETİŞİM ŞANTİYE</span>
             </div>
             <ThemeToggle />

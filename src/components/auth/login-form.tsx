@@ -19,6 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { BrandLogo } from "@/components/layout/brand-logo";
 
 export function LoginForm() {
   const router = useRouter();
@@ -54,9 +55,7 @@ export function LoginForm() {
   return (
     <Card className="w-full max-w-md border-border/70 shadow-xl">
       <CardHeader className="space-y-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-xs font-bold text-primary-foreground">
-          AZG
-        </div>
+        <BrandLogo size={56} priority />
         <div>
           <CardTitle className="text-2xl tracking-tight">Giriş Yap</CardTitle>
           <CardDescription>

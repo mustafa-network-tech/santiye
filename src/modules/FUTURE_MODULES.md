@@ -1,7 +1,7 @@
 # =============================================================================
 # Gelecek modüller — mimari hazır, henüz geliştirilmeyecek
 # =============================================================================
-# Personel
+# Personel (İş Planı altında aktif)
 # Ekip (çoklu ekip — proje bazlı, ileride)
 # Malzeme
 # Depo
@@ -13,6 +13,8 @@
 # PDF
 # Excel
 # Mobil Uygulama
+#
+# Günlük İş Planı modülü eklendi: /work-plans
 #
 # Yeni modül eklerken:
 # 1. src/modules/<modul-adi>/ altında repository + types
