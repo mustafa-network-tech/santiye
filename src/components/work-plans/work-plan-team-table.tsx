@@ -1,6 +1,6 @@
 import type { WorkPlanTeamSnapshot } from "@/types/work-plan";
 
-/** WhatsApp / görsel çıktısı için satır tabanlı ekip tablosu */
+/** WhatsApp / görsel çıktısı için satır tabanlı ekip tablosu — Personel ilk sütun */
 export function WorkPlanTeamTable({
   team,
   teamIndex,
@@ -20,6 +20,9 @@ export function WorkPlanTeamTable({
         <thead>
           <tr className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
             <th className="border-b border-slate-200 px-3 py-2 font-medium">
+              Personel
+            </th>
+            <th className="border-b border-slate-200 px-3 py-2 font-medium">
               Proje ID
             </th>
             <th className="border-b border-slate-200 px-3 py-2 font-medium">
@@ -31,14 +34,12 @@ export function WorkPlanTeamTable({
             <th className="border-b border-slate-200 px-3 py-2 font-medium">
               Araç
             </th>
-            <th className="border-b border-slate-200 px-3 py-2 font-medium">
-              Personel
-            </th>
           </tr>
         </thead>
         <tbody>
           {members.length === 0 ? (
             <tr>
+              <td className="border-b border-slate-100 px-3 py-2">—</td>
               <td className="border-b border-slate-100 px-3 py-2 font-semibold">
                 {team.project_code}
               </td>
@@ -51,11 +52,18 @@ export function WorkPlanTeamTable({
               <td className="border-b border-slate-100 px-3 py-2 font-semibold">
                 {team.vehicle_plate}
               </td>
-              <td className="border-b border-slate-100 px-3 py-2">—</td>
             </tr>
           ) : (
             members.map((member, idx) => (
               <tr key={`${member.full_name}-${idx}`} className="align-top">
+                <td className="border-b border-slate-100 px-3 py-2">
+                  <span className="font-medium">{member.full_name}</span>
+                  {member.is_chief && (
+                    <span className="mt-0.5 block text-slate-600">
+                      {member.phone || team.chief_phone}
+                    </span>
+                  )}
+                </td>
                 {idx === 0 ? (
                   <>
                     <td
@@ -84,14 +92,6 @@ export function WorkPlanTeamTable({
                     </td>
                   </>
                 ) : null}
-                <td className="border-b border-slate-100 px-3 py-2">
-                  <span className="font-medium">{member.full_name}</span>
-                  {member.is_chief && (
-                    <span className="mt-0.5 block text-slate-600">
-                      {member.phone || team.chief_phone}
-                    </span>
-                  )}
-                </td>
               </tr>
             ))
           )}
