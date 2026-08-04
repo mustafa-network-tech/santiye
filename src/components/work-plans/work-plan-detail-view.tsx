@@ -6,8 +6,8 @@ import { Pencil, Share2 } from "lucide-react";
 import type { DailyWorkPlanWithTeams } from "@/types/work-plan";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WhatsAppPreview } from "@/components/work-plans/whatsapp-preview";
+import { WorkPlanTeamTable } from "@/components/work-plans/work-plan-team-table";
 import { useRouter } from "next/navigation";
 
 type Props = {
@@ -45,57 +45,11 @@ export function WorkPlanDetailView({ plan }: Props) {
 
       <div className="space-y-4">
         {plan.teams.map((team, index) => (
-          <Card key={team.id ?? index}>
-            <CardHeader>
-              <CardTitle className="text-base">Ekip {index + 1}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div>
-                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Proje ID
-                  </dt>
-                  <dd className="text-sm font-medium">{team.project_code}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Proje Adı
-                  </dt>
-                  <dd className="text-sm font-medium">{team.project_name}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Ekip Türü
-                  </dt>
-                  <dd className="text-sm font-medium">{team.team_type}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Araç
-                  </dt>
-                  <dd className="text-sm font-medium">{team.vehicle_plate}</dd>
-                </div>
-              </dl>
-
-              <div>
-                <p className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
-                  Personel
-                </p>
-                <ul className="space-y-1">
-                  {team.members.map((member, idx) => (
-                    <li key={`${member.full_name}-${idx}`} className="text-sm">
-                      <span className="font-medium">{member.full_name}</span>
-                      {member.is_chief && (
-                        <span className="ml-2 text-muted-foreground">
-                          {member.phone || team.chief_phone}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
+          <WorkPlanTeamTable
+            key={team.id ?? index}
+            team={team}
+            teamIndex={index}
+          />
         ))}
       </div>
 

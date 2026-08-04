@@ -9,6 +9,7 @@ import { buildWhatsAppText } from "@/modules/work-plans/whatsapp-formatter";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/layout/brand-logo";
+import { WorkPlanTeamTable } from "@/components/work-plans/work-plan-team-table";
 
 type Props = {
   plan: DailyWorkPlanWithTeams;
@@ -149,54 +150,11 @@ export function WhatsAppPreview({ plan, open, onClose, onEdit }: Props) {
 
             <div className="space-y-4">
               {plan.teams.map((team, index) => (
-                <div
+                <WorkPlanTeamTable
                   key={team.id ?? index}
-                  className="overflow-hidden rounded-xl border border-slate-200"
-                >
-                  <div className="grid grid-cols-2 gap-px bg-slate-200 text-sm sm:grid-cols-4">
-                    <div className="bg-slate-50 px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500">
-                        Proje ID
-                      </p>
-                      <p className="font-semibold">{team.project_code}</p>
-                    </div>
-                    <div className="bg-slate-50 px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500">
-                        Proje
-                      </p>
-                      <p className="font-semibold">{team.project_name}</p>
-                    </div>
-                    <div className="bg-slate-50 px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500">
-                        Ekip Türü
-                      </p>
-                      <p className="font-semibold">{team.team_type}</p>
-                    </div>
-                    <div className="bg-slate-50 px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-wide text-slate-500">
-                        Araç
-                      </p>
-                      <p className="font-semibold">{team.vehicle_plate}</p>
-                    </div>
-                  </div>
-                  <div className="bg-white px-3 py-3">
-                    <p className="mb-2 text-[10px] uppercase tracking-wide text-slate-500">
-                      Personel
-                    </p>
-                    <ul className="space-y-1 text-sm">
-                      {team.members.map((member, mIdx) => (
-                        <li key={`${member.full_name}-${mIdx}`}>
-                          <span className="font-medium">{member.full_name}</span>
-                          {member.is_chief && (
-                            <span className="ml-2 text-slate-600">
-                              {member.phone || team.chief_phone}
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
+                  team={team}
+                  teamIndex={index}
+                />
               ))}
             </div>
           </div>
