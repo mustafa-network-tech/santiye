@@ -7,7 +7,6 @@ import {
   FolderKanban,
   LayoutDashboard,
   LogOut,
-  Search,
   Settings,
   Users,
   Menu,
@@ -27,7 +26,6 @@ const NAV_ITEMS = [
   { href: "/projects", label: "Projeler", icon: FolderKanban },
   { href: "/work-plans", label: "İş Planı", icon: ClipboardList },
   { href: "/personnel", label: "Personel", icon: Users },
-  { href: "/search", label: "Arama", icon: Search },
   { href: "/settings", label: "Ayarlar", icon: Settings },
 ];
 
