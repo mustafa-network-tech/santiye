@@ -42,6 +42,7 @@ async function ProjectsContent({ searchParams }: Props) {
       locations={locations}
       typeLabels={typeLabels}
       showCreate
+      showInlineEdit
       defaultArchiveScope="active"
       allowArchiveScopeFilter
     />

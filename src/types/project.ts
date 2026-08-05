@@ -26,7 +26,11 @@ export type Project = {
   cable_pulled: boolean | null;
   tracks_obk: boolean;
   obk_pulled: boolean | null;
+  tracks_joint: boolean;
   joint_done: boolean | null;
+  tracks_cable: boolean;
+  tracks_excavation: boolean;
+  excavation_done: boolean | null;
   progress_notes: string | null;
   is_archived: boolean;
   archived_at: string | null;
@@ -64,7 +68,11 @@ export type ProjectUpdate = {
   cable_pulled?: boolean | null;
   tracks_obk?: boolean;
   obk_pulled?: boolean | null;
+  tracks_joint?: boolean;
   joint_done?: boolean | null;
+  tracks_cable?: boolean;
+  tracks_excavation?: boolean;
+  excavation_done?: boolean | null;
   progress_notes?: string | null;
   is_archived?: boolean;
   archived_at?: string | null;
@@ -124,14 +132,36 @@ export type ProjectFilters = {
   status?: ProjectStatus | "all";
   projectType?: string | "all";
   location?: string | "all";
-  obkStatus?: "all" | "true" | "false";
-  jointStatus?: "all" | "true" | "false";
+  obkStatus?: TrackingFilter;
+  jointStatus?: TrackingFilter;
+  cableStatus?: TrackingFilter;
+  excavationStatus?: TrackingFilter;
   analysisStage?: ProjectAnalysisStage;
   archiveScope?: "active" | "archived" | "all";
   page?: number;
   pageSize?: number;
   sortBy?: "updated_at" | "created_at" | "name" | "project_code" | "status";
   sortOrder?: "asc" | "desc";
+};
+
+export type TrackingFilter =
+  | "all"
+  | "tracked"
+  | "untracked"
+  | "true"
+  | "false";
+
+export type ProjectTrackingUpdate = {
+  id: string;
+  tracks_obk: boolean;
+  obk_pulled: boolean | null;
+  tracks_joint: boolean;
+  joint_done: boolean | null;
+  tracks_cable: boolean;
+  cable_pulled: boolean | null;
+  tracks_excavation: boolean;
+  excavation_done: boolean | null;
+  status: ProjectStatus;
 };
 
 export type PaginatedResult<T> = {

@@ -8,6 +8,7 @@ import type {
   Project,
   ProjectFilters,
   ProjectInsert,
+  ProjectTrackingUpdate,
   ProjectUpdate,
 } from "@/types/project";
 
@@ -88,15 +89,29 @@ export class ProjectRepository {
       query = query.eq("location", filters.location);
     }
 
-    if (filters.obkStatus && filters.obkStatus !== "all") {
-      query = query
-        .eq("tracks_obk", true)
-        .eq("obk_pulled", filters.obkStatus === "true");
-    }
+    const applyTrackingFilter = (
+      filter: ProjectFilters["obkStatus"],
+      tracksField: string,
+      resultField: string
+    ) => {
+      if (!filter || filter === "all") return;
+      if (filter === "tracked") query = query.eq(tracksField, true);
+      else if (filter === "untracked") query = query.eq(tracksField, false);
+      else {
+        query = query
+          .eq(tracksField, true)
+          .eq(resultField, filter === "true");
+      }
+    };
 
-    if (filters.jointStatus && filters.jointStatus !== "all") {
-      query = query.eq("joint_done", filters.jointStatus === "true");
-    }
+    applyTrackingFilter(filters.obkStatus, "tracks_obk", "obk_pulled");
+    applyTrackingFilter(filters.jointStatus, "tracks_joint", "joint_done");
+    applyTrackingFilter(filters.cableStatus, "tracks_cable", "cable_pulled");
+    applyTrackingFilter(
+      filters.excavationStatus,
+      "tracks_excavation",
+      "excavation_done"
+    );
 
     if (filters.search?.trim()) {
       const term = filters.search.trim().replace(/[%_]/g, "\\$&");
@@ -203,8 +218,16 @@ export class ProjectRepository {
       updatePayload.tracks_obk = payload.tracks_obk;
     if (payload.obk_pulled !== undefined)
       updatePayload.obk_pulled = payload.obk_pulled;
+    if (payload.tracks_joint !== undefined)
+      updatePayload.tracks_joint = payload.tracks_joint;
     if (payload.joint_done !== undefined)
       updatePayload.joint_done = payload.joint_done;
+    if (payload.tracks_cable !== undefined)
+      updatePayload.tracks_cable = payload.tracks_cable;
+    if (payload.tracks_excavation !== undefined)
+      updatePayload.tracks_excavation = payload.tracks_excavation;
+    if (payload.excavation_done !== undefined)
+      updatePayload.excavation_done = payload.excavation_done;
     if (payload.progress_notes !== undefined)
       updatePayload.progress_notes = emptyToNull(payload.progress_notes);
     if (payload.is_archived !== undefined)
@@ -238,6 +261,20 @@ export class ProjectRepository {
     }
 
     return this.update(id, rest);
+  }
+
+  async bulkUpdateTracking(
+    updates: ProjectTrackingUpdate[]
+  ): Promise<Project[]> {
+    if (updates.length === 0) return [];
+
+    const { data, error } = await this.supabase.rpc(
+      "bulk_update_project_tracking",
+      { p_updates: updates }
+    );
+
+    if (error) throw error;
+    return (data ?? []) as Project[];
   }
 
   async reactivate(id: string, userId: string): Promise<Project> {

@@ -2,6 +2,7 @@ import type {
   ProjectAnalysisStage,
   ProjectFilters,
   ProjectStatus,
+  TrackingFilter,
 } from "@/types/project";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants/project";
 
@@ -28,12 +29,20 @@ export function parseProjectSearchParams(
     projectType: get("type") ?? defaults?.projectType ?? "all",
     location: get("location") ?? defaults?.location ?? "all",
     obkStatus:
-      (get("obk") as "all" | "true" | "false" | undefined) ??
+      (get("obk") as TrackingFilter | undefined) ??
       defaults?.obkStatus ??
       "all",
     jointStatus:
-      (get("joint") as "all" | "true" | "false" | undefined) ??
+      (get("joint") as TrackingFilter | undefined) ??
       defaults?.jointStatus ??
+      "all",
+    cableStatus:
+      (get("cable") as TrackingFilter | undefined) ??
+      defaults?.cableStatus ??
+      "all",
+    excavationStatus:
+      (get("excavation") as TrackingFilter | undefined) ??
+      defaults?.excavationStatus ??
       "all",
     analysisStage:
       (get("stage") as ProjectAnalysisStage | undefined) ??

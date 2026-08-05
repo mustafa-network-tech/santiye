@@ -29,6 +29,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProjectTypeShortcuts } from "@/components/projects/project-type-shortcuts";
 import { ProjectStatusIndicators } from "@/components/projects/project-status-indicators";
+import { EditableProjectsGrid } from "@/components/projects/editable-projects-grid";
 
 type Props = {
   title: string;
@@ -39,6 +40,7 @@ type Props = {
   showCreate?: boolean;
   defaultArchiveScope?: "active" | "archived" | "all";
   allowArchiveScopeFilter?: boolean;
+  showInlineEdit?: boolean;
 };
 
 export function ProjectsTable({
@@ -50,14 +52,24 @@ export function ProjectsTable({
   showCreate = true,
   defaultArchiveScope = "active",
   allowArchiveScopeFilter = true,
+  showInlineEdit = false,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
+  const [dirtyCount, setDirtyCount] = useState(0);
 
   function updateParams(updates: Record<string, string | null>) {
+    if (
+      dirtyCount > 0 &&
+      !window.confirm(
+        "Kaydedilmemiş proje değişiklikleri var. Filtreyi değiştirmeden önce devam etmek istiyor musunuz?"
+      )
+    ) {
+      return;
+    }
     const params = new URLSearchParams(searchParams.toString());
     Object.entries(updates).forEach(([key, value]) => {
       if (!value || value === "all") params.delete(key);
@@ -196,7 +208,7 @@ export function ProjectsTable({
             </Button>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8">
             <Select
               value={
                 searchParams.get("stage")
@@ -320,6 +332,8 @@ export function ProjectsTable({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tüm OBK Durumları</SelectItem>
+                <SelectItem value="tracked">OBK Var</SelectItem>
+                <SelectItem value="untracked">OBK Yok</SelectItem>
                 <SelectItem value="true">OBK Çekildi</SelectItem>
                 <SelectItem value="false">OBK Çekilmedi</SelectItem>
               </SelectContent>
@@ -334,8 +348,44 @@ export function ProjectsTable({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tüm Ek Durumları</SelectItem>
+                <SelectItem value="tracked">Ek Var</SelectItem>
+                <SelectItem value="untracked">Ek Yok</SelectItem>
                 <SelectItem value="true">Ek Yapıldı</SelectItem>
                 <SelectItem value="false">Ek Yapılmadı</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={searchParams.get("cable") ?? "all"}
+              onValueChange={(v) => updateParams({ cable: v, page: "1" })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Kablo durumu" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tüm Kablo Durumları</SelectItem>
+                <SelectItem value="tracked">Kablo Var</SelectItem>
+                <SelectItem value="untracked">Kablo Yok</SelectItem>
+                <SelectItem value="true">Kablo Çekildi</SelectItem>
+                <SelectItem value="false">Kablo Çekilmedi</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={searchParams.get("excavation") ?? "all"}
+              onValueChange={(v) =>
+                updateParams({ excavation: v, page: "1" })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Kazı durumu" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tüm Kazı Durumları</SelectItem>
+                <SelectItem value="tracked">Kazı Var</SelectItem>
+                <SelectItem value="untracked">Kazı Yok</SelectItem>
+                <SelectItem value="true">Kazı Yapıldı</SelectItem>
+                <SelectItem value="false">Kazı Yapılmadı</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -343,6 +393,13 @@ export function ProjectsTable({
       </Card>
 
       <Card className="overflow-hidden">
+        {showInlineEdit ? (
+          <EditableProjectsGrid
+            projects={result.data}
+            typeLabels={typeLabels}
+            onDirtyChange={setDirtyCount}
+          />
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-sm">
             <thead className="border-b bg-muted/40">
@@ -394,6 +451,7 @@ export function ProjectsTable({
             </tbody>
           </table>
         </div>
+        )}
 
         <div className="flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
