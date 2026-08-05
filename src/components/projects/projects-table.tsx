@@ -362,8 +362,6 @@ export function ProjectsTable({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tüm Kablo Durumları</SelectItem>
-                <SelectItem value="tracked">Kablo Var</SelectItem>
-                <SelectItem value="untracked">Kablo Yok</SelectItem>
                 <SelectItem value="true">Kablo Çekildi</SelectItem>
                 <SelectItem value="false">Kablo Çekilmedi</SelectItem>
               </SelectContent>

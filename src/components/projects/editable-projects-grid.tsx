@@ -38,7 +38,6 @@ type EditableField =
   | "tracks_obk"
   | "obk_pulled"
   | "joint_done"
-  | "tracks_cable"
   | "cable_pulled"
   | "tracks_excavation"
   | "excavation_done"
@@ -61,7 +60,7 @@ function normalizeProject(project: Project): Project {
     ...project,
     tracks_obk: project.tracks_obk ?? false,
     tracks_joint: true,
-    tracks_cable: project.tracks_cable ?? project.cable_pulled !== null,
+    tracks_cable: true,
     tracks_excavation:
       project.tracks_excavation ??
       (project.excavation_done !== null ||
@@ -77,8 +76,8 @@ function toUpdate(project: Project): ProjectTrackingUpdate {
     obk_pulled: project.tracks_obk ? project.obk_pulled : null,
     tracks_joint: true,
     joint_done: project.joint_done,
-    tracks_cable: project.tracks_cable,
-    cable_pulled: project.tracks_cable ? project.cable_pulled : null,
+    tracks_cable: true,
+    cable_pulled: project.cable_pulled,
     tracks_excavation: project.tracks_excavation,
     excavation_done: project.tracks_excavation
       ? project.excavation_done
@@ -122,8 +121,6 @@ export function EditableProjectsGrid({
 
           if (field === "tracks_obk" && value === false)
             next.obk_pulled = null;
-          if (field === "tracks_cable" && value === false)
-            next.cable_pulled = null;
           if (field === "tracks_excavation" && value === false)
             next.excavation_done = null;
 
@@ -224,13 +221,10 @@ export function EditableProjectsGrid({
         header: "Kablo Çekildi",
         size: 125,
         cell: ({ row }) => (
-          <TrackingResultSelect
-            tracked={row.original.tracks_cable}
+          <ResultSelect
             value={row.original.cable_pulled}
-            onTrackedChange={(value) =>
-              updateCell(row.original.id, "tracks_cable", value)
-            }
-            onResultChange={(value) =>
+            enabled
+            onChange={(value) =>
               updateCell(row.original.id, "cable_pulled", value)
             }
           />
@@ -514,50 +508,6 @@ const ResultSelect = memo(function ResultSelect({
     </select>
   );
 });
-
-function TrackingResultSelect({
-  tracked,
-  value,
-  onTrackedChange,
-  onResultChange,
-}: {
-  tracked: boolean;
-  value: boolean | null;
-  onTrackedChange: (value: boolean) => void;
-  onResultChange: (value: boolean | null) => void;
-}) {
-  return (
-    <select
-      value={!tracked ? "untracked" : value === null ? "unset" : String(value)}
-      onChange={(event) => {
-        if (event.target.value === "untracked") {
-          onTrackedChange(false);
-          return;
-        }
-        if (!tracked) onTrackedChange(true);
-        onResultChange(
-          event.target.value === "unset"
-            ? null
-            : event.target.value === "true"
-        );
-      }}
-      className={`h-8 w-full rounded-lg border px-2 text-xs font-medium outline-none focus:ring-2 focus:ring-ring ${
-        !tracked
-          ? "bg-muted text-muted-foreground"
-          : value === true
-            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-            : value === false
-              ? "border-rose-200 bg-rose-50 text-rose-700"
-              : "bg-background"
-      }`}
-    >
-      <option value="untracked">Yok</option>
-      <option value="unset">Var · Belirsiz</option>
-      <option value="true">Var · Evet</option>
-      <option value="false">Var · Hayır</option>
-    </select>
-  );
-}
 
 function StatusSelect({
   value,
