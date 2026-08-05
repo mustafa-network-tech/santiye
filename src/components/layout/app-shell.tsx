@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  CalendarCheck,
   ClipboardList,
   FolderKanban,
   LayoutDashboard,
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { href: "/projects", label: "Projeler", icon: FolderKanban },
   { href: "/work-plans", label: "İş Planı", icon: ClipboardList },
   { href: "/personnel", label: "Personel", icon: Users },
+  { href: "/attendance", label: "Puantaj", icon: CalendarCheck },
   { href: "/settings", label: "Ayarlar", icon: Settings },
 ];
 
