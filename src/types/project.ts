@@ -161,7 +161,6 @@ export type ProjectTrackingUpdate = {
   cable_pulled: boolean | null;
   tracks_excavation: boolean;
   excavation_done: boolean | null;
-  status: ProjectStatus;
 };
 
 export type PaginatedResult<T> = {

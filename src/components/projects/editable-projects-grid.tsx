@@ -25,7 +25,7 @@ import type {
   ProjectTrackingUpdate,
 } from "@/types/project";
 import {
-  PROJECT_STATUSES,
+  deriveProjectStatus,
   getStatusLabel,
   isBfOrGfProject,
 } from "@/lib/constants/project";
@@ -40,8 +40,7 @@ type EditableField =
   | "joint_done"
   | "cable_pulled"
   | "tracks_excavation"
-  | "excavation_done"
-  | "status";
+  | "excavation_done";
 
 type Props = {
   projects: Project[];
@@ -82,7 +81,6 @@ function toUpdate(project: Project): ProjectTrackingUpdate {
     excavation_done: project.tracks_excavation
       ? project.excavation_done
       : null,
-    status: project.status,
   };
 }
 
@@ -113,7 +111,7 @@ export function EditableProjectsGrid({
   }, [dirtyIds.size]);
 
   const updateCell = useCallback(
-    (id: string, field: EditableField, value: boolean | null | ProjectStatus) => {
+    (id: string, field: EditableField, value: boolean | null) => {
       setRows((current) =>
         current.map((project) => {
           if (project.id !== id) return project;
@@ -124,6 +122,7 @@ export function EditableProjectsGrid({
           if (field === "tracks_excavation" && value === false)
             next.excavation_done = null;
 
+          next.status = deriveProjectStatus(next);
           return next;
         })
       );
@@ -262,11 +261,7 @@ export function EditableProjectsGrid({
         header: "Durum",
         size: 190,
         cell: ({ row }) => (
-          <StatusSelect
-            value={row.original.status}
-            project={row.original}
-            onChange={(value) => updateCell(row.original.id, "status", value)}
-          />
+          <AutomaticStatusBadge status={row.original.status} />
         ),
       },
       {
@@ -300,15 +295,6 @@ export function EditableProjectsGrid({
       .filter((project) => dirtyIds.has(project.id))
       .map(toUpdate);
 
-    if (
-      changedRows.some((project) => project.status === "completed") &&
-      !window.confirm(
-        "Tamamlandı durumuna alınan projeler otomatik olarak arşivlenecek. Devam edilsin mi?"
-      )
-    ) {
-      return;
-    }
-
     setSaving(true);
     try {
       const repository = new ProjectRepository(createClient());
@@ -339,11 +325,11 @@ export function EditableProjectsGrid({
       <div className="flex flex-col gap-3 border-b bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-medium">Proje Takip Tablosu</p>
-          <p className="text-xs text-muted-foreground">
-            {dirtyIds.size > 0
-              ? `${dirtyIds.size} satırda kaydedilmemiş değişiklik var`
-              : "Hücreleri düzenleyip toplu olarak kaydedebilirsiniz"}
-          </p>
+          {dirtyIds.size > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {dirtyIds.size} satırda kaydedilmemiş değişiklik var
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           <Button
@@ -408,13 +394,21 @@ export function EditableProjectsGrid({
             {virtualizer.getVirtualItems().map((virtualRow) => {
               const row = tableRows[virtualRow.index];
               const isDirty = dirtyIds.has(row.original.id);
+              const statusColor =
+                row.original.status === "in_progress"
+                  ? "bg-amber-100/80 hover:bg-amber-100 dark:bg-amber-950/35 dark:hover:bg-amber-950/50"
+                  : row.original.status === "waiting"
+                    ? "bg-blue-100/75 hover:bg-blue-100 dark:bg-blue-950/30 dark:hover:bg-blue-950/45"
+                    : row.original.status === "delayed"
+                      ? "bg-red-100/80 hover:bg-red-100 dark:bg-red-950/35 dark:hover:bg-red-950/50"
+                      : "hover:bg-accent/30";
               return (
                 <tr
                   key={row.id}
                   data-index={virtualRow.index}
                   ref={(node) => virtualizer.measureElement(node)}
-                  className={`absolute flex w-full border-b transition-colors hover:bg-accent/30 ${
-                    isDirty ? "bg-blue-50/70 dark:bg-blue-950/20" : ""
+                  className={`absolute flex w-full border-b transition-colors ${statusColor} ${
+                    isDirty ? "ring-1 ring-inset ring-primary" : ""
                   }`}
                   style={{ transform: `translateY(${virtualRow.start}px)` }}
                 >
@@ -509,51 +503,23 @@ const ResultSelect = memo(function ResultSelect({
   );
 });
 
-function StatusSelect({
-  value,
-  project,
-  onChange,
-}: {
-  value: ProjectStatus;
-  project: Project;
-  onChange: (value: ProjectStatus) => void;
-}) {
-  const derivedLabel =
-    value === "excavation_permit_waiting"
-      ? "Kazı Bekliyor"
-      : value === "in_progress" &&
-          project.tracks_obk &&
-          project.obk_pulled !== true
-        ? "OBK Bekliyor"
-        : getStatusLabel(value);
+function AutomaticStatusBadge({ status }: { status: ProjectStatus }) {
+  const label = getStatusLabel(status);
   const colorClass =
-    value === "completed"
+    status === "completed"
       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-      : value === "excavation_permit_waiting"
-        ? "border-orange-200 bg-orange-50 text-orange-700"
-        : value === "delayed"
+      : status === "delayed"
           ? "border-rose-200 bg-rose-50 text-rose-700"
-          : derivedLabel === "OBK Bekliyor"
-            ? "border-violet-200 bg-violet-50 text-violet-700"
-            : value === "in_progress"
+          : status === "in_progress"
               ? "border-blue-200 bg-blue-50 text-blue-700"
               : "border-slate-200 bg-slate-50 text-slate-700";
 
   return (
-    <select
-      value={value}
-      onChange={(event) => onChange(event.target.value as ProjectStatus)}
-      className={`h-8 w-full rounded-lg border px-2 text-xs font-medium outline-none focus:ring-2 focus:ring-ring ${colorClass}`}
-      title={derivedLabel}
+    <span
+      className={`inline-flex min-h-8 w-full items-center rounded-lg border px-2 text-xs font-medium ${colorClass}`}
+      title="Proje aşamalarına göre otomatik belirlenir"
     >
-      <option value={value}>{derivedLabel}</option>
-      {PROJECT_STATUSES.filter((status) => status.value !== value).map((status) => (
-        <option key={status.value} value={status.value}>
-          {status.value === "excavation_permit_waiting"
-            ? "Kazı Bekliyor"
-            : status.label}
-        </option>
-      ))}
-    </select>
+      {label}
+    </span>
   );
 }

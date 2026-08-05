@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import {
   Archive,
   CheckCircle2,
-  Clock3,
   FolderKanban,
   HardHat,
   PauseCircle,
@@ -42,12 +41,6 @@ const STAT_CARDS = [
     label: "Devam Ediyor",
     icon: HardHat,
     href: "/projects?status=in_progress",
-  },
-  {
-    key: "excavation_permit_waiting" as const,
-    label: "Kazı İzni Bekliyor",
-    icon: Clock3,
-    href: "/projects?status=excavation_permit_waiting",
   },
   {
     key: "delayed" as const,
@@ -176,7 +169,7 @@ const CRITICAL_ITEMS = [
     key: "excavation_waiting" as const,
     label: "Kazı İzni Bekleyen",
     color: "bg-orange-500",
-    href: "/projects?status=excavation_permit_waiting",
+    href: "/projects?excavation=false",
   },
   {
     key: "obk_waiting" as const,

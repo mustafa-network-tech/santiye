@@ -39,7 +39,7 @@ function buildStageHref(category: string, stage: ProjectAnalysisStage): string {
   else if (stage === "completed") params.set("status", "completed");
   else if (stage === "delayed") params.set("status", "delayed");
   else if (stage === "excavation_waiting")
-    params.set("status", "excavation_permit_waiting");
+    params.set("excavation", "false");
   else params.set("stage", stage);
 
   return `/projects?${params.toString()}`;

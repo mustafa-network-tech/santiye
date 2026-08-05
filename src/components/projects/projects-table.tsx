@@ -14,6 +14,7 @@ import type { PaginatedResult, Project } from "@/types/project";
 import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
+  AUTOMATIC_PROJECT_STATUSES,
   PROJECT_STATUSES,
 } from "@/lib/constants/project";
 import { formatDate, formatDateTime } from "@/lib/utils";
@@ -236,7 +237,7 @@ export function ProjectsTable({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tüm Durumlar</SelectItem>
-                {PROJECT_STATUSES.map((s) => (
+                {AUTOMATIC_PROJECT_STATUSES.map((s) => (
                   <SelectItem key={s.value} value={s.value}>
                     {s.label}
                   </SelectItem>

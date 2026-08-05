@@ -21,11 +21,9 @@ import {
   CABLE_OPTIONS,
   JOINT_OPTIONS,
   OBK_OPTIONS,
-  PROJECT_STATUSES,
   getStageDateKey,
-  getStageDateLabel,
+  getStatusLabel,
   isBfOrGfProject,
-  isOngoingProjectStatus,
   todayISODate,
 } from "@/lib/constants/project";
 import { Button } from "@/components/ui/button";
@@ -330,7 +328,6 @@ function EditProjectForm({
   const projectType = form.watch("project_type");
   const isBfOrGf = isBfOrGfProject(projectType);
   const tracksObk = form.watch("tracks_obk");
-  const isOngoing = isOngoingProjectStatus(status);
 
   useLocationSuggestions(locationValue, setLocationSuggestions);
 
@@ -343,13 +340,6 @@ function EditProjectForm({
       ),
     [locationSuggestions, locationValue]
   );
-
-  function handleStatusChange(next: ProjectEditValues["status"]) {
-    form.setValue("status", next);
-    const key = getStageDateKey(next);
-    const existing = project[key];
-    form.setValue("stage_date", existing ?? todayISODate());
-  }
 
   async function onSubmit(values: ProjectEditValues) {
     setLoading(true);
@@ -365,31 +355,22 @@ function EditProjectForm({
     }
 
     try {
-      await new ProjectRepository(supabase).updateWithStageDate(project.id, {
+      await new ProjectRepository(supabase).update(project.id, {
         project_code: values.project_code,
         name: values.name,
         project_type: values.project_type,
         location: values.location,
         description: values.description || null,
         received_at: values.received_at,
-        status: values.status,
-        stage_date: values.stage_date,
-        cable_pulled:
-          isOngoing && !isBfOrGf
-            ? triStateToBoolean(values.cable_pulled)
-            : project.cable_pulled,
+        tracks_cable: true,
+        cable_pulled: triStateToBoolean(values.cable_pulled),
         tracks_obk: isBfOrGf && values.tracks_obk,
         obk_pulled: isBfOrGf && values.tracks_obk
           ? triStateToBoolean(values.obk_pulled)
           : null,
-        joint_done:
-          isOngoing || isBfOrGf
-            ? triStateToBoolean(values.joint_done)
-            : project.joint_done,
-        progress_notes:
-          isOngoing || isBfOrGf
-            ? values.progress_notes || null
-            : project.progress_notes,
+        tracks_joint: true,
+        joint_done: triStateToBoolean(values.joint_done),
+        progress_notes: values.progress_notes || null,
         updated_by: user.id,
       });
       toast.success("Proje güncellendi");
@@ -409,8 +390,6 @@ function EditProjectForm({
       setLoading(false);
     }
   }
-
-  const stageLabel = getStageDateLabel(status);
 
   return (
     <Card>
@@ -465,24 +444,10 @@ function EditProjectForm({
 
             <div className="space-y-2">
               <Label>Durum</Label>
-              <Select value={status} onValueChange={handleStatusChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Durum seçin" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PROJECT_STATUSES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {status === "completed" && (
-                <p className="text-xs text-amber-600 dark:text-amber-400">
-                  Tamamlanan projeler arşive alınır; bitiş tarihi bu adımda
-                  işlenir.
-                </p>
-              )}
+              <Input value={getStatusLabel(status)} disabled />
+              <p className="text-xs text-muted-foreground">
+                Durum, proje aşamalarına göre sistem tarafından otomatik belirlenir.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -495,20 +460,6 @@ function EditProjectForm({
               {form.formState.errors.received_at && (
                 <p className="text-xs text-destructive">
                   {form.formState.errors.received_at.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="stage_date">{stageLabel}</Label>
-              <Input
-                id="stage_date"
-                type="date"
-                {...form.register("stage_date")}
-              />
-              {form.formState.errors.stage_date && (
-                <p className="text-xs text-destructive">
-                  {form.formState.errors.stage_date.message}
                 </p>
               )}
             </div>
@@ -539,7 +490,7 @@ function EditProjectForm({
               </label>
             )}
 
-            {(isOngoing || isBfOrGf) && (
+            {(
               <div className="md:col-span-2 space-y-4 rounded-2xl border bg-muted/30 p-4">
                 <div>
                   <p className="text-sm font-medium">

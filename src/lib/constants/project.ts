@@ -52,6 +52,10 @@ export const PROJECT_STATUSES = [
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number]["value"];
 export type StageDateKey = (typeof PROJECT_STATUSES)[number]["dateKey"];
 
+export const AUTOMATIC_PROJECT_STATUSES = PROJECT_STATUSES.filter((status) =>
+  ["waiting", "in_progress", "delayed", "completed"].includes(status.value)
+);
+
 export const CABLE_OPTIONS = [
   { value: "true", label: "Kablo çekildi" },
   { value: "false", label: "Kablo çekilmedi" },
@@ -83,11 +87,44 @@ export function isBfOrGfProject(projectType: string): boolean {
 }
 
 export function isOngoingProjectStatus(status: string): boolean {
-  return [
-    "in_progress",
-    "excavation_permit_waiting",
-    "delayed",
-  ].includes(status);
+  return status === "in_progress";
+}
+
+export function deriveProjectStatus(project: {
+  received_at: string | null;
+  tracks_obk: boolean;
+  obk_pulled: boolean | null;
+  joint_done: boolean | null;
+  cable_pulled: boolean | null;
+  tracks_excavation: boolean;
+  excavation_done: boolean | null;
+}): ProjectStatus {
+  const allRequiredStepsDone =
+    project.joint_done === true &&
+    project.cable_pulled === true &&
+    (!project.tracks_obk || project.obk_pulled === true) &&
+    (!project.tracks_excavation || project.excavation_done === true);
+
+  if (allRequiredStepsDone) return "completed";
+
+  if (project.received_at) {
+    const receivedAt = new Date(`${project.received_at}T00:00:00`);
+    const today = new Date(`${todayISODate()}T00:00:00`);
+    const elapsedDays = Math.floor(
+      (today.getTime() - receivedAt.getTime()) / 86_400_000
+    );
+    if (elapsedDays >= 30) return "delayed";
+  }
+
+  if (
+    project.obk_pulled === true ||
+    project.joint_done === true ||
+    project.cable_pulled === true
+  ) {
+    return "in_progress";
+  }
+
+  return "waiting";
 }
 
 export function getStatusLabel(status: string): string {

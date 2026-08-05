@@ -21,6 +21,11 @@ export class ProjectRepository {
   constructor(private readonly supabase: SupabaseClient) {}
 
   async list(filters: ProjectFilters = {}): Promise<PaginatedResult<Project>> {
+    const { error: refreshError } = await this.supabase.rpc(
+      "refresh_overdue_project_statuses"
+    );
+    if (refreshError && refreshError.code !== "PGRST202") throw refreshError;
+
     const page = Math.max(1, filters.page ?? 1);
     const pageSize = filters.pageSize ?? DEFAULT_PAGE_SIZE;
     const from = (page - 1) * pageSize;
@@ -49,36 +54,34 @@ export class ProjectRepository {
           query = query.eq("status", "delayed");
           break;
         case "excavation_waiting":
-          query = query.eq("status", "excavation_permit_waiting");
+          query = query
+            .eq("tracks_excavation", true)
+            .not("excavation_done", "is", true);
           break;
         case "obk_waiting":
           query = query
             .eq("status", "in_progress")
             .eq("tracks_obk", true)
-            .not("obk_pulled", "is", true);
+            .not("obk_pulled", "is", true)
+            .or("tracks_excavation.eq.false,excavation_done.eq.true");
           break;
         case "cable_waiting":
           query = query
             .eq("status", "in_progress")
             .eq("cable_pulled", false)
-            .or("tracks_obk.eq.false,obk_pulled.eq.true");
+            .or("tracks_obk.eq.false,obk_pulled.eq.true")
+            .or("tracks_excavation.eq.false,excavation_done.eq.true");
           break;
         case "in_progress":
           query = query
             .eq("status", "in_progress")
             .not("cable_pulled", "is", false)
-            .or("tracks_obk.eq.false,obk_pulled.eq.true");
+            .or("tracks_obk.eq.false,obk_pulled.eq.true")
+            .or("tracks_excavation.eq.false,excavation_done.eq.true");
           break;
       }
     } else if (filters.status && filters.status !== "all") {
-      query =
-        filters.status === "in_progress"
-          ? query.in("status", [
-              "in_progress",
-              "excavation_permit_waiting",
-              "delayed",
-            ])
-          : query.eq("status", filters.status);
+      query = query.eq("status", filters.status);
     }
 
     if (filters.projectType && filters.projectType !== "all") {
@@ -282,6 +285,9 @@ export class ProjectRepository {
       is_archived: false,
       archived_at: null,
       status: "in_progress",
+      tracks_joint: true,
+      joint_done: false,
+      completed_at: null,
       stage_date: new Date().toISOString().slice(0, 10),
       updated_by: userId,
     });
