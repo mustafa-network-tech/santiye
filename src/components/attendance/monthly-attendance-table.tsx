@@ -7,6 +7,7 @@ import {
   useState,
   useTransition,
 } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CalendarDays, Loader2, Save, Search, Users } from "lucide-react";
 import { toast } from "sonner";
@@ -544,9 +545,13 @@ const AttendanceRow = memo(function AttendanceRow({
             className="h-4 w-4 shrink-0 accent-primary"
           />
           <span className="min-w-0">
-            <span className="block truncate font-medium">
+            <Link
+              href={`/personnel/${personnel.id}?year=${days[0]?.isoDate.slice(0, 4)}&month=${Number(days[0]?.isoDate.slice(5, 7))}`}
+              className="block truncate font-medium text-primary hover:underline"
+              title={`${personnel.full_name} personel sayfasını aç`}
+            >
               {personnel.full_name}
-            </span>
+            </Link>
             <span className="block text-[10px] text-muted-foreground">
               {personnel.is_active ? "Aktif" : "Pasif"}
             </span>

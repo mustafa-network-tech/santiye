@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Pencil, Plus, UserRound } from "lucide-react";
+import { CalendarDays, Loader2, Pencil, Plus, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import type { Personnel } from "@/types/work-plan";
+import type { PersonnelAttendanceSummary } from "@/types/attendance";
+import { MONTH_NAMES } from "@/lib/constants/attendance";
 import {
   personnelSchema,
   type PersonnelFormValues,
@@ -41,9 +44,13 @@ import {
 
 type Props = {
   initialPersonnel: Personnel[];
+  attendanceSummary?: PersonnelAttendanceSummary | null;
 };
 
-export function PersonnelManager({ initialPersonnel }: Props) {
+export function PersonnelManager({
+  initialPersonnel,
+  attendanceSummary,
+}: Props) {
   const router = useRouter();
   const [items, setItems] = useState(initialPersonnel);
   const [open, setOpen] = useState(false);
@@ -162,6 +169,36 @@ export function PersonnelManager({ initialPersonnel }: Props) {
         </Button>
       </div>
 
+      {attendanceSummary && (
+        <Card className="border-blue-200 bg-blue-50/60 dark:border-blue-900 dark:bg-blue-950/25">
+          <CardHeader className="pb-3">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-blue-100 p-2 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                <CalendarDays className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base">
+                  {attendanceSummary.full_name} · Puantaj Notu
+                </CardTitle>
+                <CardDescription>
+                  {MONTH_NAMES[attendanceSummary.month - 1]}{" "}
+                  {attendanceSummary.year}
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm font-medium leading-6">
+              {attendanceSummary.worked} gün çalıştı,{" "}
+              {attendanceSummary.absent} gün çalışmadı,{" "}
+              {attendanceSummary.leave} gün izinli,{" "}
+              {attendanceSummary.medical_report} gün raporlu ve{" "}
+              {attendanceSummary.weekly_rest} gün hafta tatili.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Liste</CardTitle>
@@ -185,7 +222,11 @@ export function PersonnelManager({ initialPersonnel }: Props) {
               filtered.map((person) => (
                 <div
                   key={person.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3"
+                  className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 ${
+                    attendanceSummary?.personnel_id === person.id
+                      ? "border-blue-400 bg-blue-50 ring-1 ring-blue-300 dark:border-blue-800 dark:bg-blue-950/30"
+                      : ""
+                  }`}
                 >
                   <div className="flex min-w-0 items-start gap-3">
                     <div className="mt-0.5 rounded-xl bg-muted p-2">
@@ -193,7 +234,12 @@ export function PersonnelManager({ initialPersonnel }: Props) {
                     </div>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium">{person.full_name}</p>
+                        <Link
+                          href={`/personnel/${person.id}`}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {person.full_name}
+                        </Link>
                         <Badge
                           className={
                             person.is_active

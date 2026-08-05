@@ -1,14 +1,64 @@
 import { createClient } from "@/lib/supabase/server";
 import { PersonnelRepository } from "@/modules/work-plans/personnel-repository";
+import { AttendanceRepository } from "@/modules/attendance/attendance-repository";
 import { PersonnelManager } from "@/components/work-plans/personnel-manager";
 
 export const metadata = {
   title: "Personel",
 };
 
-export default async function PersonnelPage() {
-  const supabase = await createClient();
-  const personnel = await new PersonnelRepository(supabase).list();
+type Props = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
-  return <PersonnelManager initialPersonnel={personnel} />;
+function readParam(
+  params: Record<string, string | string[] | undefined>,
+  key: string
+) {
+  const value = params[key];
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function PersonnelPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const personnelId = readParam(params, "personnel");
+  const today = new Date();
+  const requestedYear = Number(readParam(params, "year"));
+  const requestedMonth = Number(readParam(params, "month"));
+  const year =
+    Number.isInteger(requestedYear) && requestedYear >= 2000
+      ? requestedYear
+      : today.getFullYear();
+  const month =
+    Number.isInteger(requestedMonth) &&
+    requestedMonth >= 1 &&
+    requestedMonth <= 12
+      ? requestedMonth
+      : today.getMonth() + 1;
+  const validPersonnelId =
+    personnelId &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      personnelId
+    )
+      ? personnelId
+      : null;
+
+  const supabase = await createClient();
+  const [personnel, attendanceSummary] = await Promise.all([
+    new PersonnelRepository(supabase).list(),
+    validPersonnelId
+      ? new AttendanceRepository(supabase).getPersonnelSummary(
+          validPersonnelId,
+          year,
+          month
+        )
+      : Promise.resolve(null),
+  ]);
+
+  return (
+    <PersonnelManager
+      initialPersonnel={personnel}
+      attendanceSummary={attendanceSummary}
+    />
+  );
 }

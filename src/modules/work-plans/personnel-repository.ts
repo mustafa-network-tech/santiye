@@ -13,6 +13,17 @@ function emptyToNull(value?: string | null): string | null {
 export class PersonnelRepository {
   constructor(private readonly supabase: SupabaseClient) {}
 
+  async getById(id: string): Promise<Personnel | null> {
+    const { data, error } = await this.supabase
+      .from("personnel")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data as Personnel | null;
+  }
+
   async list(options?: {
     activeOnly?: boolean;
     search?: string;

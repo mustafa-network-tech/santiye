@@ -36,3 +36,10 @@ export type AttendanceChange = {
 };
 
 export type PersonnelActivityFilter = "active" | "passive" | "all";
+
+export type PersonnelAttendanceSummary = AttendanceTotals & {
+  personnel_id: string;
+  full_name: string;
+  year: number;
+  month: number;
+};
