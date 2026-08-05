@@ -12,13 +12,10 @@ export default async function DashboardPage() {
   const dashboardRepo = new DashboardRepository(supabase);
   const settingsRepo = new SettingsRepository(supabase);
 
-  const [stats, recentlyUpdated, recentlyCreated, typeOptions] =
-    await Promise.all([
-      dashboardRepo.getStats(),
-      dashboardRepo.getRecentlyUpdated(8),
-      dashboardRepo.getRecentlyCreated(8),
-      settingsRepo.getAllProjectTypeOptions(),
-    ]);
+  const [overview, typeOptions] = await Promise.all([
+    dashboardRepo.getOverview(),
+    settingsRepo.getAllProjectTypeOptions(),
+  ]);
 
   const typeLabels = Object.fromEntries(
     typeOptions.map((t) => [t.key, t.label])
@@ -26,9 +23,11 @@ export default async function DashboardPage() {
 
   return (
     <DashboardView
-      stats={stats}
-      recentlyUpdated={recentlyUpdated}
-      recentlyCreated={recentlyCreated}
+      stats={overview.stats}
+      categoryAnalysis={overview.categories}
+      criticalStats={overview.critical}
+      recentlyUpdated={overview.recently_updated}
+      recentlyCreated={overview.recently_created}
       typeLabels={typeLabels}
     />
   );

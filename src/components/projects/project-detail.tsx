@@ -9,17 +9,15 @@ import type { Project } from "@/types/project";
 import {
   PROJECT_STATUSES,
   formatBooleanChoice,
-  getStatusColor,
-  getStatusLabel,
   isBfOrGfProject,
   isOngoingProjectStatus,
 } from "@/lib/constants/project";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { ProjectRepository } from "@/modules/projects/project-repository";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProjectStatusIndicators } from "@/components/projects/project-status-indicators";
 
 type Props = {
   project: Project;
@@ -31,6 +29,7 @@ export function ProjectDetail({ project, typeLabel }: Props) {
   const [loading, setLoading] = useState(false);
   const isBfOrGf = isBfOrGfProject(project.project_type);
   const tracksObk = isBfOrGf && project.tracks_obk;
+  const isOngoing = isOngoingProjectStatus(project.status);
 
   async function handleReactivate() {
     setLoading(true);
@@ -81,16 +80,20 @@ export function ProjectDetail({ project, typeLabel }: Props) {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
+        <div
+          className={
+            isOngoing
+              ? "space-y-3 rounded-2xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-800 dark:bg-amber-950/35"
+              : "space-y-2"
+          }
+        >
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-3xl font-semibold tracking-tight">
               {project.name}
             </h1>
-            <Badge className={getStatusColor(project.status)}>
-              {getStatusLabel(project.status)}
-            </Badge>
           </div>
           <p className="text-sm text-muted-foreground">{project.project_code}</p>
+          <ProjectStatusIndicators project={project} />
         </div>
         <div className="flex flex-wrap gap-2">
           {!project.is_archived && (
@@ -176,7 +179,7 @@ export function ProjectDetail({ project, typeLabel }: Props) {
       </Card>
 
       {(isBfOrGf ||
-        isOngoingProjectStatus(project.status) ||
+        isOngoing ||
         project.cable_pulled !== null ||
         project.obk_pulled !== null ||
         project.joint_done !== null ||

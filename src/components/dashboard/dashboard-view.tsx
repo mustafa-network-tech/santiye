@@ -12,11 +12,17 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { DashboardStats, Project } from "@/types/project";
+import type {
+  DashboardCategoryAnalysis,
+  DashboardCriticalStats,
+  DashboardStats,
+  Project,
+} from "@/types/project";
 import { Badge } from "@/components/ui/badge";
 import { getStatusColor, getStatusLabel } from "@/lib/constants/project";
 import { formatDateTime } from "@/lib/utils";
 import { ProjectTypeShortcuts } from "@/components/projects/project-type-shortcuts";
+import { CategoryDoughnutChart } from "@/components/dashboard/category-doughnut-chart";
 
 const STAT_CARDS = [
   {
@@ -65,6 +71,8 @@ const STAT_CARDS = [
 
 type Props = {
   stats: DashboardStats;
+  categoryAnalysis: DashboardCategoryAnalysis[];
+  criticalStats: DashboardCriticalStats;
   recentlyUpdated: Project[];
   recentlyCreated: Project[];
   typeLabels: Record<string, string>;
@@ -72,6 +80,8 @@ type Props = {
 
 export function DashboardView({
   stats,
+  categoryAnalysis,
+  criticalStats,
   recentlyUpdated,
   recentlyCreated,
   typeLabels,
@@ -118,6 +128,27 @@ export function DashboardView({
         })}
       </div>
 
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">
+            Kategori Analizi
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            BF, GF ve Kurumsal projelerin aşama dağılımı
+          </p>
+        </div>
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {categoryAnalysis.map((analysis) => (
+            <CategoryDoughnutChart
+              key={analysis.category}
+              analysis={analysis}
+            />
+          ))}
+        </div>
+      </section>
+
+      <CriticalSituations stats={criticalStats} />
+
       <div className="grid gap-6 lg:grid-cols-2">
         <ProjectMiniList
           title="Son Güncellenen Projeler"
@@ -131,6 +162,60 @@ export function DashboardView({
         />
       </div>
     </div>
+  );
+}
+
+const CRITICAL_ITEMS = [
+  {
+    key: "delayed" as const,
+    label: "Gecikmiş Projeler",
+    color: "bg-red-500",
+    href: "/projects?status=delayed",
+  },
+  {
+    key: "excavation_waiting" as const,
+    label: "Kazı İzni Bekleyen",
+    color: "bg-orange-500",
+    href: "/projects?status=excavation_permit_waiting",
+  },
+  {
+    key: "obk_waiting" as const,
+    label: "OBK Bekleyen",
+    color: "bg-violet-500",
+    href: "/projects?stage=obk_waiting",
+  },
+  {
+    key: "cable_waiting" as const,
+    label: "Kablo Bekleyen",
+    color: "bg-yellow-500",
+    href: "/projects?stage=cable_waiting",
+  },
+];
+
+function CriticalSituations({ stats }: { stats: DashboardCriticalStats }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Kritik Durumlar</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {CRITICAL_ITEMS.map((item) => (
+          <Link
+            key={item.key}
+            href={item.href}
+            className="flex items-center justify-between rounded-xl border px-4 py-3 transition-colors hover:bg-muted"
+          >
+            <span className="flex items-center gap-2 text-sm">
+              <span className={`h-2.5 w-2.5 rounded-full ${item.color}`} />
+              {item.label}
+            </span>
+            <span className="text-lg font-semibold tabular-nums">
+              {stats[item.key]}
+            </span>
+          </Link>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 

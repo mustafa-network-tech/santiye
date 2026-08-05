@@ -1,4 +1,8 @@
-import type { ProjectFilters, ProjectStatus } from "@/types/project";
+import type {
+  ProjectAnalysisStage,
+  ProjectFilters,
+  ProjectStatus,
+} from "@/types/project";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants/project";
 
 export function parseProjectSearchParams(
@@ -31,6 +35,9 @@ export function parseProjectSearchParams(
       (get("joint") as "all" | "true" | "false" | undefined) ??
       defaults?.jointStatus ??
       "all",
+    analysisStage:
+      (get("stage") as ProjectAnalysisStage | undefined) ??
+      defaults?.analysisStage,
     archiveScope:
       (get("scope") as "active" | "archived" | "all" | undefined) ??
       defaults?.archiveScope ??

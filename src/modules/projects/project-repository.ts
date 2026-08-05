@@ -36,7 +36,40 @@ export class ProjectRepository {
       query = query.eq("is_archived", true);
     }
 
-    if (filters.status && filters.status !== "all") {
+    if (filters.analysisStage) {
+      switch (filters.analysisStage) {
+        case "not_started":
+          query = query.eq("status", "waiting");
+          break;
+        case "completed":
+          query = query.eq("status", "completed");
+          break;
+        case "delayed":
+          query = query.eq("status", "delayed");
+          break;
+        case "excavation_waiting":
+          query = query.eq("status", "excavation_permit_waiting");
+          break;
+        case "obk_waiting":
+          query = query
+            .eq("status", "in_progress")
+            .eq("tracks_obk", true)
+            .not("obk_pulled", "is", true);
+          break;
+        case "cable_waiting":
+          query = query
+            .eq("status", "in_progress")
+            .eq("cable_pulled", false)
+            .or("tracks_obk.eq.false,obk_pulled.eq.true");
+          break;
+        case "in_progress":
+          query = query
+            .eq("status", "in_progress")
+            .not("cable_pulled", "is", false)
+            .or("tracks_obk.eq.false,obk_pulled.eq.true");
+          break;
+      }
+    } else if (filters.status && filters.status !== "all") {
       query =
         filters.status === "in_progress"
           ? query.in("status", [

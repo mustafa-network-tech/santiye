@@ -83,6 +83,42 @@ export type DashboardStats = {
   archived: number;
 };
 
+export type ProjectAnalysisStage =
+  | "not_started"
+  | "in_progress"
+  | "obk_waiting"
+  | "excavation_waiting"
+  | "cable_waiting"
+  | "completed"
+  | "delayed";
+
+export type DashboardCategoryAnalysis = {
+  category: string;
+  total: number;
+  not_started: number;
+  in_progress: number;
+  obk_waiting: number;
+  excavation_waiting: number;
+  cable_waiting: number;
+  completed: number;
+  delayed: number;
+};
+
+export type DashboardCriticalStats = {
+  delayed: number;
+  excavation_waiting: number;
+  obk_waiting: number;
+  cable_waiting: number;
+};
+
+export type DashboardOverview = {
+  stats: DashboardStats;
+  categories: DashboardCategoryAnalysis[];
+  critical: DashboardCriticalStats;
+  recently_updated: Project[];
+  recently_created: Project[];
+};
+
 export type ProjectFilters = {
   search?: string;
   status?: ProjectStatus | "all";
@@ -90,6 +126,7 @@ export type ProjectFilters = {
   location?: string | "all";
   obkStatus?: "all" | "true" | "false";
   jointStatus?: "all" | "true" | "false";
+  analysisStage?: ProjectAnalysisStage;
   archiveScope?: "active" | "archived" | "all";
   page?: number;
   pageSize?: number;

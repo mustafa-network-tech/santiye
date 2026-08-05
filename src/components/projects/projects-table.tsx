@@ -15,13 +15,8 @@ import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
   PROJECT_STATUSES,
-  formatBooleanChoice,
-  getStatusColor,
-  getStatusLabel,
-  isBfOrGfProject,
 } from "@/lib/constants/project";
 import { formatDate, formatDateTime } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -33,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProjectTypeShortcuts } from "@/components/projects/project-type-shortcuts";
+import { ProjectStatusIndicators } from "@/components/projects/project-status-indicators";
 
 type Props = {
   title: string;
@@ -58,8 +54,6 @@ export function ProjectsTable({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const selectedProjectType = searchParams.get("type") ?? "";
-  const showBfGfTracking = isBfOrGfProject(selectedProjectType);
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
 
@@ -107,40 +101,10 @@ export function ProjectsTable({
         accessorKey: "location",
         header: "Mevki",
       },
-      ...(showBfGfTracking
-        ? ([
-            {
-              accessorKey: "obk_pulled",
-              header: "OBK",
-              cell: ({ row }) =>
-                row.original.tracks_obk
-                  ? formatBooleanChoice(
-                      row.original.obk_pulled,
-                      "Çekildi",
-                      "Çekilmedi"
-                    )
-                  : "Takip yok",
-            },
-            {
-              accessorKey: "joint_done",
-              header: "Ek",
-              cell: ({ row }) =>
-                formatBooleanChoice(
-                  row.original.joint_done,
-                  "Yapıldı",
-                  "Yapılmadı"
-                ),
-            },
-          ] satisfies ColumnDef<Project>[])
-        : []),
       {
         accessorKey: "status",
         header: "Durum",
-        cell: ({ row }) => (
-          <Badge className={getStatusColor(row.original.status)}>
-            {getStatusLabel(row.original.status)}
-          </Badge>
-        ),
+        cell: ({ row }) => <ProjectStatusIndicators project={row.original} />,
       },
       {
         id: "stage_date",
@@ -164,7 +128,7 @@ export function ProjectsTable({
         cell: ({ row }) => formatDateTime(row.original.updated_at),
       },
     ],
-    [showBfGfTracking, typeLabels]
+    [typeLabels]
   );
 
   const table = useReactTable({
@@ -234,8 +198,26 @@ export function ProjectsTable({
 
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
             <Select
-              value={searchParams.get("status") ?? "all"}
-              onValueChange={(v) => updateParams({ status: v, page: "1" })}
+              value={
+                searchParams.get("stage")
+                  ? `stage:${searchParams.get("stage")}`
+                  : searchParams.get("status") ?? "all"
+              }
+              onValueChange={(value) => {
+                if (value.startsWith("stage:")) {
+                  updateParams({
+                    stage: value.replace("stage:", ""),
+                    status: null,
+                    page: "1",
+                  });
+                } else {
+                  updateParams({
+                    status: value,
+                    stage: null,
+                    page: "1",
+                  });
+                }
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Durum" />
@@ -247,6 +229,15 @@ export function ProjectsTable({
                     {s.label}
                   </SelectItem>
                 ))}
+                <SelectItem value="stage:in_progress">
+                  Devam Ediyor (Bekleme Yok)
+                </SelectItem>
+                <SelectItem value="stage:obk_waiting">
+                  OBK Bekliyor
+                </SelectItem>
+                <SelectItem value="stage:cable_waiting">
+                  Kablo Bekliyor
+                </SelectItem>
               </SelectContent>
             </Select>
 
