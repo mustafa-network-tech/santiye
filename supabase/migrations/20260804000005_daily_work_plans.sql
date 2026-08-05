@@ -126,10 +126,10 @@ create policy "dwp_insert_authenticated"
   with check (auth.uid() is not null);
 create policy "dwp_update_authenticated"
   on public.daily_work_plans for update to authenticated using (true) with check (true);
--- Geçmiş plan silinmesin: yalnız bugün ve sonrası
-create policy "dwp_delete_today_or_future"
+-- DENEME SÜRECİ: sistem gerçek kullanıma geçtiğinde kısıtlanacak
+create policy "dwp_delete_authenticated_temporary"
   on public.daily_work_plans for delete to authenticated
-  using (plan_date >= current_date);
+  using (auth.uid() is not null);
 
 create policy "dwp_teams_select_authenticated"
   on public.daily_work_plan_teams for select to authenticated using (true);

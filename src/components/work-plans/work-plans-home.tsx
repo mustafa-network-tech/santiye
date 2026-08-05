@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Plus, Search, Users } from "lucide-react";
+import { CalendarDays, Plus, Search } from "lucide-react";
 import type {
   DailyWorkPlan,
   DailyWorkPlanWithTeams,
@@ -63,12 +63,6 @@ export function WorkPlansHome({ todayPlan, pastPlans }: Props) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline">
-            <Link href="/work-plans/personnel">
-              <Users className="h-4 w-4" />
-              Personel
-            </Link>
-          </Button>
           <Button asChild>
             <Link href="/work-plans/new">
               <Plus className="h-4 w-4" />

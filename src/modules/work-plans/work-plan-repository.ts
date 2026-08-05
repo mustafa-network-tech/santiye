@@ -138,6 +138,24 @@ export class WorkPlanRepository {
     };
   }
 
+  async deletePlan(id: string): Promise<void> {
+    const { error } = await this.supabase
+      .from("daily_work_plans")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+  }
+
+  async deleteTeam(teamId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from("daily_work_plan_teams")
+      .delete()
+      .eq("id", teamId);
+
+    if (error) throw error;
+  }
+
   async upsertFullPlan(input: {
     planDate: string;
     notes?: string | null;

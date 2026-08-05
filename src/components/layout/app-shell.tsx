@@ -10,6 +10,7 @@ import {
   LogOut,
   Search,
   Settings,
+  Users,
   Menu,
   X,
 } from "lucide-react";
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Projeler", icon: FolderKanban },
   { href: "/work-plans", label: "İş Planı", icon: ClipboardList },
+  { href: "/personnel", label: "Personel", icon: Users },
   { href: "/archive", label: "Arşiv", icon: Archive },
   { href: "/search", label: "Arama", icon: Search },
   { href: "/settings", label: "Ayarlar", icon: Settings },
