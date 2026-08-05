@@ -24,6 +24,8 @@ export type Project = {
   delayed_at: string | null;
   completed_at: string | null;
   cable_pulled: boolean | null;
+  tracks_obk: boolean;
+  obk_pulled: boolean | null;
   joint_done: boolean | null;
   progress_notes: string | null;
   is_archived: boolean;
@@ -41,6 +43,7 @@ export type ProjectInsert = {
   location: string;
   description?: string | null;
   received_at?: string | null;
+  tracks_obk?: boolean;
   created_by?: string | null;
   updated_by?: string | null;
 };
@@ -59,6 +62,8 @@ export type ProjectUpdate = {
   delayed_at?: string | null;
   completed_at?: string | null;
   cable_pulled?: boolean | null;
+  tracks_obk?: boolean;
+  obk_pulled?: boolean | null;
   joint_done?: boolean | null;
   progress_notes?: string | null;
   is_archived?: boolean;
@@ -83,6 +88,8 @@ export type ProjectFilters = {
   status?: ProjectStatus | "all";
   projectType?: string | "all";
   location?: string | "all";
+  obkStatus?: "all" | "true" | "false";
+  jointStatus?: "all" | "true" | "false";
   archiveScope?: "active" | "archived" | "all";
   page?: number;
   pageSize?: number;

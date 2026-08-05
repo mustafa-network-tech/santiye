@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isOngoingProjectStatus } from "@/lib/constants/project";
 
 const triState = z.enum(["unset", "true", "false"]);
 
@@ -27,6 +28,7 @@ export const projectCreateSchema = z.object({
     .optional()
     .or(z.literal("")),
   received_at: z.string().min(1, "Alınan tarih zorunlu"),
+  tracks_obk: z.boolean(),
 });
 
 export type ProjectCreateValues = z.infer<typeof projectCreateSchema>;
@@ -66,6 +68,8 @@ export const projectEditSchema = z
     ]),
     stage_date: z.string().min(1, "Aşama tarihi zorunlu"),
     cable_pulled: triState,
+    tracks_obk: z.boolean(),
+    obk_pulled: triState,
     joint_done: triState,
     progress_notes: z
       .string()
@@ -75,7 +79,10 @@ export const projectEditSchema = z
       .or(z.literal("")),
   })
   .superRefine((data, ctx) => {
-    if (data.status === "in_progress") {
+    const isBfOrGf =
+      data.project_type === "BF" || data.project_type === "GF";
+
+    if (isOngoingProjectStatus(data.status) && !isBfOrGf) {
       if (data.cable_pulled === "unset") {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

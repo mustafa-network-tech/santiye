@@ -9,14 +9,16 @@ import {
   useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table";
-import { ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
+import { Archive, ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
 import type { PaginatedResult, Project } from "@/types/project";
 import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
   PROJECT_STATUSES,
+  formatBooleanChoice,
   getStatusColor,
   getStatusLabel,
+  isBfOrGfProject,
 } from "@/lib/constants/project";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProjectTypeShortcuts } from "@/components/projects/project-type-shortcuts";
 
 type Props = {
   title: string;
@@ -55,6 +58,8 @@ export function ProjectsTable({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const selectedProjectType = searchParams.get("type") ?? "";
+  const showBfGfTracking = isBfOrGfProject(selectedProjectType);
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
 
@@ -102,6 +107,32 @@ export function ProjectsTable({
         accessorKey: "location",
         header: "Mevki",
       },
+      ...(showBfGfTracking
+        ? ([
+            {
+              accessorKey: "obk_pulled",
+              header: "OBK",
+              cell: ({ row }) =>
+                row.original.tracks_obk
+                  ? formatBooleanChoice(
+                      row.original.obk_pulled,
+                      "Çekildi",
+                      "Çekilmedi"
+                    )
+                  : "Takip yok",
+            },
+            {
+              accessorKey: "joint_done",
+              header: "Ek",
+              cell: ({ row }) =>
+                formatBooleanChoice(
+                  row.original.joint_done,
+                  "Yapıldı",
+                  "Yapılmadı"
+                ),
+            },
+          ] satisfies ColumnDef<Project>[])
+        : []),
       {
         accessorKey: "status",
         header: "Durum",
@@ -133,7 +164,7 @@ export function ProjectsTable({
         cell: ({ row }) => formatDateTime(row.original.updated_at),
       },
     ],
-    [typeLabels]
+    [showBfGfTracking, typeLabels]
   );
 
   const table = useReactTable({
@@ -154,12 +185,21 @@ export function ProjectsTable({
           </p>
         </div>
         {showCreate && (
-          <Button asChild>
-            <Link href="/projects/new">
-              <Plus className="h-4 w-4" />
-              Yeni Proje
-            </Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-4">
+            <ProjectTypeShortcuts compact />
+            <Button asChild variant="outline">
+              <Link href="/archive">
+                <Archive className="h-4 w-4" />
+                Arşiv
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/projects/new">
+                <Plus className="h-4 w-4" />
+                Yeni Proje
+              </Link>
+            </Button>
+          </div>
         )}
       </div>
 
@@ -192,7 +232,7 @@ export function ProjectsTable({
             </Button>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
             <Select
               value={searchParams.get("status") ?? "all"}
               onValueChange={(v) => updateParams({ status: v, page: "1" })}
@@ -279,6 +319,34 @@ export function ProjectsTable({
                 </SelectContent>
               </Select>
             )}
+
+            <Select
+              value={searchParams.get("obk") ?? "all"}
+              onValueChange={(v) => updateParams({ obk: v, page: "1" })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="OBK durumu" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tüm OBK Durumları</SelectItem>
+                <SelectItem value="true">OBK Çekildi</SelectItem>
+                <SelectItem value="false">OBK Çekilmedi</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={searchParams.get("joint") ?? "all"}
+              onValueChange={(v) => updateParams({ joint: v, page: "1" })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Ek durumu" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tüm Ek Durumları</SelectItem>
+                <SelectItem value="true">Ek Yapıldı</SelectItem>
+                <SelectItem value="false">Ek Yapılmadı</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>

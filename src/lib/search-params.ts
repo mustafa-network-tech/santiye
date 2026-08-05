@@ -23,6 +23,14 @@ export function parseProjectSearchParams(
       "all",
     projectType: get("type") ?? defaults?.projectType ?? "all",
     location: get("location") ?? defaults?.location ?? "all",
+    obkStatus:
+      (get("obk") as "all" | "true" | "false" | undefined) ??
+      defaults?.obkStatus ??
+      "all",
+    jointStatus:
+      (get("joint") as "all" | "true" | "false" | undefined) ??
+      defaults?.jointStatus ??
+      "all",
     archiveScope:
       (get("scope") as "active" | "archived" | "all" | undefined) ??
       defaults?.archiveScope ??

@@ -20,9 +20,12 @@ import type { Project } from "@/types/project";
 import {
   CABLE_OPTIONS,
   JOINT_OPTIONS,
+  OBK_OPTIONS,
   PROJECT_STATUSES,
   getStageDateKey,
   getStageDateLabel,
+  isBfOrGfProject,
+  isOngoingProjectStatus,
   todayISODate,
 } from "@/lib/constants/project";
 import { Button } from "@/components/ui/button";
@@ -115,10 +118,13 @@ function CreateProjectForm({
       location: "",
       description: "",
       received_at: todayISODate(),
+      tracks_obk: false,
     },
   });
 
   const locationValue = form.watch("location");
+  const projectType = form.watch("project_type");
+  const isBfOrGf = isBfOrGfProject(projectType);
 
   useLocationSuggestions(locationValue, setLocationSuggestions);
 
@@ -153,11 +159,13 @@ function CreateProjectForm({
         location: values.location,
         description: values.description || null,
         received_at: values.received_at || todayISODate(),
+        tracks_obk:
+          isBfOrGfProject(values.project_type) && values.tracks_obk,
         created_by: user.id,
         updated_by: user.id,
       });
       toast.success("Proje oluşturuldu", {
-        description: `${created.project_code} · Bekliyor`,
+        description: `${created.project_code} · Başlamadı`,
       });
       router.push(`/projects/${created.id}`);
       router.refresh();
@@ -184,7 +192,7 @@ function CreateProjectForm({
       <CardContent>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
           <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
-            Yeni projeler <strong>Bekliyor</strong> durumunda kaydedilir. Girişte
+            Yeni projeler <strong>Başlamadı</strong> durumunda kaydedilir. Girişte
             yalnız <strong>Alınan Tarih</strong> işlenir. Bitiş tarihi arşive
             aktarımda kaydedilir.
           </div>
@@ -254,6 +262,26 @@ function CreateProjectForm({
               suggestions={filteredLocations}
             />
 
+            {isBfOrGf && (
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
+                  checked={form.watch("tracks_obk")}
+                  onChange={(event) =>
+                    form.setValue("tracks_obk", event.target.checked)
+                  }
+                />
+                <span>
+                  <span className="block text-sm font-medium">OBK takibi var</span>
+                  <span className="block text-xs text-muted-foreground">
+                    İşaretlenirse bu projede OBK çekildi/çekilmedi bilgisi takip edilir.
+                    İşaretlenmezse OBK alanı hiç gösterilmez.
+                  </span>
+                </span>
+              </label>
+            )}
+
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="description">Açıklama</Label>
               <Textarea id="description" {...form.register("description")} />
@@ -290,6 +318,8 @@ function EditProjectForm({
       status: project.status,
       stage_date: readStageDate(project),
       cable_pulled: booleanToTriState(project.cable_pulled),
+      tracks_obk: project.tracks_obk ?? false,
+      obk_pulled: booleanToTriState(project.obk_pulled),
       joint_done: booleanToTriState(project.joint_done),
       progress_notes: project.progress_notes ?? "",
     },
@@ -297,6 +327,10 @@ function EditProjectForm({
 
   const locationValue = form.watch("location");
   const status = form.watch("status");
+  const projectType = form.watch("project_type");
+  const isBfOrGf = isBfOrGfProject(projectType);
+  const tracksObk = form.watch("tracks_obk");
+  const isOngoing = isOngoingProjectStatus(status);
 
   useLocationSuggestions(locationValue, setLocationSuggestions);
 
@@ -341,15 +375,19 @@ function EditProjectForm({
         status: values.status,
         stage_date: values.stage_date,
         cable_pulled:
-          values.status === "in_progress"
+          isOngoing && !isBfOrGf
             ? triStateToBoolean(values.cable_pulled)
             : project.cable_pulled,
+        tracks_obk: isBfOrGf && values.tracks_obk,
+        obk_pulled: isBfOrGf && values.tracks_obk
+          ? triStateToBoolean(values.obk_pulled)
+          : null,
         joint_done:
-          values.status === "in_progress"
+          isOngoing || isBfOrGf
             ? triStateToBoolean(values.joint_done)
             : project.joint_done,
         progress_notes:
-          values.status === "in_progress"
+          isOngoing || isBfOrGf
             ? values.progress_notes || null
             : project.progress_notes,
         updated_by: user.id,
@@ -482,23 +520,53 @@ function EditProjectForm({
               suggestions={filteredLocations}
             />
 
-            {status === "in_progress" && (
+            {isBfOrGf && (
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 rounded border-input accent-primary"
+                  checked={tracksObk}
+                  onChange={(event) =>
+                    form.setValue("tracks_obk", event.target.checked)
+                  }
+                />
+                <span>
+                  <span className="block text-sm font-medium">OBK takibi var</span>
+                  <span className="block text-xs text-muted-foreground">
+                    İşaret kaldırılırsa bu projede OBK bilgisi gösterilmez.
+                  </span>
+                </span>
+              </label>
+            )}
+
+            {(isOngoing || isBfOrGf) && (
               <div className="md:col-span-2 space-y-4 rounded-2xl border bg-muted/30 p-4">
                 <div>
-                  <p className="text-sm font-medium">Devam Eden İş Adımları</p>
+                  <p className="text-sm font-medium">
+                    {isBfOrGf ? `${projectType} Proje Takibi` : "Devam Eden İş Adımları"}
+                  </p>
                   <p className="text-xs text-muted-foreground">
-                    Kablo ve ek durumunu işaretleyin; gerekirse açıklama ekleyin.
+                    {isBfOrGf
+                      ? tracksObk
+                        ? "OBK ve ek durumunu işaretleyin; gerekirse açıklama ekleyin."
+                        : "Ek durumunu işaretleyin; gerekirse açıklama ekleyin."
+                      : "Kablo ve ek durumunu işaretleyin; gerekirse açıklama ekleyin."}
                   </p>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
+                  {(!isBfOrGf || tracksObk) && (
                   <div className="space-y-2">
-                    <Label>Kablo</Label>
+                    <Label>{isBfOrGf ? "OBK" : "Kablo"}</Label>
                     <Select
-                      value={form.watch("cable_pulled")}
+                      value={
+                        isBfOrGf
+                          ? form.watch("obk_pulled")
+                          : form.watch("cable_pulled")
+                      }
                       onValueChange={(v) =>
                         form.setValue(
-                          "cable_pulled",
-                          v as ProjectEditValues["cable_pulled"]
+                          isBfOrGf ? "obk_pulled" : "cable_pulled",
+                          v as ProjectEditValues["obk_pulled"]
                         )
                       }
                     >
@@ -506,19 +574,24 @@ function EditProjectForm({
                         <SelectValue placeholder="Seçin" />
                       </SelectTrigger>
                       <SelectContent>
-                        {CABLE_OPTIONS.map((opt) => (
+                        {(isBfOrGf ? OBK_OPTIONS : CABLE_OPTIONS).map((opt) => (
                           <SelectItem key={opt.value} value={opt.value}>
                             {opt.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    {form.formState.errors.cable_pulled && (
+                    {(isBfOrGf
+                      ? form.formState.errors.obk_pulled
+                      : form.formState.errors.cable_pulled) && (
                       <p className="text-xs text-destructive">
-                        {form.formState.errors.cable_pulled.message}
+                        {isBfOrGf
+                          ? form.formState.errors.obk_pulled?.message
+                          : form.formState.errors.cable_pulled?.message}
                       </p>
                     )}
                   </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label>Ek</Label>
@@ -553,7 +626,11 @@ function EditProjectForm({
                     <Label htmlFor="progress_notes">İş Adımı Açıklaması</Label>
                     <Textarea
                       id="progress_notes"
-                      placeholder="Kablo / ek ile ilgili notlar..."
+                      placeholder={
+                        isBfOrGf
+                          ? "OBK / ek ile ilgili notlar..."
+                          : "Kablo / ek ile ilgili notlar..."
+                      }
                       {...form.register("progress_notes")}
                     />
                   </div>

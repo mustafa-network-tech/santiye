@@ -18,7 +18,7 @@ export type CustomProjectTypeKey = (typeof CUSTOM_PROJECT_TYPE_KEYS)[number];
 export const PROJECT_STATUSES = [
   {
     value: "waiting",
-    label: "Bekliyor",
+    label: "Başlamadı",
     dateKey: "waiting_at" as const,
     color: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200",
   },
@@ -30,13 +30,13 @@ export const PROJECT_STATUSES = [
   },
   {
     value: "excavation_permit_waiting",
-    label: "Kazı İzni Bekliyor",
+    label: "Devam Ediyor · Kazı İzni Bekliyor",
     dateKey: "excavation_permit_waiting_at" as const,
     color: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
   },
   {
     value: "delayed",
-    label: "Gecikmiş",
+    label: "Devam Ediyor · Gecikmiş",
     dateKey: "delayed_at" as const,
     color: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
   },
@@ -57,6 +57,11 @@ export const CABLE_OPTIONS = [
   { value: "false", label: "Kablo çekilmedi" },
 ] as const;
 
+export const OBK_OPTIONS = [
+  { value: "true", label: "OBK çekildi" },
+  { value: "false", label: "OBK çekilmedi" },
+] as const;
+
 export const JOINT_OPTIONS = [
   { value: "true", label: "Ek yapıldı" },
   { value: "false", label: "Ek yapılmadı" },
@@ -72,6 +77,18 @@ export const DEFAULT_CUSTOM_PROJECT_TYPES: Record<CustomProjectTypeKey, string> 
 
 export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
 export const DEFAULT_PAGE_SIZE = 25;
+
+export function isBfOrGfProject(projectType: string): boolean {
+  return projectType === "BF" || projectType === "GF";
+}
+
+export function isOngoingProjectStatus(status: string): boolean {
+  return [
+    "in_progress",
+    "excavation_permit_waiting",
+    "delayed",
+  ].includes(status);
+}
 
 export function getStatusLabel(status: string): string {
   return PROJECT_STATUSES.find((s) => s.value === status)?.label ?? status;

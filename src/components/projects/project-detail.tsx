@@ -11,6 +11,8 @@ import {
   formatBooleanChoice,
   getStatusColor,
   getStatusLabel,
+  isBfOrGfProject,
+  isOngoingProjectStatus,
 } from "@/lib/constants/project";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -27,6 +29,8 @@ type Props = {
 export function ProjectDetail({ project, typeLabel }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const isBfOrGf = isBfOrGfProject(project.project_type);
+  const tracksObk = isBfOrGf && project.tracks_obk;
 
   async function handleReactivate() {
     setLoading(true);
@@ -171,28 +175,38 @@ export function ProjectDetail({ project, typeLabel }: Props) {
         </CardContent>
       </Card>
 
-      {(project.status === "in_progress" ||
+      {(isBfOrGf ||
+        isOngoingProjectStatus(project.status) ||
         project.cable_pulled !== null ||
+        project.obk_pulled !== null ||
         project.joint_done !== null ||
         project.progress_notes) && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Devam Eden İş Adımları</CardTitle>
+            <CardTitle className="text-base">
+              {isBfOrGf
+                ? `${project.project_type} Proje Takibi`
+                : "Devam Eden İş Adımları"}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <dl className="grid gap-4 sm:grid-cols-2">
+              {(!isBfOrGf || tracksObk) && (
               <div className="space-y-1">
                 <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Kablo
+                  {isBfOrGf ? "OBK" : "Kablo"}
                 </dt>
                 <dd className="text-sm font-medium">
                   {formatBooleanChoice(
-                    project.cable_pulled,
+                    isBfOrGf
+                      ? project.obk_pulled
+                      : project.cable_pulled,
                     "Çekildi",
                     "Çekilmedi"
                   )}
                 </dd>
               </div>
+              )}
               <div className="space-y-1">
                 <dt className="text-xs uppercase tracking-wide text-muted-foreground">
                   Ek

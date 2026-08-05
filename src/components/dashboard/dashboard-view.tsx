@@ -16,6 +16,7 @@ import type { DashboardStats, Project } from "@/types/project";
 import { Badge } from "@/components/ui/badge";
 import { getStatusColor, getStatusLabel } from "@/lib/constants/project";
 import { formatDateTime } from "@/lib/utils";
+import { ProjectTypeShortcuts } from "@/components/projects/project-type-shortcuts";
 
 const STAT_CARDS = [
   {
@@ -26,7 +27,7 @@ const STAT_CARDS = [
   },
   {
     key: "waiting" as const,
-    label: "Bekliyor",
+    label: "Başlamadı",
     icon: PauseCircle,
     href: "/projects?status=waiting",
   },
@@ -77,11 +78,14 @@ export function DashboardView({
 }: Props) {
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Tüm şantiye projelerinin anlık durumu
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Tüm şantiye projelerinin anlık durumu
+          </p>
+        </div>
+        <ProjectTypeShortcuts />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">

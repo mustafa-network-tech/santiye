@@ -37,7 +37,14 @@ export class ProjectRepository {
     }
 
     if (filters.status && filters.status !== "all") {
-      query = query.eq("status", filters.status);
+      query =
+        filters.status === "in_progress"
+          ? query.in("status", [
+              "in_progress",
+              "excavation_permit_waiting",
+              "delayed",
+            ])
+          : query.eq("status", filters.status);
     }
 
     if (filters.projectType && filters.projectType !== "all") {
@@ -46,6 +53,16 @@ export class ProjectRepository {
 
     if (filters.location && filters.location !== "all") {
       query = query.eq("location", filters.location);
+    }
+
+    if (filters.obkStatus && filters.obkStatus !== "all") {
+      query = query
+        .eq("tracks_obk", true)
+        .eq("obk_pulled", filters.obkStatus === "true");
+    }
+
+    if (filters.jointStatus && filters.jointStatus !== "all") {
+      query = query.eq("joint_done", filters.jointStatus === "true");
     }
 
     if (filters.search?.trim()) {
@@ -103,6 +120,7 @@ export class ProjectRepository {
       status: "waiting",
       received_at: receivedAt,
       waiting_at: receivedAt,
+      tracks_obk: payload.tracks_obk ?? false,
       created_by: payload.created_by ?? null,
       updated_by: payload.updated_by ?? null,
     };
@@ -148,6 +166,10 @@ export class ProjectRepository {
       updatePayload.completed_at = emptyToNull(payload.completed_at);
     if (payload.cable_pulled !== undefined)
       updatePayload.cable_pulled = payload.cable_pulled;
+    if (payload.tracks_obk !== undefined)
+      updatePayload.tracks_obk = payload.tracks_obk;
+    if (payload.obk_pulled !== undefined)
+      updatePayload.obk_pulled = payload.obk_pulled;
     if (payload.joint_done !== undefined)
       updatePayload.joint_done = payload.joint_done;
     if (payload.progress_notes !== undefined)
