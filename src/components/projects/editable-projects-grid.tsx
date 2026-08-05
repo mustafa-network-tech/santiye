@@ -37,7 +37,6 @@ import { Button } from "@/components/ui/button";
 type EditableField =
   | "tracks_obk"
   | "obk_pulled"
-  | "tracks_joint"
   | "joint_done"
   | "tracks_cable"
   | "cable_pulled"
@@ -61,7 +60,7 @@ function normalizeProject(project: Project): Project {
   return {
     ...project,
     tracks_obk: project.tracks_obk ?? false,
-    tracks_joint: project.tracks_joint ?? project.joint_done !== null,
+    tracks_joint: true,
     tracks_cable: project.tracks_cable ?? project.cable_pulled !== null,
     tracks_excavation:
       project.tracks_excavation ??
@@ -76,8 +75,8 @@ function toUpdate(project: Project): ProjectTrackingUpdate {
     id: project.id,
     tracks_obk: project.tracks_obk,
     obk_pulled: project.tracks_obk ? project.obk_pulled : null,
-    tracks_joint: project.tracks_joint,
-    joint_done: project.tracks_joint ? project.joint_done : null,
+    tracks_joint: true,
+    joint_done: project.joint_done,
     tracks_cable: project.tracks_cable,
     cable_pulled: project.tracks_cable ? project.cable_pulled : null,
     tracks_excavation: project.tracks_excavation,
@@ -123,8 +122,6 @@ export function EditableProjectsGrid({
 
           if (field === "tracks_obk" && value === false)
             next.obk_pulled = null;
-          if (field === "tracks_joint" && value === false)
-            next.joint_done = null;
           if (field === "tracks_cable" && value === false)
             next.cable_pulled = null;
           if (field === "tracks_excavation" && value === false)
@@ -209,26 +206,13 @@ export function EditableProjectsGrid({
         ),
       },
       {
-        id: "tracks_joint",
-        header: "Ek Var",
-        size: 95,
-        cell: ({ row }) => (
-          <PresenceSelect
-            value={row.original.tracks_joint}
-            onChange={(value) =>
-              updateCell(row.original.id, "tracks_joint", value)
-            }
-          />
-        ),
-      },
-      {
         id: "joint_done",
         header: "Ek Yapıldı",
         size: 110,
         cell: ({ row }) => (
           <ResultSelect
             value={row.original.joint_done}
-            enabled={row.original.tracks_joint}
+            enabled
             onChange={(value) =>
               updateCell(row.original.id, "joint_done", value)
             }
@@ -399,7 +383,7 @@ export function EditableProjectsGrid({
         className="max-h-[68vh] min-h-[320px] overflow-auto"
       >
         <table
-          className="grid min-w-[1660px] text-sm"
+          className="grid min-w-[1565px] text-sm"
           style={{ width: table.getTotalSize() }}
         >
           <thead className="sticky top-0 z-20 grid border-b bg-background shadow-sm">

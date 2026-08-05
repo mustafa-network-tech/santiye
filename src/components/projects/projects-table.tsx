@@ -348,8 +348,6 @@ export function ProjectsTable({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tüm Ek Durumları</SelectItem>
-                <SelectItem value="tracked">Ek Var</SelectItem>
-                <SelectItem value="untracked">Ek Yok</SelectItem>
                 <SelectItem value="true">Ek Yapıldı</SelectItem>
                 <SelectItem value="false">Ek Yapılmadı</SelectItem>
               </SelectContent>
