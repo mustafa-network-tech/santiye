@@ -44,21 +44,26 @@ export default async function PersonnelPage({ searchParams }: Props) {
       : null;
 
   const supabase = await createClient();
-  const [personnel, attendanceSummary] = await Promise.all([
+  const attendanceRepository = new AttendanceRepository(supabase);
+  const [personnel, attendanceSummary, personnelSummaries] = await Promise.all([
     new PersonnelRepository(supabase).list(),
     validPersonnelId
-      ? new AttendanceRepository(supabase).getPersonnelSummary(
+      ? attendanceRepository.getPersonnelSummary(
           validPersonnelId,
           year,
           month
         )
       : Promise.resolve(null),
+    attendanceRepository.getPersonnelListSummaries(year, month),
   ]);
 
   return (
     <PersonnelManager
       initialPersonnel={personnel}
       attendanceSummary={attendanceSummary}
+      personnelSummaries={personnelSummaries}
+      summaryYear={year}
+      summaryMonth={month}
     />
   );
 }

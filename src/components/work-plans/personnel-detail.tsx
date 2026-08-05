@@ -13,8 +13,14 @@ import {
   UserRound,
 } from "lucide-react";
 import type { Personnel } from "@/types/work-plan";
-import type { PersonnelAttendanceSummary } from "@/types/attendance";
-import { MONTH_NAMES } from "@/lib/constants/attendance";
+import type { PersonnelAttendanceDetail } from "@/types/attendance";
+import {
+  MONTH_NAMES,
+  getAttendanceMeta,
+  getMonthDays,
+} from "@/lib/constants/attendance";
+import { formatEmploymentDuration } from "@/lib/personnel";
+import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,7 +34,7 @@ import {
 
 type Props = {
   personnel: Personnel;
-  summary: PersonnelAttendanceSummary;
+  summary: PersonnelAttendanceDetail;
   year: number;
   month: number;
 };
@@ -50,35 +56,39 @@ export function PersonnelDetail({
   const summaryCards = [
     {
       label: "Çalıştığı Gün (Mesai)",
-      value: summary.worked,
+      value: summary.month_totals.worked,
       icon: CalendarCheck,
       className: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40",
     },
     {
       label: "Çalışmadığı Gün",
-      value: summary.absent,
+      value: summary.month_totals.absent,
       icon: CircleOff,
       className: "bg-red-50 text-red-700 dark:bg-red-950/40",
     },
     {
       label: "Kullandığı İzin",
-      value: summary.leave,
+      value: summary.month_totals.leave,
       icon: Umbrella,
       className: "bg-blue-50 text-blue-700 dark:bg-blue-950/40",
     },
     {
       label: "Raporlu Gün",
-      value: summary.medical_report,
+      value: summary.month_totals.medical_report,
       icon: FileHeart,
       className: "bg-sky-50 text-sky-700 dark:bg-sky-950/40",
     },
     {
       label: "Hafta Tatili",
-      value: summary.weekly_rest,
+      value: summary.month_totals.weekly_rest,
       icon: ShieldCheck,
       className: "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40",
     },
   ];
+  const monthDays = getMonthDays(year, month);
+  const recordsByDate = new Map(
+    summary.month_records.map((record) => [record.date, record])
+  );
 
   return (
     <div className="space-y-6">
@@ -114,6 +124,21 @@ export function PersonnelDetail({
                 <Phone className="h-4 w-4" />
                 {personnel.phone || "Telefon numarası girilmemiş"}
               </p>
+              <div className="mt-3 grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
+                <span>
+                  İşe Giriş: {formatDate(personnel.employment_start_date)}
+                </span>
+                <span>
+                  İşten Ayrılış: {formatDate(personnel.employment_end_date)}
+                </span>
+                <span className="sm:col-span-2">
+                  Çalışma Süresi:{" "}
+                  {formatEmploymentDuration(
+                    personnel.employment_start_date,
+                    personnel.employment_end_date
+                  )}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -185,20 +210,131 @@ export function PersonnelDetail({
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="rounded-xl border bg-muted/30 p-4 text-sm leading-6">
-            {personnel.full_name}, bu ay <strong>{summary.worked} gün</strong>{" "}
-            çalıştı, <strong>{summary.leave} gün</strong> izin kullandı,{" "}
-            <strong>{summary.medical_report} gün</strong> raporlu ve{" "}
-            <strong>{summary.weekly_rest} gün</strong> hafta tatilindeydi.
+            {personnel.full_name}, bu ay{" "}
+            <strong>{summary.month_totals.worked} gün</strong> çalıştı,{" "}
+            <strong>{summary.month_totals.leave} gün</strong> izin kullandı,{" "}
+            <strong>{summary.month_totals.medical_report} gün</strong> raporlu
+            ve <strong>{summary.month_totals.weekly_rest} gün</strong> hafta
+            tatilindeydi.
           </p>
 
-          <div>
-            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Personel Notu
-            </p>
-            <p className="whitespace-pre-wrap text-sm">
-              {personnel.notes?.trim() || "Personel notu girilmemiş."}
-            </p>
+          <div className="overflow-x-auto">
+            <div className="grid min-w-[760px] grid-cols-7 gap-2">
+              {monthDays.map((day) => {
+                const record = recordsByDate.get(day.isoDate);
+                const meta = record ? getAttendanceMeta(record.status) : null;
+                return (
+                  <div
+                    key={day.isoDate}
+                    title={meta?.label ?? "Puantaj kaydı yok"}
+                    className={`rounded-xl border p-2 text-center ${
+                      day.isSunday ? "bg-cyan-50 dark:bg-cyan-950/30" : ""
+                    }`}
+                  >
+                    <p className="text-[10px] text-muted-foreground">
+                      {String(day.day).padStart(2, "0")} {day.dayName}
+                    </p>
+                    <p className="mt-1 text-base font-bold">
+                      {meta?.symbol ?? "·"}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{year} Yıllık Özet</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+            {[
+              ["Çalıştı", summary.year_totals.worked],
+              ["Çalışmadı", summary.year_totals.absent],
+              ["İzinli", summary.year_totals.leave],
+              ["Raporlu", summary.year_totals.medical_report],
+              ["Hafta Tatili", summary.year_totals.weekly_rest],
+              ["Pazar Mesaisi", summary.year_totals.sunday_worked],
+              ["Toplam Kayıt", summary.year_totals.total],
+            ].map(([label, value]) => (
+              <div key={String(label)} className="rounded-xl border p-3">
+                <p className="text-xs text-muted-foreground">{label}</p>
+                <p className="mt-1 text-2xl font-semibold">{value}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Aylara Göre Dağılım</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-2 sm:grid-cols-2">
+            {summary.month_distribution.map((item) => (
+              <button
+                key={item.month_number}
+                type="button"
+                onClick={() => updatePeriod(year, item.month_number)}
+                className={`rounded-xl border p-3 text-left transition-colors hover:bg-muted ${
+                  item.month_number === month ? "border-primary bg-primary/5" : ""
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">
+                    {MONTH_NAMES[item.month_number - 1]}
+                  </span>
+                  <span className="text-sm font-semibold">{item.total}</span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Çalıştı {item.worked} · İzin {item.leave} · Rapor{" "}
+                  {item.medical_report}
+                </p>
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Yıllara Göre İzin Kullanımı
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {summary.leave_history.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                İzin kaydı bulunmuyor.
+              </p>
+            ) : (
+              summary.leave_history.map((item) => (
+                <button
+                  key={item.year}
+                  type="button"
+                  onClick={() => updatePeriod(item.year, month)}
+                  className="flex w-full items-center justify-between rounded-xl border px-4 py-3 hover:bg-muted"
+                >
+                  <span>{item.year}</span>
+                  <strong>{item.days} gün</strong>
+                </button>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Notlar</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="whitespace-pre-wrap text-sm">
+            {personnel.notes?.trim() || "Personel notu girilmemiş."}
+          </p>
         </CardContent>
       </Card>
     </div>

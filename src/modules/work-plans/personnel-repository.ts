@@ -56,6 +56,11 @@ export class PersonnelRepository {
         full_name: payload.full_name.trim(),
         phone: emptyToNull(payload.phone),
         is_active: payload.is_active ?? true,
+        employment_start_date: emptyToNull(payload.employment_start_date),
+        employment_end_date:
+          payload.is_active === false
+            ? emptyToNull(payload.employment_end_date)
+            : null,
         notes: emptyToNull(payload.notes),
         created_by: payload.created_by ?? null,
         updated_by: payload.updated_by ?? null,
@@ -78,6 +83,15 @@ export class PersonnelRepository {
       updatePayload.phone = emptyToNull(payload.phone);
     if (payload.is_active !== undefined)
       updatePayload.is_active = payload.is_active;
+    if (payload.employment_start_date !== undefined)
+      updatePayload.employment_start_date = emptyToNull(
+        payload.employment_start_date
+      );
+    if (payload.employment_end_date !== undefined)
+      updatePayload.employment_end_date =
+        payload.is_active === true
+          ? null
+          : emptyToNull(payload.employment_end_date);
     if (payload.notes !== undefined)
       updatePayload.notes = emptyToNull(payload.notes);
 

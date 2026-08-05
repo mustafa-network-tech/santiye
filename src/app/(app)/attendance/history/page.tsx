@@ -1,11 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { AttendanceRepository } from "@/modules/attendance/attendance-repository";
 import { MonthlyAttendanceTable } from "@/components/attendance/monthly-attendance-table";
-import type { PersonnelActivityFilter } from "@/types/attendance";
-import type { AttendanceStatus } from "@/types/attendance";
+import type {
+  AttendanceStatus,
+  PersonnelActivityFilter,
+} from "@/types/attendance";
 
 export const metadata = {
-  title: "Puantaj",
+  title: "Geçmiş Puantaj",
 };
 
 type Props = {
@@ -20,7 +22,7 @@ function readParam(
   return Array.isArray(value) ? value[0] : value;
 }
 
-export default async function AttendancePage({ searchParams }: Props) {
+export default async function AttendanceHistoryPage({ searchParams }: Props) {
   const params = await searchParams;
   const today = new Date();
   const requestedYear = Number(readParam(params, "year"));
@@ -39,7 +41,7 @@ export default async function AttendancePage({ searchParams }: Props) {
       : today.getMonth() + 1;
   const stateParam = readParam(params, "state");
   const activeFilter: PersonnelActivityFilter =
-    stateParam === "passive" || stateParam === "all" ? stateParam : "active";
+    stateParam === "passive" || stateParam === "all" ? stateParam : "all";
   const search = readParam(params, "q") ?? "";
   const statusParam = readParam(params, "status");
   const statusFilter: AttendanceStatus | "all" =
@@ -52,13 +54,17 @@ export default async function AttendancePage({ searchParams }: Props) {
       : "all";
 
   const supabase = await createClient();
-  const data = await new AttendanceRepository(supabase).getMonth({
-    year,
-    month,
-    activeFilter,
-    search,
-    statusFilter,
-  });
+  const repository = new AttendanceRepository(supabase);
+  const [data, archives] = await Promise.all([
+    repository.getMonth({
+      year,
+      month,
+      activeFilter,
+      search,
+      statusFilter,
+    }),
+    repository.getMonthArchives(),
+  ]);
 
   return (
     <MonthlyAttendanceTable
@@ -66,6 +72,8 @@ export default async function AttendancePage({ searchParams }: Props) {
       initialSearch={search}
       initialActivityFilter={activeFilter}
       initialStatusFilter={statusFilter}
+      historyMode
+      archives={archives}
     />
   );
 }

@@ -9,10 +9,22 @@ import {
 } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CalendarDays, Loader2, Save, Search, Users } from "lucide-react";
+import {
+  CalendarDays,
+  FileDown,
+  FileSpreadsheet,
+  History,
+  Loader2,
+  LockKeyhole,
+  Pencil,
+  Save,
+  Search,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 import type {
   AttendanceChange,
+  AttendanceMonthArchive,
   AttendanceStatus,
   AttendanceTotals,
   MonthlyAttendanceData,
@@ -48,6 +60,9 @@ type Props = {
   initialData: MonthlyAttendanceData;
   initialSearch: string;
   initialActivityFilter: PersonnelActivityFilter;
+  initialStatusFilter: AttendanceStatus | "all";
+  historyMode?: boolean;
+  archives?: AttendanceMonthArchive[];
 };
 
 const EMPTY_TOTALS: AttendanceTotals = {
@@ -74,6 +89,9 @@ export function MonthlyAttendanceTable({
   initialData,
   initialSearch,
   initialActivityFilter,
+  initialStatusFilter,
+  historyMode = false,
+  archives = [],
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -94,6 +112,7 @@ export function MonthlyAttendanceTable({
       : 1;
   });
   const [saving, setSaving] = useState(false);
+  const [editingEnabled, setEditingEnabled] = useState(!historyMode);
 
   const days = useMemo(
     () => getMonthDays(initialData.year, initialData.month),
@@ -114,6 +133,7 @@ export function MonthlyAttendanceTable({
     setDirty(new Map());
     setSelectedPersonnel(new Set());
     setSearch(initialSearch);
+    setEditingEnabled(!historyMode);
     const today = new Date();
     setSelectedDay(
       today.getFullYear() === initialData.year &&
@@ -121,7 +141,7 @@ export function MonthlyAttendanceTable({
         ? today.getDate()
         : 1
     );
-  }, [initialData, initialSearch]);
+  }, [historyMode, initialData, initialSearch]);
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -185,6 +205,13 @@ export function MonthlyAttendanceTable({
     });
   }
 
+  function getDisplayStatus(personnelId: string, date: string) {
+    const key = cellKey(personnelId, date);
+    return dirty.has(key)
+      ? dirty.get(key) ?? null
+      : originalRecords.get(key) ?? null;
+  }
+
   function applyToPersonnel(
     personnelIds: Iterable<string>,
     status: AttendanceStatus
@@ -245,6 +272,116 @@ export function MonthlyAttendanceTable({
     }
   }
 
+  function buildExportRows() {
+    return initialData.personnel.map((personnel) => {
+      const row: Record<string, string | number> = {
+        Personel: personnel.full_name,
+      };
+      const totals = { ...EMPTY_TOTALS, ...personnel.totals };
+      days.forEach((day) => {
+        const key = cellKey(personnel.id, day.isoDate);
+        if (dirty.has(key)) {
+          const original = originalRecords.get(key);
+          const current = dirty.get(key);
+          if (original) totals[original] = Math.max(0, totals[original] - 1);
+          if (current) totals[current] += 1;
+        }
+        const status = getDisplayStatus(personnel.id, day.isoDate);
+        row[`${String(day.day).padStart(2, "0")} ${day.dayName}`] = status
+          ? getAttendanceMeta(status).symbol
+          : "";
+      });
+      TOTAL_COLUMNS.forEach((column) => {
+        row[column.shortLabel] = totals[column.key];
+      });
+      return row;
+    });
+  }
+
+  async function exportExcel() {
+    const rows = buildExportRows();
+    const headers =
+      rows.length > 0
+        ? Object.keys(rows[0])
+        : [
+            "Personel",
+            ...days.map(
+              (day) => `${String(day.day).padStart(2, "0")} ${day.dayName}`
+            ),
+            ...TOTAL_COLUMNS.map((column) => column.shortLabel),
+          ];
+    const escapeHtml = (value: string | number) =>
+      String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    const table = `
+      <html><head><meta charset="UTF-8"></head><body>
+      <table border="1">
+        <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead>
+        <tbody>${rows
+          .map(
+            (row) =>
+              `<tr>${headers
+                .map((header) => `<td>${escapeHtml(row[header] ?? "")}</td>`)
+                .join("")}</tr>`
+          )
+          .join("")}</tbody>
+      </table></body></html>`;
+    const blob = new Blob(["\ufeff", table], {
+      type: "application/vnd.ms-excel;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `puantaj-${initialData.year}-${String(
+      initialData.month
+    ).padStart(2, "0")}.xls`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function exportPdf() {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+    const rows = buildExportRows();
+    const headers =
+      rows.length > 0
+        ? Object.keys(rows[0])
+        : [
+            "Personel",
+            ...days.map(
+              (day) => `${String(day.day).padStart(2, "0")} ${day.dayName}`
+            ),
+            ...TOTAL_COLUMNS.map((column) => column.shortLabel),
+          ];
+    const body = rows.map((row) => headers.map((header) => row[header] ?? ""));
+    const document = new jsPDF({
+      orientation: "landscape",
+      unit: "mm",
+      format: "a3",
+    });
+    document.setFontSize(14);
+    document.text(
+      `${MONTH_NAMES[initialData.month - 1]} ${initialData.year} Puantaj`,
+      14,
+      12
+    );
+    autoTable(document, {
+      head: [headers],
+      body,
+      startY: 17,
+      styles: { fontSize: 6, cellPadding: 1 },
+      headStyles: { fillColor: [30, 64, 175] },
+    });
+    document.save(
+      `puantaj-${initialData.year}-${String(initialData.month).padStart(2, "0")}.pdf`
+    );
+  }
+
   const allVisibleSelected =
     initialData.personnel.length > 0 &&
     initialData.personnel.every((personnel) =>
@@ -255,28 +392,113 @@ export function MonthlyAttendanceTable({
     <div className="space-y-5">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Puantaj</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {historyMode ? "Geçmiş Puantaj" : "Puantaj"}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Aylık personel çalışma ve izin takibi
+            {historyMode
+              ? "Geçmiş ay kayıtları, özetler ve dışa aktarma"
+              : "Aylık personel çalışma ve izin takibi"}
           </p>
         </div>
 
-        <Button
-          onClick={saveChanges}
-          disabled={dirty.size === 0 || saving || isPending}
-          className="min-w-32"
-        >
-          {saving ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4" />
+        <div className="flex flex-wrap gap-2">
+          {!historyMode && (
+            <Button asChild variant="outline">
+              <Link href="/attendance/history">
+                <History className="h-4 w-4" />
+                Geçmiş Puantaj
+              </Link>
+            </Button>
           )}
-          Kaydet {dirty.size > 0 ? `(${dirty.size})` : ""}
-        </Button>
+
+          {historyMode && (
+            <>
+              <Button variant="outline" onClick={exportExcel}>
+                <FileSpreadsheet className="h-4 w-4" />
+                Excel’e Aktar
+              </Button>
+              <Button variant="outline" onClick={exportPdf}>
+                <FileDown className="h-4 w-4" />
+                PDF Oluştur
+              </Button>
+              <Button
+                variant={editingEnabled ? "secondary" : "outline"}
+                onClick={() => {
+                  if (editingEnabled && dirty.size > 0) {
+                    if (!confirmDiscard()) return;
+                    setDirty(new Map());
+                  }
+                  setEditingEnabled((current) => !current);
+                }}
+              >
+                {editingEnabled ? (
+                  <LockKeyhole className="h-4 w-4" />
+                ) : (
+                  <Pencil className="h-4 w-4" />
+                )}
+                {editingEnabled ? "Düzenlemeyi Kapat" : "Düzenlemeyi Aç"}
+              </Button>
+            </>
+          )}
+
+          {editingEnabled && (
+            <Button
+              onClick={saveChanges}
+              disabled={dirty.size === 0 || saving || isPending}
+              className="min-w-32"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              Kaydet {dirty.size > 0 ? `(${dirty.size})` : ""}
+            </Button>
+          )}
+        </div>
       </div>
 
+      {historyMode && archives.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {archives.map((archive) => (
+            <button
+              key={`${archive.year}-${archive.month}`}
+              type="button"
+              onClick={() =>
+                updateParams({
+                  year: String(archive.year),
+                  month: String(archive.month),
+                })
+              }
+              className={`rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-md ${
+                archive.year === initialData.year &&
+                archive.month === initialData.month
+                  ? "border-primary bg-primary/5 ring-1 ring-primary"
+                  : "bg-card"
+              }`}
+            >
+              <p className="font-semibold">
+                {MONTH_NAMES[archive.month - 1]} {archive.year}
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-1 text-xs text-muted-foreground">
+                <span>Aktif Personel: {archive.active_personnel}</span>
+                <span>Çalıştı: {archive.worked}</span>
+                <span>Çalışmadı: {archive.absent}</span>
+                <span>İzinli: {archive.leave}</span>
+                <span>Raporlu: {archive.medical_report}</span>
+                <span>HT: {archive.weekly_rest}</span>
+                <span className="col-span-2 text-orange-600">
+                  Pazar Mesaisi: {archive.sunday_worked}
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
       <Card>
-        <CardContent className="grid gap-3 pt-6 sm:grid-cols-2 xl:grid-cols-5">
+        <CardContent className="grid gap-3 pt-6 sm:grid-cols-2 xl:grid-cols-6">
           <Select
             value={String(initialData.month)}
             onValueChange={(month) =>
@@ -334,6 +556,23 @@ export function MonthlyAttendanceTable({
             </SelectContent>
           </Select>
 
+          <Select
+            value={initialStatusFilter}
+            onValueChange={(value) => updateParams({ status: value })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Puantaj durumu" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tüm Durumlar</SelectItem>
+              {ATTENDANCE_STATUSES.map((status) => (
+                <SelectItem key={status.value} value={status.value}>
+                  {status.symbol} {status.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           <div className="relative xl:col-span-2">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -350,6 +589,7 @@ export function MonthlyAttendanceTable({
         </CardContent>
       </Card>
 
+      {editingEnabled && (
       <Card>
         <CardContent className="space-y-4 pt-6">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -419,6 +659,7 @@ export function MonthlyAttendanceTable({
           </div>
         </CardContent>
       </Card>
+      )}
 
       <Card className="overflow-hidden">
         <div className="max-h-[72vh] overflow-auto">
@@ -433,6 +674,7 @@ export function MonthlyAttendanceTable({
                     <input
                       type="checkbox"
                       checked={allVisibleSelected}
+                      disabled={!editingEnabled}
                       onChange={(event) =>
                         toggleAllVisible(event.target.checked)
                       }
@@ -482,6 +724,7 @@ export function MonthlyAttendanceTable({
                   originalRecords={originalRecords}
                   onToggle={togglePersonnel}
                   onChange={setAttendance}
+                  editable={editingEnabled}
                 />
               ))}
             </tbody>
@@ -506,6 +749,7 @@ const AttendanceRow = memo(function AttendanceRow({
   originalRecords,
   onToggle,
   onChange,
+  editable,
 }: {
   personnel: MonthlyAttendancePersonnel;
   days: ReturnType<typeof getMonthDays>;
@@ -518,6 +762,7 @@ const AttendanceRow = memo(function AttendanceRow({
     date: string,
     status: AttendanceStatus | null
   ) => void;
+  editable: boolean;
 }) {
   const totals = useMemo(() => {
     const next = { ...EMPTY_TOTALS, ...personnel.totals };
@@ -539,6 +784,7 @@ const AttendanceRow = memo(function AttendanceRow({
           <input
             type="checkbox"
             checked={selected}
+            disabled={!editable}
             onChange={(event) =>
               onToggle(personnel.id, event.target.checked)
             }
@@ -575,6 +821,7 @@ const AttendanceRow = memo(function AttendanceRow({
             <AttendanceCell
               status={status}
               dirty={isDirty}
+              editable={editable}
               onChange={(nextStatus) =>
                 onChange(personnel.id, day.isoDate, nextStatus)
               }
@@ -599,12 +846,29 @@ const AttendanceCell = memo(function AttendanceCell({
   status,
   dirty,
   onChange,
+  editable,
 }: {
   status: AttendanceStatus | null;
   dirty: boolean;
   onChange: (status: AttendanceStatus | null) => void;
+  editable: boolean;
 }) {
   const meta = status ? getAttendanceMeta(status) : null;
+  if (!editable) {
+    return (
+      <span
+        title={meta ? `${meta.symbol} ${meta.label}` : "Puantaj girilmedi"}
+        className={`flex h-10 w-full min-w-10 items-center justify-center rounded-md border text-sm font-bold ${
+          meta
+            ? meta.className
+            : "border-transparent bg-background/70 text-muted-foreground"
+        }`}
+      >
+        {meta?.symbol ?? "·"}
+      </span>
+    );
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

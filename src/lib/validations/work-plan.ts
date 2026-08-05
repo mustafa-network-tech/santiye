@@ -1,20 +1,43 @@
 import { z } from "zod";
 
-export const personnelSchema = z.object({
-  full_name: z
-    .string()
-    .trim()
-    .min(2, "Ad soyad en az 2 karakter olmalı")
-    .max(120),
-  phone: z
-    .string()
-    .trim()
-    .max(30)
-    .optional()
-    .or(z.literal("")),
-  is_active: z.boolean(),
-  notes: z.string().trim().max(2000).optional().or(z.literal("")),
-});
+export const personnelSchema = z
+  .object({
+    full_name: z
+      .string()
+      .trim()
+      .min(2, "Ad soyad en az 2 karakter olmalı")
+      .max(120),
+    phone: z
+      .string()
+      .trim()
+      .max(30)
+      .optional()
+      .or(z.literal("")),
+    employment_start_date: z.string().optional().or(z.literal("")),
+    employment_end_date: z.string().optional().or(z.literal("")),
+    is_active: z.boolean(),
+    notes: z.string().trim().max(2000).optional().or(z.literal("")),
+  })
+  .superRefine((data, ctx) => {
+    if (data.is_active && data.employment_end_date) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["employment_end_date"],
+        message: "Aktif personelde işten ayrılış tarihi kullanılamaz",
+      });
+    }
+    if (
+      data.employment_start_date &&
+      data.employment_end_date &&
+      data.employment_end_date < data.employment_start_date
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["employment_end_date"],
+        message: "Ayrılış tarihi işe giriş tarihinden önce olamaz",
+      });
+    }
+  });
 
 export type PersonnelFormValues = z.infer<typeof personnelSchema>;
 

@@ -9,6 +9,7 @@ export type AttendanceRecord = {
   date: string;
   status: AttendanceStatus;
   is_auto_generated: boolean;
+  leave_type?: "annual" | "unpaid" | "excuse" | "other" | null;
 };
 
 export type AttendanceTotals = Record<AttendanceStatus, number>;
@@ -18,6 +19,8 @@ export type MonthlyAttendancePersonnel = {
   full_name: string;
   phone: string | null;
   is_active: boolean;
+  employment_start_date?: string | null;
+  employment_end_date?: string | null;
   records: AttendanceRecord[];
   totals: AttendanceTotals;
 };
@@ -42,4 +45,50 @@ export type PersonnelAttendanceSummary = AttendanceTotals & {
   full_name: string;
   year: number;
   month: number;
+};
+
+export type AttendanceMonthArchive = {
+  year: number;
+  month: number;
+  active_personnel: number;
+  worked: number;
+  absent: number;
+  leave: number;
+  medical_report: number;
+  weekly_rest: number;
+  sunday_worked: number;
+};
+
+export type PersonnelListSummary = {
+  personnel_id: string;
+  month_worked: number;
+  month_absent: number;
+  month_leave: number;
+  month_medical_report: number;
+  month_weekly_rest: number;
+  year_worked: number;
+  year_leave: number;
+  year_medical_report: number;
+};
+
+export type PersonnelYearTotals = AttendanceTotals & {
+  sunday_worked: number;
+  total: number;
+};
+
+export type PersonnelAttendanceDetail = {
+  personnel_id: string;
+  year: number;
+  month: number;
+  month_records: AttendanceRecord[];
+  month_totals: AttendanceTotals & { sunday_worked: number };
+  year_totals: PersonnelYearTotals;
+  month_distribution: {
+    month_number: number;
+    worked: number;
+    leave: number;
+    medical_report: number;
+    total: number;
+  }[];
+  leave_history: { year: number; days: number }[];
 };

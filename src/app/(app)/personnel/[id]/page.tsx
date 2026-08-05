@@ -50,7 +50,7 @@ export default async function PersonnelDetailPage({
   const attendanceRepository = new AttendanceRepository(supabase);
   const [personnel, summary] = await Promise.all([
     personnelRepository.getById(id),
-    attendanceRepository.getPersonnelSummary(id, year, month),
+    attendanceRepository.getPersonnelDetail(id, year, month),
   ]);
 
   if (!personnel || !summary) notFound();

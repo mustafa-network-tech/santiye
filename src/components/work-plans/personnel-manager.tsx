@@ -9,7 +9,10 @@ import { CalendarDays, Loader2, Pencil, Plus, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import type { Personnel } from "@/types/work-plan";
 import type { PersonnelAttendanceSummary } from "@/types/attendance";
+import type { PersonnelListSummary } from "@/types/attendance";
 import { MONTH_NAMES } from "@/lib/constants/attendance";
+import { formatEmploymentDuration } from "@/lib/personnel";
+import { formatDate } from "@/lib/utils";
 import {
   personnelSchema,
   type PersonnelFormValues,
@@ -45,11 +48,17 @@ import {
 type Props = {
   initialPersonnel: Personnel[];
   attendanceSummary?: PersonnelAttendanceSummary | null;
+  personnelSummaries?: PersonnelListSummary[];
+  summaryYear?: number;
+  summaryMonth?: number;
 };
 
 export function PersonnelManager({
   initialPersonnel,
   attendanceSummary,
+  personnelSummaries = [],
+  summaryYear = new Date().getFullYear(),
+  summaryMonth = new Date().getMonth() + 1,
 }: Props) {
   const router = useRouter();
   const [items, setItems] = useState(initialPersonnel);
@@ -63,6 +72,8 @@ export function PersonnelManager({
     defaultValues: {
       full_name: "",
       phone: "",
+      employment_start_date: "",
+      employment_end_date: "",
       is_active: true,
       notes: "",
     },
@@ -73,6 +84,8 @@ export function PersonnelManager({
     form.reset({
       full_name: "",
       phone: "",
+      employment_start_date: "",
+      employment_end_date: "",
       is_active: true,
       notes: "",
     });
@@ -84,6 +97,8 @@ export function PersonnelManager({
     form.reset({
       full_name: person.full_name,
       phone: person.phone ?? "",
+      employment_start_date: person.employment_start_date ?? "",
+      employment_end_date: person.employment_end_date ?? "",
       is_active: person.is_active,
       notes: person.notes ?? "",
     });
@@ -152,6 +167,9 @@ export function PersonnelManager({
       (p.notes ?? "").toLowerCase().includes(q)
     );
   });
+  const summaryByPersonnel = new Map(
+    personnelSummaries.map((summary) => [summary.personnel_id, summary])
+  );
 
   return (
     <div className="space-y-6">
@@ -219,10 +237,12 @@ export function PersonnelManager({
                 Personel bulunamadı.
               </p>
             ) : (
-              filtered.map((person) => (
+              filtered.map((person) => {
+                const summary = summaryByPersonnel.get(person.id);
+                return (
                 <div
                   key={person.id}
-                  className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 ${
+                  className={`flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
                     attendanceSummary?.personnel_id === person.id
                       ? "border-blue-400 bg-blue-50 ring-1 ring-blue-300 dark:border-blue-800 dark:bg-blue-950/30"
                       : ""
@@ -254,6 +274,26 @@ export function PersonnelManager({
                         {person.phone || "Telefon yok"}
                         {person.notes ? ` · ${person.notes}` : ""}
                       </p>
+                      <div className="mt-2 grid gap-x-5 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
+                        <span>
+                          İşe Giriş: {formatDate(person.employment_start_date)}
+                        </span>
+                        <span>
+                          Çalışma Süresi:{" "}
+                          {formatEmploymentDuration(
+                            person.employment_start_date,
+                            person.employment_end_date
+                          )}
+                        </span>
+                        <span>
+                          {MONTH_NAMES[summaryMonth - 1]} Çalıştı:{" "}
+                          <strong>{summary?.month_worked ?? 0} gün</strong>
+                        </span>
+                        <span>
+                          {summaryYear} İzin:{" "}
+                          <strong>{summary?.year_leave ?? 0} gün</strong>
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <Button
@@ -265,7 +305,8 @@ export function PersonnelManager({
                     Düzenle
                   </Button>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
         </CardContent>
@@ -293,12 +334,22 @@ export function PersonnelManager({
               <Input id="phone" {...form.register("phone")} />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="employment_start_date">İşe Giriş Tarihi</Label>
+              <Input
+                id="employment_start_date"
+                type="date"
+                {...form.register("employment_start_date")}
+              />
+            </div>
+            <div className="space-y-2">
               <Label>Durum</Label>
               <Select
                 value={form.watch("is_active") ? "active" : "passive"}
-                onValueChange={(v) =>
-                  form.setValue("is_active", v === "active")
-                }
+                onValueChange={(v) => {
+                  const isActive = v === "active";
+                  form.setValue("is_active", isActive);
+                  if (isActive) form.setValue("employment_end_date", "");
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -309,6 +360,23 @@ export function PersonnelManager({
                 </SelectContent>
               </Select>
             </div>
+            {!form.watch("is_active") && (
+              <div className="space-y-2">
+                <Label htmlFor="employment_end_date">
+                  İşten Ayrılış Tarihi
+                </Label>
+                <Input
+                  id="employment_end_date"
+                  type="date"
+                  {...form.register("employment_end_date")}
+                />
+                {form.formState.errors.employment_end_date && (
+                  <p className="text-xs text-destructive">
+                    {form.formState.errors.employment_end_date.message}
+                  </p>
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="notes">Not</Label>
               <Textarea id="notes" {...form.register("notes")} />

@@ -3,6 +3,8 @@ export type Personnel = {
   full_name: string;
   phone: string | null;
   is_active: boolean;
+  employment_start_date: string | null;
+  employment_end_date: string | null;
   notes: string | null;
   created_by: string | null;
   updated_by: string | null;
@@ -14,6 +16,8 @@ export type PersonnelInsert = {
   full_name: string;
   phone?: string | null;
   is_active?: boolean;
+  employment_start_date?: string | null;
+  employment_end_date?: string | null;
   notes?: string | null;
   created_by?: string | null;
   updated_by?: string | null;
