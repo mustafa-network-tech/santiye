@@ -45,6 +45,11 @@ export function WhatsAppPreview({ plan, open, onClose, onEdit }: Props) {
 
   async function createImageBlob(): Promise<Blob | null> {
     if (!posterRef.current) return null;
+
+    const element = posterRef.current;
+    const width = element.offsetWidth;
+    const height = element.scrollHeight;
+
     const dataUrl = await toPng(posterRef.current, {
       cacheBust: true,
       pixelRatio: 2,
