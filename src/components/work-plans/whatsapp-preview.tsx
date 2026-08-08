@@ -50,58 +50,70 @@ export function WhatsAppPreview({ plan, open, onClose, onEdit }: Props) {
   }
 
   async function createImageBlob(): Promise<Blob | null> {
-    if (!posterRef.current) return null;
+  if (!posterRef.current) return null;
 
-    const element = posterRef.current;
+  const source = posterRef.current;
 
-    // Mevcut inline stilleri sakla
-    const oldWidth = element.style.width;
-    const oldMinWidth = element.style.minWidth;
-    const oldMaxWidth = element.style.maxWidth;
-    const oldOverflow = element.style.overflow;
+  // Poster'in görünmez bir kopyasını oluştur
+  const clone = source.cloneNode(true) as HTMLDivElement;
 
-    try {
-      // PNG oluşturulurken gerçek poster alanını genişlet.
-      // Böylece tablo da w-full sayesinde tüm genişliği kullanır.
-      element.style.width = "900px";
-      element.style.minWidth = "900px";
-      element.style.maxWidth = "900px";
-      element.style.overflow = "visible";
+  const wrapper = document.createElement("div");
 
-      // Tarayıcının yeni ölçüyü layout'a uygulamasını bekle
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => resolve());
-        });
-      });
+  wrapper.style.position = "fixed";
+  wrapper.style.left = "-10000px";
+  wrapper.style.top = "0";
+  wrapper.style.width = "900px";
+  wrapper.style.backgroundColor = "#ffffff";
+  wrapper.style.pointerEvents = "none";
+  wrapper.style.zIndex = "-9999";
 
-      const height = element.scrollHeight;
+  clone.style.width = "900px";
+  clone.style.minWidth = "900px";
+  clone.style.maxWidth = "900px";
+  clone.style.height = "auto";
+  clone.style.overflow = "visible";
+  clone.style.boxSizing = "border-box";
 
-      const dataUrl = await toPng(element, {
-        cacheBust: true,
-        pixelRatio: 2,
-        backgroundColor: "#ffffff",
-        width: 900,
-        height,
-        style: {
-          width: "900px",
-          minWidth: "900px",
-          maxWidth: "900px",
-          height: "auto",
-          overflow: "visible",
-        },
-      });
+  wrapper.appendChild(clone);
+  document.body.appendChild(wrapper);
 
-      const res = await fetch(dataUrl);
-      return await res.blob();
-    } finally {
-      // Önizlemeyi eski haline geri getir
-      element.style.width = oldWidth;
-      element.style.minWidth = oldMinWidth;
-      element.style.maxWidth = oldMaxWidth;
-      element.style.overflow = oldOverflow;
+  try {
+    // Fontların ve 900px layout'un tamamen hesaplanmasını bekle
+    if (document.fonts?.ready) {
+      await document.fonts.ready;
     }
+
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve());
+      });
+    });
+
+    const width = 900;
+    const height = clone.scrollHeight;
+
+    const dataUrl = await toPng(clone, {
+      cacheBust: true,
+      pixelRatio: 2,
+      backgroundColor: "#ffffff",
+      width,
+      height,
+      style: {
+        width: "900px",
+        minWidth: "900px",
+        maxWidth: "900px",
+        height: `${height}px`,
+        overflow: "visible",
+        boxSizing: "border-box",
+      },
+    });
+
+    const res = await fetch(dataUrl);
+    return await res.blob();
+  } finally {
+    wrapper.remove();
   }
+}
 
   async function handleDownload() {
     try {
