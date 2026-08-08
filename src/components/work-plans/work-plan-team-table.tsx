@@ -1,104 +1,154 @@
 import type { WorkPlanTeamSnapshot } from "@/types/work-plan";
 
-/** WhatsApp / görsel çıktısı için satır tabanlı ekip tablosu — Personel ilk sütun */
 export function WorkPlanTeamTable({
-  team,
-  teamIndex,
+  teams,
 }: {
-  team: WorkPlanTeamSnapshot;
-  teamIndex: number;
+  teams: WorkPlanTeamSnapshot[];
 }) {
-  const members = [...team.members].sort((a, b) => a.sort_order - b.sort_order);
-  const rowSpan = Math.max(members.length, 1);
-
   return (
-    <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200">
-      <div className="border-b border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
-        Ekip {teamIndex + 1}
-      </div>
-      <div className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
-      <table className="w-full min-w-[720px] border-collapse text-left text-sm text-slate-900">
+    <div className="w-full min-w-0 overflow-hidden rounded-xl border border-slate-300">
+      <table className="w-full table-fixed border-collapse text-left text-[11px] text-slate-900">
         <thead>
-          <tr className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
-            <th className="border-b border-slate-200 px-3 py-2 font-medium">
+          <tr className="bg-slate-100 text-[9px] uppercase tracking-wide text-slate-600">
+            <th className="w-[32%] border border-slate-300 px-2 py-2 font-semibold">
               Personel
             </th>
-            <th className="border-b border-slate-200 px-3 py-2 font-medium">
+
+            <th className="w-[17%] border border-slate-300 px-2 py-2 font-semibold">
               Araç Plakası
             </th>
-            <th className="border-b border-slate-200 px-3 py-2 font-medium">
+
+            <th className="w-[15%] border border-slate-300 px-2 py-2 font-semibold">
               Ekip Türü
             </th>
-            <th className="border-b border-slate-200 px-3 py-2 font-medium">
+
+            <th className="w-[22%] border border-slate-300 px-2 py-2 font-semibold">
               Proje Adı
             </th>
-            <th className="border-b border-slate-200 px-3 py-2 font-medium">
+
+            <th className="w-[14%] border border-slate-300 px-2 py-2 font-semibold">
               Proje ID
             </th>
           </tr>
         </thead>
+
         <tbody>
-          {members.length === 0 ? (
-            <tr>
-              <td className="border-b border-slate-100 px-3 py-2">—</td>
-              <td className="border-b border-slate-100 px-3 py-2 font-semibold">
-                {team.vehicle_plate}
-              </td>
-              <td className="border-b border-slate-100 px-3 py-2 font-semibold">
-                {team.team_type}
-              </td>
-              <td className="border-b border-slate-100 px-3 py-2 font-semibold">
-                {team.project_name}
-              </td>
-              <td className="border-b border-slate-100 px-3 py-2 font-semibold">
-                {team.project_code}
-              </td>
-            </tr>
-          ) : (
-            members.map((member, idx) => (
-              <tr key={`${member.full_name}-${idx}`} className="align-top">
-                <td className="border-b border-slate-100 px-3 py-2">
-                  <span className="font-medium">{member.full_name}</span>
-                  {member.is_chief && (
-                    <span className="mt-0.5 block text-slate-600">
-                      {member.phone || team.chief_phone}
-                    </span>
+          {teams.map((team, teamIndex) => {
+            const members = [...team.members].sort(
+              (a, b) => a.sort_order - b.sort_order
+            );
+
+            const rowSpan = Math.max(members.length, 1);
+
+            // Çok hafif ton farkı
+            const background =
+              teamIndex % 2 === 0 ? "bg-white" : "bg-slate-50";
+
+            // Personeli olmayan ekip
+            if (members.length === 0) {
+              return (
+                <tr
+                  key={team.id ?? teamIndex}
+                  className={`${background} align-middle`}
+                >
+                  <td className="border-2 border-slate-500 px-2 py-2">
+                    —
+                  </td>
+
+                  <td className="break-words border-2 border-slate-500 px-2 py-2 font-semibold">
+                    {team.vehicle_plate || "—"}
+                  </td>
+
+                  <td className="break-words border-2 border-slate-500 px-2 py-2 font-semibold">
+                    {team.team_type || "—"}
+                  </td>
+
+                  <td className="break-words border-2 border-slate-500 px-2 py-2 font-semibold">
+                    {team.project_name || "—"}
+                  </td>
+
+                  <td className="break-all border-2 border-slate-500 px-2 py-2 font-semibold">
+                    {team.project_code || "—"}
+                  </td>
+                </tr>
+              );
+            }
+
+            return members.map((member, memberIndex) => {
+              const isFirst = memberIndex === 0;
+              const isLast = memberIndex === members.length - 1;
+
+              return (
+                <tr
+                  key={`${team.id ?? teamIndex}-${member.full_name}-${memberIndex}`}
+                  className={`${background} align-top`}
+                >
+                  {/* PERSONEL */}
+                  <td
+                    className={[
+                      "px-2 py-1.5",
+                      "border-l-2 border-r-2 border-slate-500",
+
+                      isFirst
+                        ? "border-t-2 border-t-slate-500"
+                        : "border-t border-t-slate-200",
+
+                      isLast
+                        ? "border-b-2 border-b-slate-500"
+                        : "border-b border-b-slate-200",
+                    ].join(" ")}
+                  >
+                    <div className="min-w-0">
+                      <div className="break-words font-medium leading-tight">
+                        {member.full_name}
+                      </div>
+
+                      {member.is_chief && (
+                        <div className="mt-0.5 break-words text-[10px] leading-tight text-slate-600">
+                          {member.phone || team.chief_phone || "—"}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* EKİP BİLGİLERİ */}
+                  {isFirst && (
+                    <>
+                      <td
+                        rowSpan={rowSpan}
+                        className="break-words border-2 border-slate-500 px-2 py-2 align-middle font-semibold"
+                      >
+                        {team.vehicle_plate || "—"}
+                      </td>
+
+                      <td
+                        rowSpan={rowSpan}
+                        className="break-words border-2 border-slate-500 px-2 py-2 align-middle font-semibold"
+                      >
+                        {team.team_type || "—"}
+                      </td>
+
+                      <td
+                        rowSpan={rowSpan}
+                        className="break-words border-2 border-slate-500 px-2 py-2 align-middle font-semibold"
+                      >
+                        {team.project_name || "—"}
+                      </td>
+
+                      <td
+                        rowSpan={rowSpan}
+                        className="break-all border-2 border-slate-500 px-2 py-2 align-middle font-semibold"
+                      >
+                        {team.project_code || "—"}
+                      </td>
+                    </>
                   )}
-                </td>
-                {idx === 0 ? (
-                  <>
-                    <td
-                      rowSpan={rowSpan}
-                      className="border-b border-slate-100 px-3 py-2 font-semibold"
-                    >
-                      {team.vehicle_plate}
-                    </td>
-                    <td
-                      rowSpan={rowSpan}
-                      className="border-b border-slate-100 px-3 py-2 font-semibold"
-                    >
-                      {team.team_type}
-                    </td>
-                    <td
-                      rowSpan={rowSpan}
-                      className="border-b border-slate-100 px-3 py-2 font-semibold"
-                    >
-                      {team.project_name}
-                    </td>
-                    <td
-                      rowSpan={rowSpan}
-                      className="border-b border-slate-100 px-3 py-2 font-semibold"
-                    >
-                      {team.project_code}
-                    </td>
-                  </>
-                ) : null}
-              </tr>
-            ))
-          )}
+                </tr>
+              );
+            });
+          })}
         </tbody>
       </table>
-      </div>
     </div>
   );
 }
