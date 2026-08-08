@@ -33,17 +33,86 @@ import { USER_ROLE_LABELS } from "@/types/auth";
 import type { DueNoteNotification } from "@/types/note";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard, accounting: false },
-  { href: "/projects", label: "Projeler", icon: FolderKanban, accounting: false },
-  { href: "/work-plans", label: "İş Planı", icon: ClipboardList, accounting: false },
-  { href: "/personnel", label: "Personel", icon: Users, accounting: true },
-  { href: "/vehicles", label: "Araçlar", icon: CarFront, accounting: false },
-  { href: "/inventory", label: "Malzeme Stok", icon: Boxes, accounting: false },
-  { href: "/custody", label: "Malzeme Zimmet", icon: PackageCheck, accounting: false },
-  { href: "/attendance", label: "Puantaj", icon: CalendarCheck, accounting: true },
-  { href: "/notes", label: "Notlar", icon: StickyNote, accounting: true },
-  { href: "/profile", label: "Profilim", icon: CircleUserRound, accounting: true },
-  { href: "/settings", label: "Ayarlar", icon: Settings, accounting: false },
+  {
+    href: "/",
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    accounting: false,
+    group: "OPERASYON",
+  },
+  {
+    href: "/projects",
+    label: "Projeler",
+    icon: FolderKanban,
+    accounting: false,
+    group: "OPERASYON",
+  },
+  {
+    href: "/work-plans",
+    label: "İş Planı",
+    icon: ClipboardList,
+    accounting: false,
+    group: "OPERASYON",
+  },
+
+  {
+    href: "/personnel",
+    label: "Personel",
+    icon: Users,
+    accounting: true,
+    group: "KAYNAKLAR",
+  },
+  {
+    href: "/vehicles",
+    label: "Araçlar",
+    icon: CarFront,
+    accounting: false,
+    group: "KAYNAKLAR",
+  },
+  {
+    href: "/inventory",
+    label: "Malzeme Stok",
+    icon: Boxes,
+    accounting: false,
+    group: "KAYNAKLAR",
+  },
+  {
+    href: "/custody",
+    label: "Malzeme Zimmet",
+    icon: PackageCheck,
+    accounting: false,
+    group: "KAYNAKLAR",
+  },
+
+  {
+    href: "/attendance",
+    label: "Puantaj",
+    icon: CalendarCheck,
+    accounting: true,
+    group: "PERSONEL YÖNETİMİ",
+  },
+
+  {
+    href: "/notes",
+    label: "Notlar",
+    icon: StickyNote,
+    accounting: true,
+    group: "SİSTEM",
+  },
+  {
+    href: "/profile",
+    label: "Profilim",
+    icon: CircleUserRound,
+    accounting: true,
+    group: "SİSTEM",
+  },
+  {
+    href: "/settings",
+    label: "Ayarlar",
+    icon: Settings,
+    accounting: false,
+    group: "SİSTEM",
+  },
 ];
 
 export function AppShell({
@@ -73,41 +142,94 @@ export function AppShell({
     router.refresh();
   }
 
-  const nav = (
-    <nav className="flex flex-col gap-1 p-3">
-      {NAV_ITEMS.filter((item) => {
-        if (item.href === "/settings") return profile.role === "site_chief";
-        if (profile.role === "accounting") return item.accounting;
-        return true;
-      }).map((item) => {
-        const active =
-          item.href === "/"
-            ? pathname === "/"
-            : pathname.startsWith(item.href);
-        const Icon = item.icon;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={() => setMobileOpen(false)}
-            className={cn(
-              "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-              active
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            )}
-          >
-            <Icon className="h-4 w-4" />
-            {item.label}
-            {item.href === "/notes" && noteNotifications.length > 0 && (
-              <span className="ml-auto rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-amber-950">
-                {noteNotifications.length}
-              </span>
-            )}
-          </Link>
-        );
-      })}
-      {profile.role === "site_chief" && (
+ const navGroups = [
+  { name: "OPERASYON", icon: LayoutDashboard },
+  { name: "KAYNAKLAR", icon: Boxes },
+  { name: "PERSONEL YÖNETİMİ", icon: Users },
+  { name: "SİSTEM", icon: Settings },
+];
+
+const visibleNavItems = NAV_ITEMS.filter((item) => {
+  if (item.href === "/settings") {
+    return profile.role === "site_chief";
+  }
+
+  if (profile.role === "accounting") {
+    return item.accounting;
+  }
+
+  return true;
+});
+
+const nav = (
+  <nav className="flex flex-col gap-1 p-3">
+    {navGroups.map((group) => {
+      const groupItems = visibleNavItems.filter(
+        (item) => item.group === group.name
+      );
+
+      // Kullanıcının bu grupta görebileceği menü yoksa
+      // başlığı da gösterme.
+      if (groupItems.length === 0) return null;
+
+      const GroupIcon = group.icon;
+
+      return (
+        <div key={group.name} className="mb-4">
+          {/* Grup Başlığı */}
+          <div className="mb-2 flex items-center gap-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <GroupIcon className="h-3.5 w-3.5" />
+            <span>{group.name}</span>
+          </div>
+
+          {/* Grup Menüleri */}
+          <div className="flex flex-col gap-1">
+            {groupItems.map((item) => {
+              const active =
+                item.href === "/"
+                  ? pathname === "/"
+                  : pathname.startsWith(item.href);
+
+              const Icon = item.icon;
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                    active
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+
+                  <span>{item.label}</span>
+
+                  {item.href === "/notes" &&
+                    noteNotifications.length > 0 && (
+                      <span className="ml-auto rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                        {noteNotifications.length}
+                      </span>
+                    )}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      );
+    })}
+
+    {/* Sadece Şantiye Şefi */}
+    {profile.role === "site_chief" && (
+      <div className="mt-1 border-t pt-3">
+        <div className="mb-2 flex items-center gap-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <ShieldCheck className="h-3.5 w-3.5" />
+          <span>YÖNETİM</span>
+        </div>
+
         <Link
           href="/users"
           onClick={() => setMobileOpen(false)}
@@ -119,11 +241,13 @@ export function AppShell({
           )}
         >
           <ShieldCheck className="h-4 w-4" />
-          Kullanıcı Yetkileri
+          <span>Kullanıcı Yetkileri</span>
         </Link>
-      )}
-    </nav>
-  );
+      </div>
+    )}
+  </nav>
+);
+   
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-50 via-background to-background dark:from-slate-900 dark:via-background dark:to-background">
