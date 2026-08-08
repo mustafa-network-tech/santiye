@@ -95,6 +95,15 @@ export class UserRepository {
     return data as UserProfile;
   }
 
+  async deleteUser(userId: string): Promise<void> {
+    const { data, error } = await this.supabase.functions.invoke(
+      "delete-user",
+      { body: { user_id: userId } }
+    );
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+  }
+
   async createAvatarUrl(
     avatarPath: string | null | undefined,
     expiresIn = 3600

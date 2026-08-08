@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { createClient } from "@/lib/supabase/server";
 import { UserRepository } from "@/modules/users/user-repository";
+import { NotesRepository } from "@/modules/notes/notes-repository";
 
 export default async function AppLayout({
   children,
@@ -13,12 +14,17 @@ export default async function AppLayout({
   if (!profile) redirect("/login");
   if (!profile.is_approved || profile.role === "pending")
     redirect("/pending-approval");
-  const avatarUrl = await new UserRepository(supabase).createAvatarUrl(
-    profile.avatar_path
-  );
+  const [avatarUrl, noteNotifications] = await Promise.all([
+    new UserRepository(supabase).createAvatarUrl(profile.avatar_path),
+    new NotesRepository(supabase).listDueNotifications(),
+  ]);
 
   return (
-    <AppShell profile={profile} avatarUrl={avatarUrl}>
+    <AppShell
+      profile={profile}
+      avatarUrl={avatarUrl}
+      noteNotifications={noteNotifications}
+    >
       {children}
     </AppShell>
   );

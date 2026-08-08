@@ -1,7 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, Clock3, Loader2, ShieldCheck } from "lucide-react";
+import {
+  Calculator,
+  CheckCircle2,
+  Clock3,
+  Loader2,
+  ShieldCheck,
+  UserX,
+} from "lucide-react";
 import { toast } from "sonner";
 import type {
   CompanyManagerPermissions,
@@ -36,6 +43,7 @@ const PERMISSION_FIELDS: {
     | "attendance_write"
     | "vehicles_write"
     | "inventory_write"
+    | "custody_write"
   >;
   label: string;
 }[] = [
@@ -45,6 +53,7 @@ const PERMISSION_FIELDS: {
   { module: "attendance", field: "attendance_write", label: "Puantaj" },
   { module: "vehicles", field: "vehicles_write", label: "Araçlar" },
   { module: "inventory", field: "inventory_write", label: "Malzeme Stok" },
+  { module: "custody", field: "custody_write", label: "Malzeme Zimmet" },
 ];
 
 export function UserRoleManager({
@@ -63,11 +72,19 @@ export function UserRoleManager({
   const [loadingPermission, setLoadingPermission] = useState<string | null>(
     null
   );
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const managerCount = useMemo(
     () =>
       users.filter(
         (user) => user.is_approved && user.role === "company_manager"
+      ).length,
+    [users]
+  );
+  const accountingCount = useMemo(
+    () =>
+      users.filter(
+        (user) => user.is_approved && user.role === "accounting"
       ).length,
     [users]
   );
@@ -135,6 +152,30 @@ export function UserRoleManager({
     }
   }
 
+  async function deleteUser(user: UserProfile) {
+    const confirmed = window.confirm(
+      `${user.full_name || user.email} kullanıcısı tamamen silinecek. Tekrar erişebilmesi için yeniden kayıt olup şantiye şefi onayı beklemesi gerekecek. Devam edilsin mi?`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(user.id);
+    try {
+      await new UserRepository(createClient()).deleteUser(user.id);
+      setUsers((current) => current.filter((item) => item.id !== user.id));
+      setPermissions((current) =>
+        current.filter((item) => item.user_id !== user.id)
+      );
+      toast.success("Kullanıcı tamamen kaldırıldı");
+    } catch (error) {
+      console.error(error);
+      toast.error("Kullanıcı kaldırılamadı", {
+        description: (error as Error)?.message,
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -146,7 +187,7 @@ export function UserRoleManager({
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Summary
           label="Onay Bekleyen"
           value={users.filter((user) => !user.is_approved).length}
@@ -156,6 +197,11 @@ export function UserRoleManager({
           label="Şirket Yöneticisi"
           value={`${managerCount}/3`}
           icon={<ShieldCheck className="h-5 w-5 text-blue-500" />}
+        />
+        <Summary
+          label="Muhasebe"
+          value={`${accountingCount}/2`}
+          icon={<Calculator className="h-5 w-5 text-violet-500" />}
         />
         <Summary
           label="Onaylı Kullanıcı"
@@ -184,7 +230,7 @@ export function UserRoleManager({
                   key={user.id}
                   className="rounded-xl border p-4"
                 >
-                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_110px] lg:items-center">
+                  <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_190px] lg:items-center">
                     <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-semibold">
@@ -238,20 +284,40 @@ export function UserRoleManager({
                   )}
 
                     {!isChief && (
-                    <Button
-                      onClick={() => saveRole(user)}
-                      disabled={
-                        loadingId === user.id ||
-                        (selected === "company_manager" &&
-                          managerCount >= 3 &&
-                          user.role !== "company_manager")
-                      }
-                    >
-                      {loadingId === user.id && (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      )}
-                      Onayla
-                    </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          className="flex-1"
+                          onClick={() => saveRole(user)}
+                          disabled={
+                            loadingId === user.id ||
+                            deletingId === user.id ||
+                            (selected === "company_manager" &&
+                              managerCount >= 3 &&
+                              user.role !== "company_manager") ||
+                            (selected === "accounting" &&
+                              accountingCount >= 2 &&
+                              user.role !== "accounting")
+                          }
+                        >
+                          {loadingId === user.id && (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          )}
+                          Onayla
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => deleteUser(user)}
+                          disabled={deletingId === user.id}
+                          aria-label="Kullanıcıyı tamamen kaldır"
+                        >
+                          {deletingId === user.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <UserX className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
                     )}
                   </div>
 
@@ -337,6 +403,7 @@ function emptyPermissions(userId: string): CompanyManagerPermissions {
     attendance_write: false,
     vehicles_write: false,
     inventory_write: false,
+    custody_write: false,
     updated_by: null,
     updated_at: new Date(0).toISOString(),
   };

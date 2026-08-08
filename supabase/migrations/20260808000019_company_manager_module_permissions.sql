@@ -154,11 +154,13 @@ as $$
 declare
   v_profile public.profiles;
   v_manager_count integer;
+  v_accounting_count integer;
 begin
   if not public.is_site_chief() then
     raise exception 'Bu işlem için şantiye şefi yetkisi gerekli'
       using errcode = '42501';
   end if;
+  perform pg_advisory_xact_lock(hashtext('azg-role-assignment'));
   if p_user_id = auth.uid() then
     raise exception 'Şantiye şefi kendi yetkisini değiştiremez';
   end if;
@@ -174,6 +176,17 @@ begin
       and id <> p_user_id;
     if v_manager_count >= 3 then
       raise exception 'En fazla 3 şirket yöneticisi atanabilir';
+    end if;
+  end if;
+
+  if p_role = 'accounting' then
+    select count(*)::integer into v_accounting_count
+    from public.profiles
+    where role = 'accounting'
+      and is_approved = true
+      and id <> p_user_id;
+    if v_accounting_count >= 2 then
+      raise exception 'En fazla 2 muhasebe kullanıcısı atanabilir';
     end if;
   end if;
 

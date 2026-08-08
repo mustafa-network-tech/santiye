@@ -31,7 +31,8 @@ export type PermissionModule =
   | "personnel"
   | "attendance"
   | "vehicles"
-  | "inventory";
+  | "inventory"
+  | "custody";
 
 export type CompanyManagerPermissions = {
   user_id: string;
@@ -41,6 +42,7 @@ export type CompanyManagerPermissions = {
   attendance_write: boolean;
   vehicles_write: boolean;
   inventory_write: boolean;
+  custody_write: boolean;
   updated_by: string | null;
   updated_at: string;
 };

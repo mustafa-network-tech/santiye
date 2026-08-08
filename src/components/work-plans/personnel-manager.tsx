@@ -26,6 +26,7 @@ import {
 } from "@/lib/validations/work-plan";
 import { createClient } from "@/lib/supabase/client";
 import { PersonnelRepository } from "@/modules/work-plans/personnel-repository";
+import { InventoryRepository } from "@/modules/inventory/inventory-repository";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -126,6 +127,26 @@ export function PersonnelManager({
       return;
     }
 
+    if (editing?.is_active && !values.is_active) {
+      try {
+        const custody = await new InventoryRepository(
+          supabase
+        ).listPersonnelCustodyBalances(editing.id);
+        if (custody.length > 0) {
+          toast.error("Personel pasife alınamaz", {
+            description: `Üzerinde ${custody.length} aktif malzeme zimmeti var. Önce zimmetleri başka personele/ekibe aktarın veya şantiye deposuna iade edin.`,
+          });
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        console.error(error);
+        toast.error("Personel zimmetleri kontrol edilemedi");
+        setLoading(false);
+        return;
+      }
+    }
+
     const repo = new PersonnelRepository(supabase);
 
     try {
@@ -161,7 +182,9 @@ export function PersonnelManager({
       router.refresh();
     } catch (error) {
       console.error(error);
-      toast.error("Personel kaydedilemedi");
+      toast.error("Personel kaydedilemedi", {
+        description: (error as Error)?.message,
+      });
     } finally {
       setLoading(false);
     }

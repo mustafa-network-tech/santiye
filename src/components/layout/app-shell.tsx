@@ -14,12 +14,15 @@ import {
   ShieldCheck,
   Users,
   CircleUserRound,
+  PackageCheck,
+  BellRing,
+  StickyNote,
   Menu,
   X,
 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { cn, formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { BrandLogo } from "@/components/layout/brand-logo";
@@ -27,6 +30,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import type { UserProfile, UserRole } from "@/types/auth";
 import { USER_ROLE_LABELS } from "@/types/auth";
+import type { DueNoteNotification } from "@/types/note";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, accounting: false },
@@ -35,7 +39,9 @@ const NAV_ITEMS = [
   { href: "/personnel", label: "Personel", icon: Users, accounting: true },
   { href: "/vehicles", label: "Araçlar", icon: CarFront, accounting: false },
   { href: "/inventory", label: "Malzeme Stok", icon: Boxes, accounting: false },
+  { href: "/custody", label: "Malzeme Zimmet", icon: PackageCheck, accounting: false },
   { href: "/attendance", label: "Puantaj", icon: CalendarCheck, accounting: true },
+  { href: "/notes", label: "Notlar", icon: StickyNote, accounting: true },
   { href: "/profile", label: "Profilim", icon: CircleUserRound, accounting: true },
   { href: "/settings", label: "Ayarlar", icon: Settings, accounting: false },
 ];
@@ -44,10 +50,12 @@ export function AppShell({
   children,
   profile,
   avatarUrl,
+  noteNotifications,
 }: {
   children: React.ReactNode;
   profile: UserProfile;
   avatarUrl: string | null;
+  noteNotifications: DueNoteNotification[];
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -91,6 +99,11 @@ export function AppShell({
           >
             <Icon className="h-4 w-4" />
             {item.label}
+            {item.href === "/notes" && noteNotifications.length > 0 && (
+              <span className="ml-auto rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-amber-950">
+                {noteNotifications.length}
+              </span>
+            )}
           </Link>
         );
       })}
@@ -127,6 +140,28 @@ export function AppShell({
           </div>
           {nav}
           <div className="mt-auto space-y-2 border-t border-border/70 p-3">
+            {noteNotifications.length > 0 && (
+              <Link
+                href="/notes"
+                className="block rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-900 transition-colors hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+              >
+                <span className="flex items-center gap-2 text-xs font-semibold">
+                  <BellRing className="h-4 w-4" />
+                  {noteNotifications.length} Not Bildirimi
+                </span>
+                <span className="mt-1 block truncate text-[11px]">
+                  {noteNotifications[0].event_type === "target"
+                    ? "Not tarihi"
+                    : "Hatırlatma"}
+                  : {noteNotifications[0].title}
+                </span>
+                {noteNotifications[0].target_at && (
+                  <span className="block text-[10px] opacity-80">
+                    {formatDateTime(noteNotifications[0].target_at)}
+                  </span>
+                )}
+              </Link>
+            )}
             <Link
               href="/profile"
               className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2 transition-colors hover:bg-accent"

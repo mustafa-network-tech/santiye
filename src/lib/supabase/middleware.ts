@@ -79,6 +79,7 @@ export async function updateSession(request: NextRequest) {
     !isPendingRoute &&
     !pathname.startsWith("/attendance") &&
     !pathname.startsWith("/personnel") &&
+    !pathname.startsWith("/notes") &&
     !pathname.startsWith("/profile")
   ) {
     const url = request.nextUrl.clone();
