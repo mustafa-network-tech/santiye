@@ -22,9 +22,10 @@ import { ProjectStatusIndicators } from "@/components/projects/project-status-in
 type Props = {
   project: Project;
   typeLabel: string;
+  readOnly?: boolean;
 };
 
-export function ProjectDetail({ project, typeLabel }: Props) {
+export function ProjectDetail({ project, typeLabel, readOnly = false }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const isBfOrGf = isBfOrGfProject(project.project_type);
@@ -96,7 +97,7 @@ export function ProjectDetail({ project, typeLabel }: Props) {
           <ProjectStatusIndicators project={project} />
         </div>
         <div className="flex flex-wrap gap-2">
-          {!project.is_archived && (
+          {!readOnly && !project.is_archived && (
             <Button asChild variant="outline">
               <Link href={`/projects/${project.id}/edit`}>
                 <Pencil className="h-4 w-4" />
@@ -104,7 +105,7 @@ export function ProjectDetail({ project, typeLabel }: Props) {
               </Link>
             </Button>
           )}
-          {project.is_archived && (
+          {!readOnly && project.is_archived && (
             <Button onClick={handleReactivate} disabled={loading}>
               {loading ? (
                 <Loader2 className="animate-spin" />

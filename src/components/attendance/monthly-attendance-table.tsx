@@ -63,6 +63,7 @@ type Props = {
   initialStatusFilter: AttendanceStatus | "all";
   historyMode?: boolean;
   archives?: AttendanceMonthArchive[];
+  readOnly?: boolean;
 };
 
 const EMPTY_TOTALS: AttendanceTotals = {
@@ -92,6 +93,7 @@ export function MonthlyAttendanceTable({
   initialStatusFilter,
   historyMode = false,
   archives = [],
+  readOnly = false,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -112,7 +114,9 @@ export function MonthlyAttendanceTable({
       : 1;
   });
   const [saving, setSaving] = useState(false);
-  const [editingEnabled, setEditingEnabled] = useState(!historyMode);
+  const [editingEnabled, setEditingEnabled] = useState(
+    !historyMode && !readOnly
+  );
 
   const days = useMemo(
     () => getMonthDays(initialData.year, initialData.month),
@@ -133,7 +137,7 @@ export function MonthlyAttendanceTable({
     setDirty(new Map());
     setSelectedPersonnel(new Set());
     setSearch(initialSearch);
-    setEditingEnabled(!historyMode);
+    setEditingEnabled(!historyMode && !readOnly);
     const today = new Date();
     setSelectedDay(
       today.getFullYear() === initialData.year &&
@@ -141,7 +145,7 @@ export function MonthlyAttendanceTable({
         ? today.getDate()
         : 1
     );
-  }, [historyMode, initialData, initialSearch]);
+  }, [historyMode, initialData, initialSearch, readOnly]);
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -422,23 +426,25 @@ export function MonthlyAttendanceTable({
                 <FileDown className="h-4 w-4" />
                 PDF Oluştur
               </Button>
-              <Button
-                variant={editingEnabled ? "secondary" : "outline"}
-                onClick={() => {
-                  if (editingEnabled && dirty.size > 0) {
-                    if (!confirmDiscard()) return;
-                    setDirty(new Map());
-                  }
-                  setEditingEnabled((current) => !current);
-                }}
-              >
-                {editingEnabled ? (
-                  <LockKeyhole className="h-4 w-4" />
-                ) : (
-                  <Pencil className="h-4 w-4" />
-                )}
-                {editingEnabled ? "Düzenlemeyi Kapat" : "Düzenlemeyi Aç"}
-              </Button>
+              {!readOnly && (
+                <Button
+                  variant={editingEnabled ? "secondary" : "outline"}
+                  onClick={() => {
+                    if (editingEnabled && dirty.size > 0) {
+                      if (!confirmDiscard()) return;
+                      setDirty(new Map());
+                    }
+                    setEditingEnabled((current) => !current);
+                  }}
+                >
+                  {editingEnabled ? (
+                    <LockKeyhole className="h-4 w-4" />
+                  ) : (
+                    <Pencil className="h-4 w-4" />
+                  )}
+                  {editingEnabled ? "Düzenlemeyi Kapat" : "Düzenlemeyi Aç"}
+                </Button>
+              )}
             </>
           )}
 

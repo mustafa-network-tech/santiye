@@ -3,6 +3,7 @@ import { AttendanceRepository } from "@/modules/attendance/attendance-repository
 import { MonthlyAttendanceTable } from "@/components/attendance/monthly-attendance-table";
 import type { PersonnelActivityFilter } from "@/types/attendance";
 import type { AttendanceStatus } from "@/types/attendance";
+import { UserRepository } from "@/modules/users/user-repository";
 
 export const metadata = {
   title: "Puantaj",
@@ -52,13 +53,16 @@ export default async function AttendancePage({ searchParams }: Props) {
       : "all";
 
   const supabase = await createClient();
-  const data = await new AttendanceRepository(supabase).getMonth({
-    year,
-    month,
-    activeFilter,
-    search,
-    statusFilter,
-  });
+  const [data, canWrite] = await Promise.all([
+    new AttendanceRepository(supabase).getMonth({
+      year,
+      month,
+      activeFilter,
+      search,
+      statusFilter,
+    }),
+    new UserRepository(supabase).canWrite("attendance"),
+  ]);
 
   return (
     <MonthlyAttendanceTable
@@ -66,6 +70,7 @@ export default async function AttendancePage({ searchParams }: Props) {
       initialSearch={search}
       initialActivityFilter={activeFilter}
       initialStatusFilter={statusFilter}
+      readOnly={!canWrite}
     />
   );
 }

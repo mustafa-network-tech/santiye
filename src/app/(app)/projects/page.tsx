@@ -5,6 +5,7 @@ import { SettingsRepository } from "@/modules/settings/settings-repository";
 import { parseProjectSearchParams } from "@/lib/search-params";
 import { ProjectsTable } from "@/components/projects/projects-table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { UserRepository } from "@/modules/users/user-repository";
 
 export const metadata = {
   title: "Projeler",
@@ -24,10 +25,11 @@ async function ProjectsContent({ searchParams }: Props) {
   const projectRepo = new ProjectRepository(supabase);
   const settingsRepo = new SettingsRepository(supabase);
 
-  const [result, typeOptions, locations] = await Promise.all([
+  const [result, typeOptions, locations, canWrite] = await Promise.all([
     projectRepo.list(filters),
     settingsRepo.getAllProjectTypeOptions(),
     projectRepo.getDistinctLocations(),
+    new UserRepository(supabase).canWrite("projects"),
   ]);
 
   const typeLabels = Object.fromEntries(
@@ -41,8 +43,8 @@ async function ProjectsContent({ searchParams }: Props) {
       typeOptions={typeOptions}
       locations={locations}
       typeLabels={typeLabels}
-      showCreate
-      showInlineEdit
+      showCreate={canWrite}
+      showInlineEdit={canWrite}
       defaultArchiveScope="active"
       allowArchiveScopeFilter
     />

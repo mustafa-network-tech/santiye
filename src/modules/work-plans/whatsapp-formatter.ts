@@ -16,7 +16,7 @@ export function buildWhatsAppText(plan: DailyWorkPlanWithTeams): string {
     const members = [...team.members].sort((a, b) => a.sort_order - b.sort_order);
     lines.push(`Ekip ${index + 1}`);
     lines.push(
-      "Personel | Proje ID | Proje Adı | Ekip Türü | Araç"
+      "Personel | Araç Plakası | Ekip Türü | Proje Adı | Proje ID"
     );
 
     members.forEach((member, idx) => {
@@ -25,7 +25,7 @@ export function buildWhatsAppText(plan: DailyWorkPlanWithTeams): string {
           ? `\n${member.phone || team.chief_phone}`
           : "";
         lines.push(
-          `${member.full_name}${phone} | ${team.project_code} | ${team.project_name} | ${team.team_type} | ${team.vehicle_plate}`
+          `${member.full_name}${phone} | ${team.vehicle_plate} | ${team.team_type} | ${team.project_name} | ${team.project_code}`
         );
       } else {
         lines.push(`${member.full_name} |  |  |  | `);
@@ -34,7 +34,7 @@ export function buildWhatsAppText(plan: DailyWorkPlanWithTeams): string {
 
     if (members.length === 0) {
       lines.push(
-        `— | ${team.project_code} | ${team.project_name} | ${team.team_type} | ${team.vehicle_plate}`
+        `— | ${team.vehicle_plate} | ${team.team_type} | ${team.project_name} | ${team.project_code}`
       );
     }
 

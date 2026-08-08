@@ -5,7 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CalendarDays, Loader2, Pencil, Plus, UserRound } from "lucide-react";
+import {
+  CalendarDays,
+  Loader2,
+  Pencil,
+  Plus,
+  Printer,
+  UserRound,
+} from "lucide-react";
 import { toast } from "sonner";
 import type { Personnel } from "@/types/work-plan";
 import type { PersonnelAttendanceSummary } from "@/types/attendance";
@@ -51,6 +58,7 @@ type Props = {
   personnelSummaries?: PersonnelListSummary[];
   summaryYear?: number;
   summaryMonth?: number;
+  readOnly?: boolean;
 };
 
 export function PersonnelManager({
@@ -59,6 +67,7 @@ export function PersonnelManager({
   personnelSummaries = [],
   summaryYear = new Date().getFullYear(),
   summaryMonth = new Date().getMonth() + 1,
+  readOnly = false,
 }: Props) {
   const router = useRouter();
   const [items, setItems] = useState(initialPersonnel);
@@ -171,6 +180,30 @@ export function PersonnelManager({
     personnelSummaries.map((summary) => [summary.personnel_id, summary])
   );
 
+  function printPersonnelList() {
+    const rows = filtered
+      .map(
+        (person) =>
+          `<tr><td>${escapeHtml(person.full_name)}</td><td>${escapeHtml(
+            person.phone || "—"
+          )}</td><td>${person.is_active ? "Aktif" : "Pasif"}</td><td>${escapeHtml(
+            person.employment_start_date || "—"
+          )}</td><td>${escapeHtml(person.employment_end_date || "—")}</td></tr>`
+      )
+      .join("");
+    const printWindow = window.open("", "_blank", "noopener,noreferrer");
+    if (!printWindow) {
+      toast.error("Yazdırma penceresi açılamadı");
+      return;
+    }
+    printWindow.document.write(
+      `<!doctype html><html><head><title>Personel Listesi</title><style>body{font-family:Arial,sans-serif;padding:24px}h1{font-size:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:8px;text-align:left}th{background:#eee}</style></head><body><h1>AZG İLETİŞİM ŞANTİYE — Personel Listesi</h1><table><thead><tr><th>Ad Soyad</th><th>Telefon</th><th>Durum</th><th>İşe Giriş</th><th>İşten Ayrılış</th></tr></thead><tbody>${rows}</tbody></table></body></html>`
+    );
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -181,10 +214,18 @@ export function PersonnelManager({
             değildir.
           </p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4" />
-          Personel Ekle
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={printPersonnelList}>
+            <Printer className="h-4 w-4" />
+            Listeyi Yazdır
+          </Button>
+          {!readOnly && (
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4" />
+              Personel Ekle
+            </Button>
+          )}
+        </div>
       </div>
 
       {attendanceSummary && (
@@ -296,14 +337,16 @@ export function PersonnelManager({
                       </div>
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openEdit(person)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                    Düzenle
-                  </Button>
+                  {!readOnly && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openEdit(person)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Düzenle
+                    </Button>
+                  )}
                 </div>
                 );
               })
@@ -389,5 +432,19 @@ export function PersonnelManager({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function escapeHtml(value: string) {
+  return value.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;",
+      })[character]!
   );
 }

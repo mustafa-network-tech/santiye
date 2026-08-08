@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PersonnelRepository } from "@/modules/work-plans/personnel-repository";
 import { AttendanceRepository } from "@/modules/attendance/attendance-repository";
 import { PersonnelManager } from "@/components/work-plans/personnel-manager";
+import { UserRepository } from "@/modules/users/user-repository";
 
 export const metadata = {
   title: "Personel",
@@ -45,7 +46,7 @@ export default async function PersonnelPage({ searchParams }: Props) {
 
   const supabase = await createClient();
   const attendanceRepository = new AttendanceRepository(supabase);
-  const [personnel, attendanceSummary, personnelSummaries] = await Promise.all([
+  const [personnel, attendanceSummary, personnelSummaries, canWrite] = await Promise.all([
     new PersonnelRepository(supabase).list(),
     validPersonnelId
       ? attendanceRepository.getPersonnelSummary(
@@ -55,6 +56,7 @@ export default async function PersonnelPage({ searchParams }: Props) {
         )
       : Promise.resolve(null),
     attendanceRepository.getPersonnelListSummaries(year, month),
+    new UserRepository(supabase).canWrite("personnel"),
   ]);
 
   return (
@@ -64,6 +66,7 @@ export default async function PersonnelPage({ searchParams }: Props) {
       personnelSummaries={personnelSummaries}
       summaryYear={year}
       summaryMonth={month}
+      readOnly={!canWrite}
     />
   );
 }

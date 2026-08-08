@@ -49,6 +49,12 @@ export function WhatsAppPreview({ plan, open, onClose, onEdit }: Props) {
       cacheBust: true,
       pixelRatio: 2,
       backgroundColor: "#ffffff",
+      width: 900,
+      style: {
+        width: "900px",
+        maxWidth: "none",
+        overflow: "visible",
+      },
     });
     const res = await fetch(dataUrl);
     return res.blob();
@@ -126,11 +132,11 @@ export function WhatsAppPreview({ plan, open, onClose, onEdit }: Props) {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-auto p-4">
-        <div className="mx-auto max-w-3xl space-y-4">
+      <div className="min-w-0 flex-1 overflow-auto p-2 sm:p-4">
+        <div className="mx-auto min-w-0 max-w-3xl space-y-4">
           <div
             ref={posterRef}
-            className="rounded-2xl border bg-white p-5 text-slate-900 shadow-sm"
+            className="min-w-0 overflow-hidden rounded-2xl border bg-white p-3 text-slate-900 shadow-sm sm:p-5"
           >
             <div className="mb-4 flex items-center gap-3 border-b border-slate-200 pb-4">
               <BrandLogo size={48} />
@@ -159,7 +165,7 @@ export function WhatsAppPreview({ plan, open, onClose, onEdit }: Props) {
             </div>
           </div>
 
-          <pre className="overflow-auto rounded-2xl border bg-muted/40 p-4 text-xs leading-relaxed whitespace-pre-wrap">
+          <pre className="max-w-full overflow-x-auto whitespace-pre-wrap break-words rounded-2xl border bg-muted/40 p-4 text-xs leading-relaxed">
             {text}
           </pre>
         </div>

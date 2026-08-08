@@ -4,6 +4,8 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   Archive,
+  CalendarClock,
+  CarFront,
   CheckCircle2,
   FolderKanban,
   HardHat,
@@ -17,9 +19,10 @@ import type {
   DashboardStats,
   Project,
 } from "@/types/project";
+import type { VehicleDeadlineAlert } from "@/types/vehicle";
 import { Badge } from "@/components/ui/badge";
 import { getStatusColor, getStatusLabel } from "@/lib/constants/project";
-import { formatDateTime } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import { ProjectTypeShortcuts } from "@/components/projects/project-type-shortcuts";
 import { CategoryDoughnutChart } from "@/components/dashboard/category-doughnut-chart";
 
@@ -69,6 +72,7 @@ type Props = {
   recentlyUpdated: Project[];
   recentlyCreated: Project[];
   typeLabels: Record<string, string>;
+  vehicleAlerts: VehicleDeadlineAlert[];
 };
 
 export function DashboardView({
@@ -78,6 +82,7 @@ export function DashboardView({
   recentlyUpdated,
   recentlyCreated,
   typeLabels,
+  vehicleAlerts,
 }: Props) {
   return (
     <div className="space-y-8">
@@ -121,6 +126,8 @@ export function DashboardView({
         })}
       </div>
 
+      <VehicleDeadlineAlerts alerts={vehicleAlerts} />
+
       <section className="space-y-4">
         <div>
           <h2 className="text-xl font-semibold tracking-tight">
@@ -155,6 +162,69 @@ export function DashboardView({
         />
       </div>
     </div>
+  );
+}
+
+function getDeadlineText(daysRemaining: number) {
+  if (daysRemaining < 0)
+    return `${Math.abs(daysRemaining)} gün gecikti`;
+  if (daysRemaining === 0) return "Bugün sona eriyor";
+  return `${daysRemaining} gün kaldı`;
+}
+
+function getDeadlineClasses(daysRemaining: number) {
+  if (daysRemaining <= 3)
+    return "border-red-300 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200";
+  if (daysRemaining <= 7)
+    return "border-orange-300 bg-orange-50 text-orange-900 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-200";
+  return "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200";
+}
+
+function VehicleDeadlineAlerts({
+  alerts,
+}: {
+  alerts: VehicleDeadlineAlert[];
+}) {
+  if (alerts.length === 0) return null;
+
+  return (
+    <Card className="border-amber-300 dark:border-amber-900">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <CalendarClock className="h-5 w-5 text-amber-600" />
+          Araç Muayene ve Sigorta Uyarıları
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {alerts.map((alert) => (
+          <Link
+            key={`${alert.vehicle_id}-${alert.deadline_type}`}
+            href="/vehicles"
+            className={`rounded-xl border p-4 transition-transform hover:-translate-y-0.5 ${getDeadlineClasses(
+              alert.days_remaining
+            )}`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <span className="flex items-center gap-2 font-semibold">
+                <CarFront className="h-4 w-4" />
+                {alert.plate}
+              </span>
+              <Badge className="shrink-0 border-current bg-transparent text-current hover:bg-transparent">
+                {getDeadlineText(alert.days_remaining)}
+              </Badge>
+            </div>
+            <p className="mt-2 text-sm font-medium">
+              {alert.deadline_type === "inspection"
+                ? "Muayene bitiş tarihi"
+                : "Sigorta bitiş tarihi"}
+            </p>
+            <p className="mt-1 text-xs opacity-80">
+              {alert.brand} {alert.model} · {formatDate(alert.deadline_date)}
+            </p>
+          </Link>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 

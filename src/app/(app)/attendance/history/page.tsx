@@ -5,6 +5,7 @@ import type {
   AttendanceStatus,
   PersonnelActivityFilter,
 } from "@/types/attendance";
+import { UserRepository } from "@/modules/users/user-repository";
 
 export const metadata = {
   title: "Geçmiş Puantaj",
@@ -55,7 +56,7 @@ export default async function AttendanceHistoryPage({ searchParams }: Props) {
 
   const supabase = await createClient();
   const repository = new AttendanceRepository(supabase);
-  const [data, archives] = await Promise.all([
+  const [data, archives, canWrite] = await Promise.all([
     repository.getMonth({
       year,
       month,
@@ -64,6 +65,7 @@ export default async function AttendanceHistoryPage({ searchParams }: Props) {
       statusFilter,
     }),
     repository.getMonthArchives(),
+    new UserRepository(supabase).canWrite("attendance"),
   ]);
 
   return (
@@ -74,6 +76,7 @@ export default async function AttendanceHistoryPage({ searchParams }: Props) {
       initialStatusFilter={statusFilter}
       historyMode
       archives={archives}
+      readOnly={!canWrite}
     />
   );
 }

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { WorkPlanRepository } from "@/modules/work-plans/work-plan-repository";
 import { WorkPlanDetailView } from "@/components/work-plans/work-plan-detail-view";
+import { UserRepository } from "@/modules/users/user-repository";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -19,7 +20,15 @@ export async function generateMetadata({ params }: Props) {
 export default async function WorkPlanDetailPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
-  const plan = await new WorkPlanRepository(supabase).getById(id);
+  const [plan, canWrite] = await Promise.all([
+    new WorkPlanRepository(supabase).getById(id),
+    new UserRepository(supabase).canWrite("work_plans"),
+  ]);
   if (!plan) notFound();
-  return <WorkPlanDetailView plan={plan} />;
+  return (
+    <WorkPlanDetailView
+      plan={plan}
+      readOnly={!canWrite}
+    />
+  );
 }

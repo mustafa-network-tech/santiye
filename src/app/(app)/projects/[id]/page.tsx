@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ProjectRepository } from "@/modules/projects/project-repository";
 import { SettingsRepository } from "@/modules/settings/settings-repository";
 import { ProjectDetail } from "@/components/projects/project-detail";
+import { UserRepository } from "@/modules/users/user-repository";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -23,9 +24,10 @@ export default async function ProjectDetailPage({ params }: Props) {
   const projectRepo = new ProjectRepository(supabase);
   const settingsRepo = new SettingsRepository(supabase);
 
-  const [project, customTypes] = await Promise.all([
+  const [project, customTypes, canWrite] = await Promise.all([
     projectRepo.getById(id),
     settingsRepo.getCustomProjectTypes(),
+    new UserRepository(supabase).canWrite("projects"),
   ]);
 
   if (!project) notFound();
@@ -35,5 +37,11 @@ export default async function ProjectDetailPage({ params }: Props) {
     customTypes
   );
 
-  return <ProjectDetail project={project} typeLabel={typeLabel} />;
+  return (
+    <ProjectDetail
+      project={project}
+      typeLabel={typeLabel}
+      readOnly={!canWrite}
+    />
+  );
 }

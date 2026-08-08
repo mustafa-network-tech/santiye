@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import type { Personnel } from "@/types/work-plan";
 import type { WorkPlanTeamSnapshot } from "@/types/work-plan";
+import type { Vehicle } from "@/types/vehicle";
 import { createClient } from "@/lib/supabase/client";
 import { WorkPlanRepository } from "@/modules/work-plans/work-plan-repository";
 import { ensureChiefFirst } from "@/modules/work-plans/whatsapp-formatter";
@@ -63,6 +64,7 @@ type TeamDraft = {
 
 type Props = {
   personnel: Personnel[];
+  vehicles: Vehicle[];
   initialDate?: string;
   existingPlanId?: string;
   initialTeams?: WorkPlanTeamSnapshot[];
@@ -91,6 +93,7 @@ function emptyTeam(): TeamDraft {
 
 export function WorkPlanEditor({
   personnel,
+  vehicles,
   initialDate,
   existingPlanId,
   initialTeams,
@@ -123,7 +126,6 @@ export function WorkPlanEditor({
   });
   const [loading, setLoading] = useState(false);
   const [typeSuggestions, setTypeSuggestions] = useState<string[]>([]);
-  const [plateSuggestions, setPlateSuggestions] = useState<string[]>([]);
 
   const activePersonnel = useMemo(
     () => personnel.filter((p) => p.is_active),
@@ -138,7 +140,6 @@ export function WorkPlanEditor({
     const supabase = createClient();
     const repo = new WorkPlanRepository(supabase);
     repo.getTeamTypeSuggestions("").then(setTypeSuggestions).catch(() => {});
-    repo.getVehiclePlateSuggestions("").then(setPlateSuggestions).catch(() => {});
   }, []);
 
   function updateTeam(clientId: string, patch: Partial<TeamDraft>) {
@@ -422,16 +423,53 @@ export function WorkPlanEditor({
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Proje ID</Label>
-                  <Input
-                    value={team.project_code}
-                    onChange={(e) =>
-                      updateTeam(team.client_id, {
-                        project_code: e.target.value,
-                      })
+                  <Label>Araç Plakası</Label>
+                  <Select
+                    value={team.vehicle_plate || undefined}
+                    onValueChange={(value) =>
+                      updateTeam(team.client_id, { vehicle_plate: value })
                     }
-                    placeholder="GF-102"
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Şirket aracı seçin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {team.vehicle_plate &&
+                        !vehicles.some(
+                          (vehicle) => vehicle.plate === team.vehicle_plate
+                        ) && (
+                          <SelectItem value={team.vehicle_plate}>
+                            {team.vehicle_plate} · Eski kayıt
+                          </SelectItem>
+                        )}
+                      {vehicles.map((vehicle) => (
+                        <SelectItem key={vehicle.id} value={vehicle.plate}>
+                          {vehicle.plate} · {vehicle.brand} {vehicle.model}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {vehicles.length === 0 && (
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      Önce Araçlar menüsünden şirket aracı ekleyin.
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Ekip Türü</Label>
+                  <Input
+                    list={`team-type-${team.client_id}`}
+                    value={team.team_type}
+                    onChange={(e) =>
+                      updateTeam(team.client_id, { team_type: e.target.value })
+                    }
+                    placeholder="Fiber, Kazı, Montaj..."
                   />
+                  <datalist id={`team-type-${team.client_id}`}>
+                    {typeSuggestions.map((suggestion) => (
+                      <option key={suggestion} value={suggestion} />
+                    ))}
+                  </datalist>
                 </div>
                 <div className="space-y-2">
                   <Label>Proje Adı</Label>
@@ -446,38 +484,16 @@ export function WorkPlanEditor({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Ekip Türü</Label>
+                  <Label>Proje ID</Label>
                   <Input
-                    list={`team-type-${team.client_id}`}
-                    value={team.team_type}
-                    onChange={(e) =>
-                      updateTeam(team.client_id, { team_type: e.target.value })
-                    }
-                    placeholder="Fiber, Kazı, Montaj..."
-                  />
-                  <datalist id={`team-type-${team.client_id}`}>
-                    {typeSuggestions.map((s) => (
-                      <option key={s} value={s} />
-                    ))}
-                  </datalist>
-                </div>
-                <div className="space-y-2">
-                  <Label>Araç Plakası</Label>
-                  <Input
-                    list={`plate-${team.client_id}`}
-                    value={team.vehicle_plate}
+                    value={team.project_code}
                     onChange={(e) =>
                       updateTeam(team.client_id, {
-                        vehicle_plate: e.target.value,
+                        project_code: e.target.value,
                       })
                     }
-                    placeholder="17 ABC 123"
+                    placeholder="GF-102"
                   />
-                  <datalist id={`plate-${team.client_id}`}>
-                    {plateSuggestions.map((s) => (
-                      <option key={s} value={s} />
-                    ))}
-                  </datalist>
                 </div>
                 <div className="space-y-2">
                   <Label>Ekip Şefi</Label>

@@ -15,9 +15,10 @@ import { useRouter } from "next/navigation";
 
 type Props = {
   plan: DailyWorkPlanWithTeams;
+  readOnly?: boolean;
 };
 
-export function WorkPlanDetailView({ plan }: Props) {
+export function WorkPlanDetailView({ plan, readOnly = false }: Props) {
   const router = useRouter();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [currentPlan, setCurrentPlan] = useState(plan);
@@ -83,17 +84,19 @@ export function WorkPlanDetailView({ plan }: Props) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline">
-            <Link href={`/work-plans/${currentPlan.id}/edit`}>
-              <Pencil className="h-4 w-4" />
-              Düzenle
-            </Link>
-          </Button>
+          {!readOnly && (
+            <Button asChild variant="outline">
+              <Link href={`/work-plans/${currentPlan.id}/edit`}>
+                <Pencil className="h-4 w-4" />
+                Düzenle
+              </Link>
+            </Button>
+          )}
           <Button onClick={() => setPreviewOpen(true)}>
             <Share2 className="h-4 w-4" />
             WhatsApp İçin Hazırla
           </Button>
-          <Button
+          {!readOnly && <Button
             variant="destructive"
             onClick={deletePlan}
             disabled={deletingId !== null}
@@ -104,14 +107,14 @@ export function WorkPlanDetailView({ plan }: Props) {
               <Trash2 className="h-4 w-4" />
             )}
             Planı Sil
-          </Button>
+          </Button>}
         </div>
       </div>
 
       <div className="space-y-4">
         {currentPlan.teams.map((team, index) => (
           <div key={team.id ?? index} className="space-y-2">
-            <div className="flex justify-end">
+            {!readOnly && <div className="flex justify-end">
               <Button
                 variant="outline"
                 size="sm"
@@ -126,7 +129,7 @@ export function WorkPlanDetailView({ plan }: Props) {
                 )}
                 Ekibi Sil
               </Button>
-            </div>
+            </div>}
             <WorkPlanTeamTable team={team} teamIndex={index} />
           </div>
         ))}

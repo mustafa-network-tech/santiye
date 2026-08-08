@@ -106,6 +106,12 @@ export function LoginForm() {
             {loading && <Loader2 className="animate-spin" />}
             Giriş Yap
           </Button>
+          <p className="text-center text-sm text-muted-foreground">
+            Hesabınız yok mu?{" "}
+            <Link href="/register" className="text-primary hover:underline">
+              Kayıt olun
+            </Link>
+          </p>
         </form>
       </CardContent>
     </Card>

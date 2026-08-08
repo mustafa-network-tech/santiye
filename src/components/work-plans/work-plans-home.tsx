@@ -20,9 +20,10 @@ import { Badge } from "@/components/ui/badge";
 type Props = {
   todayPlan: DailyWorkPlanWithTeams | null;
   pastPlans: DailyWorkPlan[];
+  readOnly?: boolean;
 };
 
-export function WorkPlansHome({ todayPlan, pastPlans }: Props) {
+export function WorkPlansHome({ todayPlan, pastPlans, readOnly = false }: Props) {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<WorkPlanSearchHit[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -63,12 +64,14 @@ export function WorkPlansHome({ todayPlan, pastPlans }: Props) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button asChild>
-            <Link href="/work-plans/new">
-              <Plus className="h-4 w-4" />
-              Yeni İş Planı
-            </Link>
-          </Button>
+          {!readOnly && (
+            <Button asChild>
+              <Link href="/work-plans/new">
+                <Plus className="h-4 w-4" />
+                Yeni İş Planı
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 

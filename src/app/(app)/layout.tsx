@@ -1,9 +1,25 @@
+import { redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
+import { createClient } from "@/lib/supabase/server";
+import { UserRepository } from "@/modules/users/user-repository";
 
-export default function AppLayout({
+export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <AppShell>{children}</AppShell>;
+  const supabase = await createClient();
+  const profile = await new UserRepository(supabase).getCurrent();
+  if (!profile) redirect("/login");
+  if (!profile.is_approved || profile.role === "pending")
+    redirect("/pending-approval");
+  const avatarUrl = await new UserRepository(supabase).createAvatarUrl(
+    profile.avatar_path
+  );
+
+  return (
+    <AppShell profile={profile} avatarUrl={avatarUrl}>
+      {children}
+    </AppShell>
+  );
 }

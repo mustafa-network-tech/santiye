@@ -21,9 +21,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 type Props = {
   initialTypes: CustomProjectTypes;
+  readOnly?: boolean;
 };
 
-export function SettingsForm({ initialTypes }: Props) {
+export function SettingsForm({ initialTypes, readOnly = false }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const form = useForm<CustomTypesFormValues>({
@@ -100,7 +101,7 @@ export function SettingsForm({ initialTypes }: Props) {
                 (key, index) => (
                   <div key={key} className="space-y-2">
                     <Label htmlFor={key}>Özel Kategori {index + 1}</Label>
-                    <Input id={key} {...form.register(key)} />
+                    <Input id={key} disabled={readOnly} {...form.register(key)} />
                     {form.formState.errors[key] && (
                       <p className="text-xs text-destructive">
                         {form.formState.errors[key]?.message}
@@ -109,10 +110,12 @@ export function SettingsForm({ initialTypes }: Props) {
                   </div>
                 )
               )}
-              <Button type="submit" disabled={loading}>
-                {loading && <Loader2 className="animate-spin" />}
-                Kaydet
-              </Button>
+              {!readOnly && (
+                <Button type="submit" disabled={loading}>
+                  {loading && <Loader2 className="animate-spin" />}
+                  Kaydet
+                </Button>
+              )}
             </form>
           </CardContent>
         </Card>

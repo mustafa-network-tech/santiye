@@ -4,12 +4,16 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   CalendarCheck,
+  CarFront,
+  Boxes,
   ClipboardList,
   FolderKanban,
   LayoutDashboard,
   LogOut,
   Settings,
+  ShieldCheck,
   Users,
+  CircleUserRound,
   Menu,
   X,
 } from "lucide-react";
@@ -21,17 +25,30 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import type { UserProfile, UserRole } from "@/types/auth";
+import { USER_ROLE_LABELS } from "@/types/auth";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/projects", label: "Projeler", icon: FolderKanban },
-  { href: "/work-plans", label: "İş Planı", icon: ClipboardList },
-  { href: "/personnel", label: "Personel", icon: Users },
-  { href: "/attendance", label: "Puantaj", icon: CalendarCheck },
-  { href: "/settings", label: "Ayarlar", icon: Settings },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard, accounting: false },
+  { href: "/projects", label: "Projeler", icon: FolderKanban, accounting: false },
+  { href: "/work-plans", label: "İş Planı", icon: ClipboardList, accounting: false },
+  { href: "/personnel", label: "Personel", icon: Users, accounting: true },
+  { href: "/vehicles", label: "Araçlar", icon: CarFront, accounting: false },
+  { href: "/inventory", label: "Malzeme Stok", icon: Boxes, accounting: false },
+  { href: "/attendance", label: "Puantaj", icon: CalendarCheck, accounting: true },
+  { href: "/profile", label: "Profilim", icon: CircleUserRound, accounting: true },
+  { href: "/settings", label: "Ayarlar", icon: Settings, accounting: false },
 ];
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  profile,
+  avatarUrl,
+}: {
+  children: React.ReactNode;
+  profile: UserProfile;
+  avatarUrl: string | null;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -50,7 +67,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const nav = (
     <nav className="flex flex-col gap-1 p-3">
-      {NAV_ITEMS.map((item) => {
+      {NAV_ITEMS.filter((item) => {
+        if (item.href === "/settings") return profile.role === "site_chief";
+        if (profile.role === "accounting") return item.accounting;
+        return true;
+      }).map((item) => {
         const active =
           item.href === "/"
             ? pathname === "/"
@@ -73,6 +94,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
         );
       })}
+      {profile.role === "site_chief" && (
+        <Link
+          href="/users"
+          onClick={() => setMobileOpen(false)}
+          className={cn(
+            "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+            pathname.startsWith("/users")
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          )}
+        >
+          <ShieldCheck className="h-4 w-4" />
+          Kullanıcı Yetkileri
+        </Link>
+      )}
     </nav>
   );
 
@@ -91,6 +127,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           {nav}
           <div className="mt-auto space-y-2 border-t border-border/70 p-3">
+            <Link
+              href="/profile"
+              className="flex items-center gap-3 rounded-lg bg-muted px-3 py-2 transition-colors hover:bg-accent"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-background">
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={avatarUrl}
+                    alt={`${profile.full_name || "Kullanıcı"} profil fotoğrafı`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <CircleUserRound className="h-5 w-5 text-muted-foreground" />
+                )}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-medium">
+                  {profile.full_name || profile.email}
+                </span>
+                <span className="block truncate text-[11px] text-muted-foreground">
+                  {profile.job_title ||
+                    USER_ROLE_LABELS[profile.role as UserRole]}
+                </span>
+              </span>
+            </Link>
             <div className="flex items-center justify-between px-2">
               <span className="text-xs text-muted-foreground">Tema</span>
               <ThemeToggle />
@@ -146,7 +208,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
           </AnimatePresence>
 
-          <main className="flex-1 p-4 md:p-8">{children}</main>
+          <main className="flex-1 p-4 md:p-8">
+            {profile.role === "company_manager" && (
+              <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
+                Şirket yöneticisi hesabı: işlem yetkileri şantiye şefi
+                tarafından alan bazında belirlenir.
+              </div>
+            )}
+            {profile.role === "accounting" && (
+              <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
+                Muhasebe hesabı: Personel ve Puantaj bilgileri salt okunur
+                gösterilir.
+              </div>
+            )}
+            {children}
+          </main>
         </div>
       </div>
     </div>
