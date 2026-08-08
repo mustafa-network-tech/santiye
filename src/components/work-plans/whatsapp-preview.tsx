@@ -154,16 +154,8 @@ export function WhatsAppPreview({ plan, open, onClose, onEdit }: Props) {
               </div>
             </div>
 
-            <div className="space-y-4">
-              {plan.teams.map((team, index) => (
-                <WorkPlanTeamTable
-                  key={team.id ?? index}
-                  team={team}
-                  teamIndex={index}
-                />
-              ))}
+            <WorkPlanTeamTable teams={plan.teams} />
             </div>
-          </div>
 
           <pre className="max-w-full overflow-x-auto whitespace-pre-wrap break-words rounded-2xl border bg-muted/40 p-4 text-xs leading-relaxed">
             {text}

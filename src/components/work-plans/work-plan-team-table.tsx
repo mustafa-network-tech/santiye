@@ -1,10 +1,37 @@
 import type { WorkPlanTeamSnapshot } from "@/types/work-plan";
 
-export function WorkPlanTeamTable({
-  teams,
-}: {
-  teams: WorkPlanTeamSnapshot[];
-}) {
+type Props =
+  | {
+      teams: WorkPlanTeamSnapshot[];
+      team?: never;
+      teamIndex?: never;
+    }
+  | {
+      teams?: never;
+      team: WorkPlanTeamSnapshot;
+      teamIndex: number;
+    };
+
+export function WorkPlanTeamTable(props: Props) {
+  // Hem eski kullanım:
+  // <WorkPlanTeamTable team={team} teamIndex={index} />
+  //
+  // hem yeni kullanım:
+  // <WorkPlanTeamTable teams={plan.teams} />
+  //
+  // desteklenir.
+  const teams =
+    "teams" in props && props.teams
+      ? props.teams
+      : props.team
+        ? [props.team]
+        : [];
+
+  const startIndex =
+    "teamIndex" in props && typeof props.teamIndex === "number"
+      ? props.teamIndex
+      : 0;
+
   return (
     <div className="w-full min-w-0 overflow-hidden rounded-xl border border-slate-300">
       <table className="w-full table-fixed border-collapse text-left text-[11px] text-slate-900">
@@ -33,14 +60,16 @@ export function WorkPlanTeamTable({
         </thead>
 
         <tbody>
-          {teams.map((team, teamIndex) => {
+          {teams.map((team, index) => {
+            const teamIndex = startIndex + index;
+
             const members = [...team.members].sort(
               (a, b) => a.sort_order - b.sort_order
             );
 
             const rowSpan = Math.max(members.length, 1);
 
-            // Çok hafif ton farkı
+            // Beyaz / çok hafif farklı beyaz tonu
             const background =
               teamIndex % 2 === 0 ? "bg-white" : "bg-slate-50";
 
@@ -48,7 +77,7 @@ export function WorkPlanTeamTable({
             if (members.length === 0) {
               return (
                 <tr
-                  key={team.id ?? teamIndex}
+                  key={`team-${teamIndex}`}
                   className={`${background} align-middle`}
                 >
                   <td className="border-2 border-slate-500 px-2 py-2">
@@ -67,7 +96,7 @@ export function WorkPlanTeamTable({
                     {team.project_name || "—"}
                   </td>
 
-                  <td className="break-all border-2 border-slate-500 px-2 py-2 font-semibold">
+                  <td className="break-words border-2 border-slate-500 px-2 py-2 font-semibold">
                     {team.project_code || "—"}
                   </td>
                 </tr>
@@ -80,7 +109,7 @@ export function WorkPlanTeamTable({
 
               return (
                 <tr
-                  key={`${team.id ?? teamIndex}-${member.full_name}-${memberIndex}`}
+                  key={`${teamIndex}-${member.full_name}-${memberIndex}`}
                   className={`${background} align-top`}
                 >
                   {/* PERSONEL */}
@@ -88,11 +117,9 @@ export function WorkPlanTeamTable({
                     className={[
                       "px-2 py-1.5",
                       "border-l-2 border-r-2 border-slate-500",
-
                       isFirst
                         ? "border-t-2 border-t-slate-500"
                         : "border-t border-t-slate-200",
-
                       isLast
                         ? "border-b-2 border-b-slate-500"
                         : "border-b border-b-slate-200",
@@ -111,7 +138,8 @@ export function WorkPlanTeamTable({
                     </div>
                   </td>
 
-                  {/* EKİP BİLGİLERİ */}
+                  {/* ARAÇ / EKİP TÜRÜ / PROJE / ID
+                      ekip boyunca birleşik hücre */}
                   {isFirst && (
                     <>
                       <td
@@ -137,7 +165,7 @@ export function WorkPlanTeamTable({
 
                       <td
                         rowSpan={rowSpan}
-                        className="break-all border-2 border-slate-500 px-2 py-2 align-middle font-semibold"
+                        className="break-words border-2 border-slate-500 px-2 py-2 align-middle font-semibold"
                       >
                         {team.project_code || "—"}
                       </td>
