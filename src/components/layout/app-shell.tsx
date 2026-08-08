@@ -19,6 +19,7 @@ import {
   StickyNote,
   Menu,
   X,
+  ChevronDown,
 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -142,112 +143,175 @@ export function AppShell({
     router.refresh();
   }
 
- const navGroups = [
-  { name: "OPERASYON", icon: LayoutDashboard },
-  { name: "KAYNAKLAR", icon: Boxes },
-  { name: "PERSONEL YÖNETİMİ", icon: Users },
-  { name: "SİSTEM", icon: Settings },
-];
+  const navGroups = [
+    { name: "OPERASYON", icon: LayoutDashboard },
+    { name: "KAYNAKLAR", icon: Boxes },
+    { name: "PERSONEL YÖNETİMİ", icon: Users },
+    { name: "SİSTEM", icon: Settings },
+  ];
 
-const visibleNavItems = NAV_ITEMS.filter((item) => {
-  if (item.href === "/settings") {
-    return profile.role === "site_chief";
-  }
+  const visibleNavItems = NAV_ITEMS.filter((item) => {
+    if (item.href === "/settings") {
+      return profile.role === "site_chief";
+    }
 
-  if (profile.role === "accounting") {
-    return item.accounting;
-  }
+    if (profile.role === "accounting") {
+      return item.accounting;
+    }
 
-  return true;
-});
+    return true;
+  });
 
-const nav = (
-  <nav className="flex flex-col gap-1 p-3">
-    {navGroups.map((group) => {
-      const groupItems = visibleNavItems.filter(
-        (item) => item.group === group.name
-      );
+  // İçinde bulunduğumuz sayfanın grubunu başlangıçta açık getir
+  const activeGroup =
+    NAV_ITEMS.find((item) =>
+      item.href === "/"
+        ? pathname === "/"
+        : pathname.startsWith(item.href)
+    )?.group ?? null;
 
-      // Kullanıcının bu grupta görebileceği menü yoksa
-      // başlığı da gösterme.
-      if (groupItems.length === 0) return null;
+  const [openGroup, setOpenGroup] = useState<string | null>(
+    pathname.startsWith("/users") ? "YÖNETİM" : activeGroup
+  );
 
-      const GroupIcon = group.icon;
+  const toggleGroup = (groupName: string) => {
+    setOpenGroup((current) =>
+      current === groupName ? null : groupName
+    );
+  };
 
-      return (
-        <div key={group.name} className="mb-4">
-          {/* Grup Başlığı */}
-          <div className="mb-2 flex items-center gap-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            <GroupIcon className="h-3.5 w-3.5" />
-            <span>{group.name}</span>
+  const nav = (
+    <nav className="flex flex-col gap-2 p-3">
+      {navGroups.map((group) => {
+        const groupItems = visibleNavItems.filter(
+          (item) => item.group === group.name
+        );
+
+        // Kullanıcının bu grupta yetkili olduğu menü yoksa
+        // grup başlığını da gösterme
+        if (groupItems.length === 0) return null;
+
+        const GroupIcon = group.icon;
+        const isOpen = openGroup === group.name;
+
+        return (
+          <div key={group.name}>
+            {/* Açılır Grup Başlığı */}
+            <button
+              type="button"
+              onClick={() => toggleGroup(group.name)}
+              className={cn(
+                "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+                isOpen
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
+            >
+              <GroupIcon className="h-4 w-4" />
+
+              <span className="flex-1 text-left text-xs font-semibold tracking-wide">
+                {group.name}
+              </span>
+
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 transition-transform duration-200",
+                  isOpen && "rotate-180"
+                )}
+              />
+            </button>
+
+            {/* Açılan Menü Öğeleri */}
+            {isOpen && (
+              <div className="mt-1 flex flex-col gap-1 pl-3">
+                {groupItems.map((item) => {
+                  const active =
+                    item.href === "/"
+                      ? pathname === "/"
+                      : pathname.startsWith(item.href);
+
+                  const Icon = item.icon;
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileOpen(false)}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                        active
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+
+                      <span>{item.label}</span>
+
+                      {item.href === "/notes" &&
+                        noteNotifications.length > 0 && (
+                          <span className="ml-auto rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                            {noteNotifications.length}
+                          </span>
+                        )}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
+        );
+      })}
 
-          {/* Grup Menüleri */}
-          <div className="flex flex-col gap-1">
-            {groupItems.map((item) => {
-              const active =
-                item.href === "/"
-                  ? pathname === "/"
-                  : pathname.startsWith(item.href);
+      {/* Yönetim - sadece Şantiye Şefi */}
+      {profile.role === "site_chief" && (
+        <div>
+          <button
+            type="button"
+            onClick={() => toggleGroup("YÖNETİM")}
+            className={cn(
+              "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+              openGroup === "YÖNETİM"
+                ? "bg-accent text-accent-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <ShieldCheck className="h-4 w-4" />
 
-              const Icon = item.icon;
+            <span className="flex-1 text-left text-xs font-semibold tracking-wide">
+              YÖNETİM
+            </span>
 
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                    active
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 transition-transform duration-200",
+                openGroup === "YÖNETİM" && "rotate-180"
+              )}
+            />
+          </button>
 
-                  <span>{item.label}</span>
-
-                  {item.href === "/notes" &&
-                    noteNotifications.length > 0 && (
-                      <span className="ml-auto rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">
-                        {noteNotifications.length}
-                      </span>
-                    )}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      );
-    })}
-
-    {/* Sadece Şantiye Şefi */}
-    {profile.role === "site_chief" && (
-      <div className="mt-1 border-t pt-3">
-        <div className="mb-2 flex items-center gap-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          <ShieldCheck className="h-3.5 w-3.5" />
-          <span>YÖNETİM</span>
-        </div>
-
-        <Link
-          href="/users"
-          onClick={() => setMobileOpen(false)}
-          className={cn(
-            "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-            pathname.startsWith("/users")
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          {openGroup === "YÖNETİM" && (
+            <div className="mt-1 pl-3">
+              <Link
+                href="/users"
+                onClick={() => setMobileOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                  pathname.startsWith("/users")
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                )}
+              >
+                <ShieldCheck className="h-4 w-4" />
+                <span>Kullanıcı Yetkileri</span>
+              </Link>
+            </div>
           )}
-        >
-          <ShieldCheck className="h-4 w-4" />
-          <span>Kullanıcı Yetkileri</span>
-        </Link>
-      </div>
-    )}
-  </nav>
-);
-   
+        </div>
+      )}
+    </nav>
+  );
+
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-50 via-background to-background dark:from-slate-900 dark:via-background dark:to-background">
