@@ -201,6 +201,30 @@ export class WorkPlanRepository {
       }
     }
 
+    const assignedPersonnel = new Set<string>();
+    const assignedVehicles = new Set<string>();
+    for (const team of input.teams) {
+      for (const member of team.members) {
+        if (!member.personnel_id) continue;
+        if (assignedPersonnel.has(member.personnel_id)) {
+          throw new Error(
+            `${member.full_name} bu tarihte başka bir ekipte görevli.`
+          );
+        }
+        assignedPersonnel.add(member.personnel_id);
+      }
+
+      const normalizedPlate = team.vehicle_plate
+        .trim()
+        .toLocaleUpperCase("tr-TR");
+      if (assignedVehicles.has(normalizedPlate)) {
+        throw new Error(
+          `${team.vehicle_plate.trim()} plakalı araç bu tarihte başka bir ekipte kullanılıyor.`
+        );
+      }
+      assignedVehicles.add(normalizedPlate);
+    }
+
     const absencePersonnelIds = input.absences.map((item) => item.personnel_id);
     if (new Set(absencePersonnelIds).size !== absencePersonnelIds.length) {
       throw new Error("Aynı personel izinli/raporlu listesine iki kez eklenemez");
@@ -217,10 +241,33 @@ export class WorkPlanRepository {
     }
 
     let planId = input.existingPlanId;
+    const planOnSelectedDate = await this.getByDate(input.planDate);
+
+    if (planOnSelectedDate && planOnSelectedDate.id !== input.existingPlanId) {
+      for (const team of planOnSelectedDate.teams) {
+        const conflictingMember = team.members.find(
+          (member) =>
+            member.personnel_id && assignedPersonnel.has(member.personnel_id)
+        );
+        if (conflictingMember) {
+          throw new Error(
+            `${conflictingMember.full_name} bu tarihte başka bir ekipte görevli.`
+          );
+        }
+
+        const normalizedPlate = team.vehicle_plate
+          .trim()
+          .toLocaleUpperCase("tr-TR");
+        if (assignedVehicles.has(normalizedPlate)) {
+          throw new Error(
+            `${team.vehicle_plate} plakalı araç bu tarihte başka bir ekipte kullanılıyor.`
+          );
+        }
+      }
+    }
 
     if (!planId) {
-      const existing = await this.getByDate(input.planDate);
-      planId = existing?.id;
+      planId = planOnSelectedDate?.id;
     }
 
     if (planId) {

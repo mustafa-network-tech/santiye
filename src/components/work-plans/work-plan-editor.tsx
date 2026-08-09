@@ -164,9 +164,45 @@ export function WorkPlanEditor({
     );
   }
 
+  function personnelIdsUsedByOtherTeams(clientId: string) {
+    return new Set(
+      teams
+        .filter((team) => team.client_id !== clientId)
+        .flatMap((team) =>
+          team.members.flatMap((member) =>
+            member.personnel_id ? [member.personnel_id] : []
+          )
+        )
+    );
+  }
+
+  function vehiclePlatesUsedByOtherTeams(clientId: string) {
+    return new Set(
+      teams
+        .filter((team) => team.client_id !== clientId)
+        .map((team) => team.vehicle_plate.trim().toLocaleUpperCase("tr-TR"))
+        .filter(Boolean)
+    );
+  }
+
+  function setVehicle(clientId: string, vehiclePlate: string) {
+    const normalizedPlate = vehiclePlate.trim().toLocaleUpperCase("tr-TR");
+    if (vehiclePlatesUsedByOtherTeams(clientId).has(normalizedPlate)) {
+      toast.error(
+        `${vehiclePlate} plakalı araç bu tarihte başka bir ekipte kullanılıyor.`
+      );
+      return;
+    }
+    updateTeam(clientId, { vehicle_plate: vehiclePlate });
+  }
+
   function setChief(clientId: string, personnelId: string) {
     const person = activePersonnel.find((p) => p.id === personnelId);
     if (!person) return;
+    if (personnelIdsUsedByOtherTeams(clientId).has(personnelId)) {
+      toast.error(`${person.full_name} bu tarihte başka bir ekipte görevli.`);
+      return;
+    }
     if (absences.some((absence) => absence.personnel_id === personnelId)) {
       toast.error("Bu personel izinli/raporlu listesinde", {
         description: "Önce izinli/raporlu kaydını kaldırın.",
@@ -213,6 +249,13 @@ export function WorkPlanEditor({
       ?.members.some(
         (member) => !member.is_chief && member.personnel_id === personnelId
       );
+    if (
+      !alreadySelected &&
+      personnelIdsUsedByOtherTeams(clientId).has(personnelId)
+    ) {
+      toast.error(`${person.full_name} bu tarihte başka bir ekipte görevli.`);
+      return;
+    }
     if (
       !alreadySelected &&
       absences.some((absence) => absence.personnel_id === personnelId)
@@ -370,6 +413,32 @@ export function WorkPlanEditor({
       }
     }
 
+    const assignedPersonnel = new Set<string>();
+    const assignedVehicles = new Set<string>();
+    for (const team of teams) {
+      for (const member of team.members) {
+        if (!member.personnel_id) continue;
+        if (assignedPersonnel.has(member.personnel_id)) {
+          toast.error(
+            `${member.full_name} bu tarihte başka bir ekipte görevli.`
+          );
+          return;
+        }
+        assignedPersonnel.add(member.personnel_id);
+      }
+
+      const normalizedPlate = team.vehicle_plate
+        .trim()
+        .toLocaleUpperCase("tr-TR");
+      if (assignedVehicles.has(normalizedPlate)) {
+        toast.error(
+          `${team.vehicle_plate} plakalı araç bu tarihte başka bir ekipte kullanılıyor.`
+        );
+        return;
+      }
+      assignedVehicles.add(normalizedPlate);
+    }
+
     setLoading(true);
     const supabase = createClient();
     const {
@@ -412,13 +481,24 @@ export function WorkPlanEditor({
       router.refresh();
     } catch (error) {
       console.error(error);
-      const message =
+      const conflictMessage =
+        error instanceof Error &&
+        (error.message.includes("bu tarihte başka bir ekipte görevli") ||
+          error.message.includes(
+            "plakalı araç bu tarihte başka bir ekipte kullanılıyor"
+          ))
+          ? error.message
+          : null;
+      const isUniqueViolation =
         error &&
         typeof error === "object" &&
         "code" in error &&
-        (error as { code?: string }).code === "23505"
+        (error as { code?: string }).code === "23505";
+      const message =
+        conflictMessage ??
+        (isUniqueViolation
           ? "Bu tarihte zaten bir iş planı var"
-          : "İş planı kaydedilemedi";
+          : "İş planı kaydedilemedi");
       toast.error(message);
     } finally {
       setLoading(false);
@@ -514,9 +594,7 @@ export function WorkPlanEditor({
                   <Label>Araç Plakası</Label>
                   <Select
                     value={team.vehicle_plate || undefined}
-                    onValueChange={(value) =>
-                      updateTeam(team.client_id, { vehicle_plate: value })
-                    }
+                    onValueChange={(value) => setVehicle(team.client_id, value)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Şirket aracı seçin" />
@@ -530,11 +608,19 @@ export function WorkPlanEditor({
                             {team.vehicle_plate} · Eski kayıt
                           </SelectItem>
                         )}
-                      {vehicles.map((vehicle) => (
-                        <SelectItem key={vehicle.id} value={vehicle.plate}>
-                          {vehicle.plate} · {vehicle.brand} {vehicle.model}
-                        </SelectItem>
-                      ))}
+                      {vehicles
+                        .filter(
+                          (vehicle) =>
+                            vehicle.plate === team.vehicle_plate ||
+                            !vehiclePlatesUsedByOtherTeams(team.client_id).has(
+                              vehicle.plate.trim().toLocaleUpperCase("tr-TR")
+                            )
+                        )
+                        .map((vehicle) => (
+                          <SelectItem key={vehicle.id} value={vehicle.plate}>
+                            {vehicle.plate} · {vehicle.brand} {vehicle.model}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                   {vehicles.length === 0 && (
@@ -593,11 +679,19 @@ export function WorkPlanEditor({
                       <SelectValue placeholder="Personel seçin" />
                     </SelectTrigger>
                     <SelectContent>
-                      {activePersonnel.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.full_name}
-                        </SelectItem>
-                      ))}
+                      {activePersonnel
+                        .filter(
+                          (person) =>
+                            person.id === team.chief_personnel_id ||
+                            !personnelIdsUsedByOtherTeams(team.client_id).has(
+                              person.id
+                            )
+                        )
+                        .map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.full_name}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -626,7 +720,11 @@ export function WorkPlanEditor({
 
                 <div className="flex flex-wrap gap-2">
                   {activePersonnel
-                    .filter((p) => p.id !== team.chief_personnel_id)
+                    .filter(
+                      (p) =>
+                        p.id !== team.chief_personnel_id &&
+                        !personnelIdsUsedByOtherTeams(team.client_id).has(p.id)
+                    )
                     .map((p) => {
                       const selected = team.members.some(
                         (m) => !m.is_chief && m.personnel_id === p.id
