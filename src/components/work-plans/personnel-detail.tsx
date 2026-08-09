@@ -9,6 +9,7 @@ import {
   CircleOff,
   FileHeart,
   FileSpreadsheet,
+  FileText,
   Phone,
   ShieldCheck,
   Umbrella,
@@ -28,6 +29,7 @@ import {
   downloadAttendanceSummaryExcel,
   toFileSlug,
 } from "@/lib/attendance-excel";
+import { downloadPersonnelAttendanceWord } from "@/lib/attendance-word";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -120,6 +122,23 @@ export function PersonnelDetail({
     }
   }
 
+  async function exportPersonnelWord() {
+    try {
+      await downloadPersonnelAttendanceWord({
+        person: {
+          fullName: personnel.full_name,
+          tcIdentityNumber: personnel.tc_identity_number,
+          records: summary.month_records,
+        },
+        year,
+        month,
+      });
+    } catch (error) {
+      console.error(error);
+      toast.error("Personel Word puantaj raporu oluşturulamadı");
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -172,7 +191,11 @@ export function PersonnelDetail({
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 sm:justify-end">
+            <Button variant="outline" onClick={exportPersonnelWord}>
+              <FileText className="h-4 w-4" />
+              Word Puantaj Raporu
+            </Button>
             <Button
               variant="outline"
               onClick={exportPersonnelExcel}

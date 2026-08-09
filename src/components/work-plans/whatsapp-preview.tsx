@@ -156,7 +156,7 @@ export function WhatsAppPreview({ plan, open, onClose, onEdit }: Props) {
 
       const file = new File(
         [blob],
-        `gunluk-is-plani-${plan.plan_date}.png`,
+        `AZG-gunluk-is-plani-${plan.plan_date}.png`,
         {
           type: "image/png",
         }
@@ -165,8 +165,8 @@ export function WhatsAppPreview({ plan, open, onClose, onEdit }: Props) {
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: "Günlük İş Planı",
-          text: `Günlük İş Planı — ${plan.plan_date}`,
+          title: "AZG İletişim Merkez Günlük İş Planı",
+          text: `AZG iletişim Merkez Günlük İş Planı — ${plan.plan_date}`,
         });
 
         return;
@@ -174,7 +174,7 @@ export function WhatsAppPreview({ plan, open, onClose, onEdit }: Props) {
 
       if (navigator.share) {
         await navigator.share({
-          title: "Günlük İş Planı",
+          title: "AZG İletişim Merkez Günlük İş Planı",
           text,
         });
 
@@ -227,12 +227,17 @@ export function WhatsAppPreview({ plan, open, onClose, onEdit }: Props) {
             className="w-full min-w-0 overflow-hidden rounded-2xl border bg-white p-3 text-slate-900 shadow-sm sm:p-5"
           >
             {/* BAŞLIK */}
-            <div className="mb-4 flex items-center gap-3 border-b border-slate-200 pb-4">
+            <div className="relative mb-4 flex items-center border-b border-slate-200 pb-4">
+              <div className="absolute left-0">
               <BrandLogo size={48} />
+               </div>
 
-              <div>
+              <div className="w-full text-center">
                 <p className="text-lg font-bold tracking-tight">
-                  GÜNLÜK İŞ PLANI
+                 AZG İLETİŞİM MERKEZ
+                </p>
+                 <p className="text-lg font-bold tracking-tight">
+                 GÜNLÜK İŞ PLANI
                 </p>
 
                 <p className="text-sm text-slate-600">
@@ -242,6 +247,7 @@ export function WhatsAppPreview({ plan, open, onClose, onEdit }: Props) {
                     year: "numeric",
                   })}
                 </p>
+                
               </div>
             </div>
 

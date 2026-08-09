@@ -13,6 +13,7 @@ import {
   CalendarDays,
   FileDown,
   FileSpreadsheet,
+  FileText,
   History,
   Loader2,
   LockKeyhole,
@@ -40,6 +41,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { AttendanceRepository } from "@/modules/attendance/attendance-repository";
 import { downloadAttendanceSummaryExcel } from "@/lib/attendance-excel";
+import { downloadMonthlyAttendanceWord } from "@/lib/attendance-word";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -327,6 +329,23 @@ export function MonthlyAttendanceTable({
     }
   }
 
+  async function exportWord() {
+    try {
+      await downloadMonthlyAttendanceWord({
+        personnel: exportPersonnel.map((personnel) => ({
+          fullName: personnel.full_name,
+          tcIdentityNumber: personnel.tc_identity_number,
+          records: personnel.records,
+        })),
+        year: initialData.year,
+        month: initialData.month,
+      });
+    } catch (error) {
+      console.error(error);
+      toast.error("Word puantaj raporu oluşturulamadı");
+    }
+  }
+
   async function exportPdf() {
     const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
       import("jspdf"),
@@ -388,6 +407,10 @@ export function MonthlyAttendanceTable({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={exportWord}>
+            <FileText className="h-4 w-4" />
+            Word Raporu İndir
+          </Button>
           <Button variant="outline" onClick={exportExcel}>
             <FileSpreadsheet className="h-4 w-4" />
             Aylık Puantaj Excel İndir
