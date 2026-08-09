@@ -11,6 +11,7 @@ import { WorkPlanRepository } from "@/modules/work-plans/work-plan-repository";
 import { Button } from "@/components/ui/button";
 import { WhatsAppPreview } from "@/components/work-plans/whatsapp-preview";
 import { WorkPlanTeamTable } from "@/components/work-plans/work-plan-team-table";
+import { WorkPlanAbsences } from "@/components/work-plans/work-plan-absences";
 import { useRouter } from "next/navigation";
 
 type Props = {
@@ -134,6 +135,8 @@ export function WorkPlanDetailView({ plan, readOnly = false }: Props) {
           </div>
         ))}
       </div>
+
+      <WorkPlanAbsences absences={currentPlan.absences} />
 
       <WhatsAppPreview
         plan={currentPlan}

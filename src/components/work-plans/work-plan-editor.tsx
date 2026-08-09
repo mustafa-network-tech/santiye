@@ -24,13 +24,17 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Personnel } from "@/types/work-plan";
-import type { WorkPlanTeamSnapshot } from "@/types/work-plan";
+import type {
+  Personnel,
+  WorkPlanAbsenceSnapshot,
+  WorkPlanAbsenceStatus,
+  WorkPlanTeamSnapshot,
+} from "@/types/work-plan";
 import type { Vehicle } from "@/types/vehicle";
 import { createClient } from "@/lib/supabase/client";
 import { WorkPlanRepository } from "@/modules/work-plans/work-plan-repository";
 import { ensureChiefFirst } from "@/modules/work-plans/whatsapp-formatter";
-import { todayISODate } from "@/lib/constants/project";
+import { tomorrowISODate } from "@/lib/constants/project";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +47,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type TeamDraft = {
   client_id: string;
@@ -68,6 +78,7 @@ type Props = {
   initialDate?: string;
   existingPlanId?: string;
   initialTeams?: WorkPlanTeamSnapshot[];
+  initialAbsences?: WorkPlanAbsenceSnapshot[];
   initialNotes?: string | null;
 };
 
@@ -97,10 +108,11 @@ export function WorkPlanEditor({
   initialDate,
   existingPlanId,
   initialTeams,
+  initialAbsences,
   initialNotes,
 }: Props) {
   const router = useRouter();
-  const [planDate, setPlanDate] = useState(initialDate || todayISODate());
+  const [planDate, setPlanDate] = useState(initialDate || tomorrowISODate());
   const [notes, setNotes] = useState(initialNotes ?? "");
   const [teams, setTeams] = useState<TeamDraft[]>(() => {
     if (initialTeams?.length) {
@@ -126,6 +138,10 @@ export function WorkPlanEditor({
   });
   const [loading, setLoading] = useState(false);
   const [typeSuggestions, setTypeSuggestions] = useState<string[]>([]);
+  const [absenceDialogOpen, setAbsenceDialogOpen] = useState(false);
+  const [absences, setAbsences] = useState<WorkPlanAbsenceSnapshot[]>(
+    initialAbsences ?? []
+  );
 
   const activePersonnel = useMemo(
     () => personnel.filter((p) => p.is_active),
@@ -151,6 +167,12 @@ export function WorkPlanEditor({
   function setChief(clientId: string, personnelId: string) {
     const person = activePersonnel.find((p) => p.id === personnelId);
     if (!person) return;
+    if (absences.some((absence) => absence.personnel_id === personnelId)) {
+      toast.error("Bu personel izinli/raporlu listesinde", {
+        description: "Önce izinli/raporlu kaydını kaldırın.",
+      });
+      return;
+    }
 
     setTeams((prev) =>
       prev.map((team) => {
@@ -185,6 +207,21 @@ export function WorkPlanEditor({
   function toggleMember(clientId: string, personnelId: string) {
     const person = activePersonnel.find((p) => p.id === personnelId);
     if (!person) return;
+
+    const alreadySelected = teams
+      .find((team) => team.client_id === clientId)
+      ?.members.some(
+        (member) => !member.is_chief && member.personnel_id === personnelId
+      );
+    if (
+      !alreadySelected &&
+      absences.some((absence) => absence.personnel_id === personnelId)
+    ) {
+      toast.error("Bu personel izinli/raporlu listesinde", {
+        description: "Önce izinli/raporlu kaydını kaldırın.",
+      });
+      return;
+    }
 
     setTeams((prev) =>
       prev.map((team) => {
@@ -254,6 +291,56 @@ export function WorkPlanEditor({
     });
   }
 
+  function toggleAbsence(person: Personnel) {
+    const exists = absences.some(
+      (absence) => absence.personnel_id === person.id
+    );
+    if (exists) {
+      setAbsences((current) =>
+        current.filter((absence) => absence.personnel_id !== person.id)
+      );
+      return;
+    }
+
+    const isInTeam = teams.some((team) =>
+      team.members.some((member) => member.personnel_id === person.id)
+    );
+    if (isInTeam) {
+      toast.error("Bu personel bir ekipte görevli", {
+        description: "Önce personeli ekipten kaldırın.",
+      });
+      return;
+    }
+
+    setAbsences((current) => [
+      ...current,
+      {
+        personnel_id: person.id,
+        full_name: person.full_name,
+        status: "leave",
+      },
+    ]);
+  }
+
+  function setAbsenceStatus(
+    personnelId: string,
+    status: WorkPlanAbsenceStatus
+  ) {
+    setAbsences((current) =>
+      current.map((absence) =>
+        absence.personnel_id === personnelId
+          ? { ...absence, status }
+          : absence
+      )
+    );
+  }
+
+  function removeAbsence(personnelId: string) {
+    setAbsences((current) =>
+      current.filter((absence) => absence.personnel_id !== personnelId)
+    );
+  }
+
   async function handleSave() {
     if (!planDate) {
       toast.error("Plan tarihi seçin");
@@ -300,6 +387,7 @@ export function WorkPlanEditor({
         notes,
         userId: user.id,
         existingPlanId,
+        absences,
         teams: teams.map((team, index) => ({
           sort_order: index,
           project_code: team.project_code,
@@ -614,6 +702,102 @@ export function WorkPlanEditor({
         <Plus className="h-4 w-4" />
         Yeni Ekip Ekle
       </Button>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+          <div>
+            <CardTitle className="text-base">
+              İzinli / Raporlu Personel
+            </CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Yalnızca bu günlük iş planının organizasyon bilgisidir.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setAbsenceDialogOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            İzinli / Raporlu Personel Ekle
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {absences.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              İzinli veya raporlu personel eklenmedi.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {absences.map((absence) => (
+                <div
+                  key={absence.personnel_id}
+                  className="flex flex-col gap-2 rounded-xl border px-3 py-2 sm:flex-row sm:items-center"
+                >
+                  <span className="min-w-0 flex-1 font-medium">
+                    {absence.full_name}
+                  </span>
+                  <Select
+                    value={absence.status}
+                    onValueChange={(value) =>
+                      setAbsenceStatus(
+                        absence.personnel_id,
+                        value as WorkPlanAbsenceStatus
+                      )
+                    }
+                  >
+                    <SelectTrigger className="w-full sm:w-36">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="leave">İzinli</SelectItem>
+                      <SelectItem value="sick_report">Raporlu</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeAbsence(absence.personnel_id)}
+                    aria-label={`${absence.full_name} kaydını kaldır`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={absenceDialogOpen} onOpenChange={setAbsenceDialogOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>İzinli / Raporlu Personel Ekle</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {activePersonnel.map((person) => {
+              const selected = absences.some(
+                (absence) => absence.personnel_id === person.id
+              );
+              return (
+                <Button
+                  key={person.id}
+                  type="button"
+                  variant={selected ? "default" : "outline"}
+                  className="w-full justify-start"
+                  onClick={() => toggleAbsence(person)}
+                >
+                  {person.full_name}
+                </Button>
+              );
+            })}
+          </div>
+          <Button type="button" onClick={() => setAbsenceDialogOpen(false)}>
+            Tamam
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

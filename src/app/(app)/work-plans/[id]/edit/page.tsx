@@ -31,6 +31,7 @@ export default async function EditWorkPlanPage({ params }: Props) {
       existingPlanId={plan.id}
       initialDate={plan.plan_date}
       initialTeams={plan.teams}
+      initialAbsences={plan.absences}
       initialNotes={plan.notes}
     />
   );

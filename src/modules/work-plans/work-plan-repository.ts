@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   DailyWorkPlan,
   DailyWorkPlanWithTeams,
+  WorkPlanAbsenceSnapshot,
   WorkPlanSearchHit,
   WorkPlanTeamSnapshot,
 } from "@/types/work-plan";
@@ -29,6 +30,24 @@ type MemberRow = {
   phone: string | null;
   is_chief: boolean;
 };
+
+type AbsenceRow = {
+  id: string;
+  personnel_id: string;
+  full_name: string;
+  status: "leave" | "sick_report";
+};
+
+function mapAbsences(rows?: AbsenceRow[] | null): WorkPlanAbsenceSnapshot[] {
+  return [...(rows ?? [])]
+    .sort((a, b) => a.full_name.localeCompare(b.full_name, "tr"))
+    .map((row) => ({
+      id: row.id,
+      personnel_id: row.personnel_id,
+      full_name: row.full_name,
+      status: row.status,
+    }));
+}
 
 function mapTeam(row: TeamRow): WorkPlanTeamSnapshot {
   const members = [...(row.daily_work_plan_team_members ?? [])].sort(
@@ -79,7 +98,8 @@ export class WorkPlanRepository {
         daily_work_plan_teams (
           *,
           daily_work_plan_team_members (*)
-        )
+        ),
+        daily_work_plan_absences (*)
       `
       )
       .eq("plan_date", planDate)
@@ -101,6 +121,7 @@ export class WorkPlanRepository {
       created_at: data.created_at as string,
       updated_at: data.updated_at as string,
       teams,
+      absences: mapAbsences(data.daily_work_plan_absences as AbsenceRow[]),
     };
   }
 
@@ -113,7 +134,8 @@ export class WorkPlanRepository {
         daily_work_plan_teams (
           *,
           daily_work_plan_team_members (*)
-        )
+        ),
+        daily_work_plan_absences (*)
       `
       )
       .eq("id", id)
@@ -135,6 +157,7 @@ export class WorkPlanRepository {
       created_at: data.created_at as string,
       updated_at: data.updated_at as string,
       teams,
+      absences: mapAbsences(data.daily_work_plan_absences as AbsenceRow[]),
     };
   }
 
@@ -161,6 +184,7 @@ export class WorkPlanRepository {
     notes?: string | null;
     userId: string;
     teams: WorkPlanTeamSnapshot[];
+    absences: WorkPlanAbsenceSnapshot[];
     existingPlanId?: string;
   }): Promise<DailyWorkPlanWithTeams> {
     if (input.teams.length === 0) {
@@ -175,6 +199,21 @@ export class WorkPlanRepository {
       if (chiefs.length !== 1 || team.members[0]?.is_chief !== true) {
         throw new Error("Ekip şefi ilk sırada olmalıdır");
       }
+    }
+
+    const absencePersonnelIds = input.absences.map((item) => item.personnel_id);
+    if (new Set(absencePersonnelIds).size !== absencePersonnelIds.length) {
+      throw new Error("Aynı personel izinli/raporlu listesine iki kez eklenemez");
+    }
+    const teamPersonnelIds = new Set(
+      input.teams.flatMap((team) =>
+        team.members.flatMap((member) =>
+          member.personnel_id ? [member.personnel_id] : []
+        )
+      )
+    );
+    if (absencePersonnelIds.some((id) => teamPersonnelIds.has(id))) {
+      throw new Error("Personel aynı planda hem ekipte hem izinli/raporlu olamaz");
     }
 
     let planId = input.existingPlanId;
@@ -201,6 +240,13 @@ export class WorkPlanRepository {
         .eq("plan_id", planId);
 
       if (deleteTeamsError) throw deleteTeamsError;
+
+      const { error: deleteAbsencesError } = await this.supabase
+        .from("daily_work_plan_absences")
+        .delete()
+        .eq("work_plan_id", planId);
+
+      if (deleteAbsencesError) throw deleteAbsencesError;
     } else {
       const { data: created, error: createError } = await this.supabase
         .from("daily_work_plans")
@@ -251,6 +297,20 @@ export class WorkPlanRepository {
         .insert(memberRows);
 
       if (membersError) throw membersError;
+    }
+
+    if (input.absences.length > 0) {
+      const { error: absencesError } = await this.supabase
+        .from("daily_work_plan_absences")
+        .insert(
+          input.absences.map((absence) => ({
+            work_plan_id: planId,
+            personnel_id: absence.personnel_id,
+            full_name: absence.full_name.trim(),
+            status: absence.status,
+          }))
+        );
+      if (absencesError) throw absencesError;
     }
 
     const full = await this.getById(planId!);

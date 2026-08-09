@@ -41,6 +41,14 @@ export function buildWhatsAppText(plan: DailyWorkPlanWithTeams): string {
     lines.push("");
   });
 
+  if (plan.absences.length > 0) {
+    lines.push("İZİNLİ / RAPORLU PERSONEL");
+    plan.absences.forEach((absence) => {
+      const status = absence.status === "leave" ? "İzinli" : "Raporlu";
+      lines.push(`- ${absence.full_name} — ${status}`);
+    });
+  }
+
   return lines.join("\n").trim();
 }
 

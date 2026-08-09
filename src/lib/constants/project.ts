@@ -175,3 +175,9 @@ export function todayISODate(): string {
 
   return `${year}-${month}-${day}`;
 }
+
+export function tomorrowISODate(): string {
+  const [year, month, day] = todayISODate().split("-").map(Number);
+  const tomorrow = new Date(Date.UTC(year, month - 1, day + 1));
+  return tomorrow.toISOString().slice(0, 10);
+}

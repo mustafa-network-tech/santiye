@@ -10,6 +10,7 @@ import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { WorkPlanTeamTable } from "@/components/work-plans/work-plan-team-table";
+import { WorkPlanAbsences } from "@/components/work-plans/work-plan-absences";
 
 type Props = {
   plan: DailyWorkPlanWithTeams;
@@ -246,6 +247,7 @@ export function WhatsAppPreview({ plan, open, onClose, onEdit }: Props) {
 
             {/* EKİPLER */}
             <WorkPlanTeamTable teams={plan.teams} />
+            <WorkPlanAbsences absences={plan.absences} poster />
           </div>
 
           {/* METİN ÖNİZLEME */}

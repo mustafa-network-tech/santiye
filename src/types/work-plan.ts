@@ -49,6 +49,15 @@ export type WorkPlanTeamSnapshot = {
   members: WorkPlanMemberSnapshot[];
 };
 
+export type WorkPlanAbsenceStatus = "leave" | "sick_report";
+
+export type WorkPlanAbsenceSnapshot = {
+  id?: string;
+  personnel_id: string;
+  full_name: string;
+  status: WorkPlanAbsenceStatus;
+};
+
 export type DailyWorkPlan = {
   id: string;
   plan_date: string;
@@ -61,6 +70,7 @@ export type DailyWorkPlan = {
 
 export type DailyWorkPlanWithTeams = DailyWorkPlan & {
   teams: WorkPlanTeamSnapshot[];
+  absences: WorkPlanAbsenceSnapshot[];
 };
 
 export type WorkPlanSearchHit = {

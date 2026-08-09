@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PersonnelRepository } from "@/modules/work-plans/personnel-repository";
 import { VehicleRepository } from "@/modules/vehicles/vehicle-repository";
 import { WorkPlanEditor } from "@/components/work-plans/work-plan-editor";
+import { tomorrowISODate } from "@/lib/constants/project";
 
 export const metadata = {
   title: "Yeni İş Planı",
@@ -14,5 +15,11 @@ export default async function NewWorkPlanPage() {
     new VehicleRepository(supabase).list(),
   ]);
 
-  return <WorkPlanEditor personnel={personnel} vehicles={vehicles} />;
+  return (
+    <WorkPlanEditor
+      personnel={personnel}
+      vehicles={vehicles}
+      initialDate={tomorrowISODate()}
+    />
+  );
 }
