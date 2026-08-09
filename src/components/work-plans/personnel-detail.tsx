@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   CalendarCheck,
   CircleOff,
   FileHeart,
+  FileSpreadsheet,
   Phone,
   ShieldCheck,
   Umbrella,
@@ -21,6 +23,11 @@ import {
 } from "@/lib/constants/attendance";
 import { formatEmploymentDuration } from "@/lib/personnel";
 import { formatDate } from "@/lib/utils";
+import {
+  countAttendanceRecords,
+  downloadAttendanceSummaryExcel,
+  toFileSlug,
+} from "@/lib/attendance-excel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -86,9 +93,32 @@ export function PersonnelDetail({
     },
   ];
   const monthDays = getMonthDays(year, month);
+  const selectedMonthTotals = countAttendanceRecords(summary.month_records);
   const recordsByDate = new Map(
     summary.month_records.map((record) => [record.date, record])
   );
+
+  async function exportPersonnelExcel() {
+    try {
+      await downloadAttendanceSummaryExcel({
+        personnel: [
+          {
+            fullName: personnel.full_name,
+            tcIdentityNumber: personnel.tc_identity_number,
+            records: summary.month_records,
+          },
+        ],
+        year,
+        month,
+        fileName: `${toFileSlug(personnel.full_name)}-puantaj-${year}-${String(
+          month
+        ).padStart(2, "0")}.xlsx`,
+      });
+    } catch (error) {
+      console.error(error);
+      toast.error("Personel puantaj Excel dosyası oluşturulamadı");
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -143,6 +173,13 @@ export function PersonnelDetail({
           </div>
 
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={exportPersonnelExcel}
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Puantaj Excel İndir
+            </Button>
             <Select
               value={String(month)}
               onValueChange={(value) => updatePeriod(year, Number(value))}
@@ -201,6 +238,22 @@ export function PersonnelDetail({
           );
         })}
       </div>
+
+      <Card>
+        <CardContent className="flex items-center justify-between pt-6">
+          <div>
+            <p className="text-xs text-muted-foreground">
+              Mazeretsiz Gelmedi
+            </p>
+            <p className="mt-1 text-3xl font-semibold">
+              {selectedMonthTotals.unexcused_absence}
+            </p>
+          </div>
+          <div className="rounded-xl bg-orange-50 p-2.5 text-orange-700 dark:bg-orange-950/40">
+            <CircleOff className="h-5 w-5" />
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

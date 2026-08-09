@@ -48,6 +48,7 @@ export default async function AttendanceHistoryPage({ searchParams }: Props) {
   const statusFilter: AttendanceStatus | "all" =
     statusParam === "worked" ||
     statusParam === "absent" ||
+    statusParam === "unexcused_absence" ||
     statusParam === "leave" ||
     statusParam === "medical_report" ||
     statusParam === "weekly_rest"
@@ -56,13 +57,20 @@ export default async function AttendanceHistoryPage({ searchParams }: Props) {
 
   const supabase = await createClient();
   const repository = new AttendanceRepository(supabase);
-  const [data, archives, canWrite] = await Promise.all([
+  const [data, exportData, archives, canWrite] = await Promise.all([
     repository.getMonth({
       year,
       month,
       activeFilter,
       search,
       statusFilter,
+    }),
+    repository.getMonth({
+      year,
+      month,
+      activeFilter: "all",
+      search: "",
+      statusFilter: "all",
     }),
     repository.getMonthArchives(),
     new UserRepository(supabase).canWrite("attendance"),
@@ -71,6 +79,7 @@ export default async function AttendanceHistoryPage({ searchParams }: Props) {
   return (
     <MonthlyAttendanceTable
       initialData={data}
+      exportPersonnel={exportData.personnel}
       initialSearch={search}
       initialActivityFilter={activeFilter}
       initialStatusFilter={statusFilter}

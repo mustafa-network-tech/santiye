@@ -21,16 +21,23 @@ export const ATTENDANCE_STATUSES: {
       "border-red-300 bg-red-100 text-red-800 dark:border-red-800 dark:bg-red-950/60 dark:text-red-300",
   },
   {
+    value: "unexcused_absence",
+    label: "Mazeretsiz Gelmedi",
+    symbol: "MG",
+    className:
+      "border-orange-300 bg-orange-100 text-orange-800 dark:border-orange-800 dark:bg-orange-950/60 dark:text-orange-300",
+  },
+  {
     value: "leave",
     label: "İzinli",
-    symbol: "O",
+    symbol: "İ",
     className:
       "border-blue-300 bg-blue-100 text-blue-800 dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-300",
   },
   {
     value: "medical_report",
     label: "Raporlu",
-    symbol: "—",
+    symbol: "R",
     className:
       "border-sky-300 bg-sky-100 text-sky-800 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-300",
   },

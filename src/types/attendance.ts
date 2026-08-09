@@ -1,6 +1,7 @@
 export type AttendanceStatus =
   | "worked"
   | "absent"
+  | "unexcused_absence"
   | "leave"
   | "medical_report"
   | "weekly_rest";
@@ -18,6 +19,7 @@ export type MonthlyAttendancePersonnel = {
   id: string;
   full_name: string;
   phone: string | null;
+  tc_identity_number: string | null;
   is_active: boolean;
   employment_start_date?: string | null;
   employment_end_date?: string | null;

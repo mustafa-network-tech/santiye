@@ -39,6 +39,7 @@ import {
 } from "@/lib/constants/attendance";
 import { createClient } from "@/lib/supabase/client";
 import { AttendanceRepository } from "@/modules/attendance/attendance-repository";
+import { downloadAttendanceSummaryExcel } from "@/lib/attendance-excel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -58,6 +59,7 @@ import {
 
 type Props = {
   initialData: MonthlyAttendanceData;
+  exportPersonnel: MonthlyAttendancePersonnel[];
   initialSearch: string;
   initialActivityFilter: PersonnelActivityFilter;
   initialStatusFilter: AttendanceStatus | "all";
@@ -69,6 +71,7 @@ type Props = {
 const EMPTY_TOTALS: AttendanceTotals = {
   worked: 0,
   absent: 0,
+  unexcused_absence: 0,
   leave: 0,
   medical_report: 0,
   weekly_rest: 0,
@@ -77,6 +80,7 @@ const EMPTY_TOTALS: AttendanceTotals = {
 const TOTAL_COLUMNS: { key: AttendanceStatus; shortLabel: string }[] = [
   { key: "worked", shortLabel: "Çalıştı" },
   { key: "absent", shortLabel: "Çalışmadı" },
+  { key: "unexcused_absence", shortLabel: "MG" },
   { key: "leave", shortLabel: "İzinli" },
   { key: "medical_report", shortLabel: "Raporlu" },
   { key: "weekly_rest", shortLabel: "HT" },
@@ -88,6 +92,7 @@ function cellKey(personnelId: string, date: string) {
 
 export function MonthlyAttendanceTable({
   initialData,
+  exportPersonnel,
   initialSearch,
   initialActivityFilter,
   initialStatusFilter,
@@ -303,47 +308,23 @@ export function MonthlyAttendanceTable({
   }
 
   async function exportExcel() {
-    const rows = buildExportRows();
-    const headers =
-      rows.length > 0
-        ? Object.keys(rows[0])
-        : [
-            "Personel",
-            ...days.map(
-              (day) => `${String(day.day).padStart(2, "0")} ${day.dayName}`
-            ),
-            ...TOTAL_COLUMNS.map((column) => column.shortLabel),
-          ];
-    const escapeHtml = (value: string | number) =>
-      String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;");
-    const table = `
-      <html><head><meta charset="UTF-8"></head><body>
-      <table border="1">
-        <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead>
-        <tbody>${rows
-          .map(
-            (row) =>
-              `<tr>${headers
-                .map((header) => `<td>${escapeHtml(row[header] ?? "")}</td>`)
-                .join("")}</tr>`
-          )
-          .join("")}</tbody>
-      </table></body></html>`;
-    const blob = new Blob(["\ufeff", table], {
-      type: "application/vnd.ms-excel;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `puantaj-${initialData.year}-${String(
-      initialData.month
-    ).padStart(2, "0")}.xls`;
-    link.click();
-    URL.revokeObjectURL(url);
+    try {
+      await downloadAttendanceSummaryExcel({
+        personnel: exportPersonnel.map((personnel) => ({
+          fullName: personnel.full_name,
+          tcIdentityNumber: personnel.tc_identity_number,
+          records: personnel.records,
+        })),
+        year: initialData.year,
+        month: initialData.month,
+        fileName: `puantaj-${initialData.year}-${String(
+          initialData.month
+        ).padStart(2, "0")}.xlsx`,
+      });
+    } catch (error) {
+      console.error(error);
+      toast.error("Aylık puantaj Excel dosyası oluşturulamadı");
+    }
   }
 
   async function exportPdf() {
@@ -407,6 +388,10 @@ export function MonthlyAttendanceTable({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={exportExcel}>
+            <FileSpreadsheet className="h-4 w-4" />
+            Aylık Puantaj Excel İndir
+          </Button>
           {!historyMode && (
             <Button asChild variant="outline">
               <Link href="/attendance/history">
@@ -418,10 +403,6 @@ export function MonthlyAttendanceTable({
 
           {historyMode && (
             <>
-              <Button variant="outline" onClick={exportExcel}>
-                <FileSpreadsheet className="h-4 w-4" />
-                Excel’e Aktar
-              </Button>
               <Button variant="outline" onClick={exportPdf}>
                 <FileDown className="h-4 w-4" />
                 PDF Oluştur
