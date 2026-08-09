@@ -1,4 +1,9 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  FunctionsFetchError,
+  FunctionsHttpError,
+  FunctionsRelayError,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
 import type {
   CompanyManagerPermissions,
   PermissionModule,
@@ -96,11 +101,38 @@ export class UserRepository {
   }
 
   async deleteUser(userId: string): Promise<void> {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await this.supabase.auth.getSession();
+    if (sessionError || !session?.access_token) {
+      throw new Error("Oturum süresi dolmuş. Lütfen yeniden giriş yapın.");
+    }
+
     const { data, error } = await this.supabase.functions.invoke(
       "delete-user",
-      { body: { user_id: userId } }
+      {
+        body: { user_id: userId },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      }
     );
-    if (error) throw error;
+    if (error instanceof FunctionsHttpError) {
+      const body = await readFunctionError(error.context);
+      throw new Error(body || "Kullanıcı silme isteği reddedildi.");
+    }
+    if (error instanceof FunctionsRelayError) {
+      throw new Error(
+        "Kullanıcı silme servisine ulaşılamadı. Edge Function deploy durumunu kontrol edin."
+      );
+    }
+    if (error instanceof FunctionsFetchError) {
+      throw new Error(
+        "Kullanıcı silme servisine bağlantı kurulamadı. Ağ ve CORS ayarlarını kontrol edin."
+      );
+    }
+    if (error) throw new Error(error.message || "Kullanıcı silinemedi.");
     if (data?.error) throw new Error(data.error);
   }
 
@@ -114,5 +146,14 @@ export class UserRepository {
       .createSignedUrl(avatarPath, expiresIn);
     if (error) return null;
     return data.signedUrl;
+  }
+}
+
+async function readFunctionError(response: Response): Promise<string | null> {
+  try {
+    const body = (await response.json()) as { error?: unknown };
+    return typeof body.error === "string" ? body.error : null;
+  } catch {
+    return null;
   }
 }
