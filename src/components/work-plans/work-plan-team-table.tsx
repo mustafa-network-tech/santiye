@@ -81,14 +81,20 @@ export function WorkPlanTeamTable(props: Props) {
               );
             });
 
-            // Beyaz / çok hafif farklı beyaz tonu
+            const teamBackgrounds = [
+              "bg-sky-100",
+              "bg-amber-100",
+              "bg-emerald-100",
+              "bg-violet-100",
+              "bg-rose-100",
+            ];
             const background =
-              teamIndex % 2 === 0 ? "bg-white" : "bg-slate-50";
+              teamBackgrounds[teamIndex % teamBackgrounds.length];
 
             return (
               <tr key={`team-${teamIndex}`} className={`${background} align-middle`}>
                 {/* PERSONEL */}
-                <td className="border-2 border-slate-500 px-2.5 py-2.5">
+                <td className="border-2 border-x-slate-500 border-y-slate-600 px-2.5 py-2.5">
                   <div className="min-w-0 text-center">
                     <div className="break-words text-[13px] font-semibold leading-tight">
                       {chiefName || "—"}
@@ -120,19 +126,19 @@ export function WorkPlanTeamTable(props: Props) {
                   </div>
                 </td>
 
-                <td className="break-words border-2 border-slate-500 px-2 py-2.5 align-middle text-[13px] font-semibold">
+                <td className="break-words border-2 border-x-slate-500 border-y-slate-600 px-2 py-2.5 align-middle text-[13px] font-semibold">
                   {team.vehicle_plate || "—"}
                 </td>
 
-                <td className="break-words border-2 border-slate-500 px-2 py-2.5 align-middle text-[12px] font-semibold">
+                <td className="break-words border-2 border-x-slate-500 border-y-slate-600 px-2 py-2.5 align-middle text-[12px] font-semibold">
                   {team.team_type || "—"}
                 </td>
 
-                <td className="break-words border-2 border-slate-500 px-2 py-2.5 align-middle text-[12px] font-semibold">
+                <td className="break-words border-2 border-x-slate-500 border-y-slate-600 px-2 py-2.5 align-middle text-[12px] font-semibold">
                   {team.project_name || "—"}
                 </td>
 
-                <td className="break-words border-2 border-slate-500 px-2 py-2.5 align-middle text-[12px] font-semibold">
+                <td className="break-words border-2 border-x-slate-500 border-y-slate-600 px-2 py-2.5 align-middle text-[12px] font-semibold">
                   {team.project_code || "—"}
                 </td>
               </tr>
