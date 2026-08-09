@@ -20,15 +20,16 @@ export function buildWhatsAppText(plan: DailyWorkPlanWithTeams): string {
     );
 
     members.forEach((member, idx) => {
+      const jobTitle = member.job_title ? `\n(${member.job_title})` : "";
       if (idx === 0) {
         const phone = member.is_chief
           ? `\n${member.phone || team.chief_phone}`
           : "";
         lines.push(
-          `${member.full_name}${phone} | ${team.vehicle_plate} | ${team.team_type} | ${team.project_name} | ${team.project_code}`
+          `${member.full_name}${jobTitle}${phone} | ${team.vehicle_plate} | ${team.team_type} | ${team.project_name} | ${team.project_code}`
         );
       } else {
-        lines.push(`${member.full_name} |  |  |  | `);
+        lines.push(`${member.full_name}${jobTitle} |  |  |  | `);
       }
     });
 

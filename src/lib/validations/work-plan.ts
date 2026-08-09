@@ -7,6 +7,7 @@ export const personnelSchema = z
       .trim()
       .min(2, "Ad soyad en az 2 karakter olmalı")
       .max(120),
+    job_title: z.string().trim().max(120).optional().or(z.literal("")),
     phone: z
       .string()
       .trim()
@@ -51,6 +52,7 @@ export type PersonnelFormValues = z.infer<typeof personnelSchema>;
 export const workPlanMemberSchema = z.object({
   personnel_id: z.string().nullable(),
   full_name: z.string().min(2),
+  job_title: z.string().nullable(),
   phone: z.string().nullable(),
   is_chief: z.boolean(),
   sort_order: z.number().int().min(0),

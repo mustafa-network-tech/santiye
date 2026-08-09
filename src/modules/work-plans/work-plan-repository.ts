@@ -27,6 +27,7 @@ type MemberRow = {
   sort_order: number;
   personnel_id: string | null;
   full_name: string;
+  job_title: string | null;
   phone: string | null;
   is_chief: boolean;
 };
@@ -68,6 +69,7 @@ function mapTeam(row: TeamRow): WorkPlanTeamSnapshot {
       id: m.id,
       personnel_id: m.personnel_id,
       full_name: m.full_name,
+      job_title: m.job_title,
       phone: m.phone,
       is_chief: m.is_chief,
       sort_order: m.sort_order,
@@ -335,6 +337,7 @@ export class WorkPlanRepository {
         sort_order: idx,
         personnel_id: m.personnel_id,
         full_name: m.full_name.trim(),
+        job_title: m.job_title?.trim() || null,
         phone: m.is_chief ? m.phone?.trim() || team.chief_phone.trim() : null,
         is_chief: m.is_chief,
       }));

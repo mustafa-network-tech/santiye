@@ -82,6 +82,7 @@ export function PersonnelManager({
     resolver: zodResolver(personnelSchema),
     defaultValues: {
       full_name: "",
+      job_title: "",
       phone: "",
       tc_identity_number: "",
       employment_start_date: "",
@@ -95,6 +96,7 @@ export function PersonnelManager({
     setEditing(null);
     form.reset({
       full_name: "",
+      job_title: "",
       phone: "",
       tc_identity_number: "",
       employment_start_date: "",
@@ -109,6 +111,7 @@ export function PersonnelManager({
     setEditing(person);
     form.reset({
       full_name: person.full_name,
+      job_title: person.job_title ?? "",
       phone: person.phone ?? "",
       tc_identity_number: person.tc_identity_number ?? "",
       employment_start_date: person.employment_start_date ?? "",
@@ -157,6 +160,7 @@ export function PersonnelManager({
       if (editing) {
         const updated = await repo.update(editing.id, {
           ...values,
+          job_title: values.job_title || null,
           phone: values.phone || null,
           tc_identity_number: values.tc_identity_number || null,
           notes: values.notes || null,
@@ -171,6 +175,7 @@ export function PersonnelManager({
       } else {
         const created = await repo.create({
           ...values,
+          job_title: values.job_title || null,
           phone: values.phone || null,
           tc_identity_number: values.tc_identity_number || null,
           notes: values.notes || null,
@@ -200,6 +205,7 @@ export function PersonnelManager({
     if (!q) return true;
     return (
       p.full_name.toLowerCase().includes(q) ||
+      (p.job_title ?? "").toLowerCase().includes(q) ||
       (p.phone ?? "").toLowerCase().includes(q) ||
       (p.tc_identity_number ?? "").includes(q) ||
       (p.notes ?? "").toLowerCase().includes(q)
@@ -313,7 +319,7 @@ export function PersonnelManager({
         </CardHeader>
         <CardContent className="space-y-4">
           <Input
-            placeholder="Ad, telefon, TC Kimlik No veya not ara..."
+            placeholder="Ad, görev, telefon, TC Kimlik No veya not ara..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
@@ -357,6 +363,11 @@ export function PersonnelManager({
                           {person.is_active ? "Aktif" : "Pasif"}
                         </Badge>
                       </div>
+                      {person.job_title && (
+                        <p className="text-sm text-muted-foreground">
+                          {person.job_title}
+                        </p>
+                      )}
                       <p className="text-sm text-muted-foreground">
                         {person.phone || "Telefon yok"}
                         {person.notes ? ` · ${person.notes}` : ""}
@@ -418,6 +429,19 @@ export function PersonnelManager({
               {form.formState.errors.full_name && (
                 <p className="text-xs text-destructive">
                   {form.formState.errors.full_name.message}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="job_title">Görev Bilgisi (Opsiyonel)</Label>
+              <Input
+                id="job_title"
+                placeholder="Örn. Kepçe Operatörü"
+                {...form.register("job_title")}
+              />
+              {form.formState.errors.job_title && (
+                <p className="text-xs text-destructive">
+                  {form.formState.errors.job_title.message}
                 </p>
               )}
             </div>

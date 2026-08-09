@@ -66,6 +66,7 @@ type TeamDraft = {
   members: {
     personnel_id: string | null;
     full_name: string;
+    job_title: string | null;
     phone: string | null;
     is_chief: boolean;
     sort_order: number;
@@ -128,6 +129,7 @@ export function WorkPlanEditor({
         members: ensureChiefFirst(t.members).map((m) => ({
           personnel_id: m.personnel_id,
           full_name: m.full_name,
+          job_title: m.job_title,
           phone: m.phone,
           is_chief: m.is_chief,
           sort_order: m.sort_order,
@@ -222,6 +224,7 @@ export function WorkPlanEditor({
           {
             personnel_id: person.id,
             full_name: person.full_name,
+            job_title: person.job_title,
             phone: person.phone,
             is_chief: true,
             sort_order: 0,
@@ -286,6 +289,7 @@ export function WorkPlanEditor({
             {
               personnel_id: person.id,
               full_name: person.full_name,
+              job_title: person.job_title,
               phone: null,
               is_chief: false,
               sort_order: team.members.length,

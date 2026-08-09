@@ -1,6 +1,7 @@
 export type Personnel = {
   id: string;
   full_name: string;
+  job_title: string | null;
   phone: string | null;
   tc_identity_number: string | null;
   is_active: boolean;
@@ -15,6 +16,7 @@ export type Personnel = {
 
 export type PersonnelInsert = {
   full_name: string;
+  job_title?: string | null;
   phone?: string | null;
   tc_identity_number?: string | null;
   is_active?: boolean;
@@ -31,6 +33,7 @@ export type WorkPlanMemberSnapshot = {
   id?: string;
   personnel_id: string | null;
   full_name: string;
+  job_title: string | null;
   phone: string | null;
   is_chief: boolean;
   sort_order: number;

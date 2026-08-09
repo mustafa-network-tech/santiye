@@ -40,7 +40,7 @@ export class PersonnelRepository {
     if (options?.search?.trim()) {
       const term = options.search.trim().replace(/[%_]/g, "\\$&");
       query = query.or(
-        `full_name.ilike.%${term}%,phone.ilike.%${term}%,tc_identity_number.ilike.%${term}%,notes.ilike.%${term}%`
+        `full_name.ilike.%${term}%,job_title.ilike.%${term}%,phone.ilike.%${term}%,tc_identity_number.ilike.%${term}%,notes.ilike.%${term}%`
       );
     }
 
@@ -54,6 +54,7 @@ export class PersonnelRepository {
       .from("personnel")
       .insert({
         full_name: payload.full_name.trim(),
+        job_title: emptyToNull(payload.job_title),
         phone: emptyToNull(payload.phone),
         tc_identity_number: emptyToNull(payload.tc_identity_number),
         is_active: payload.is_active ?? true,
@@ -80,6 +81,8 @@ export class PersonnelRepository {
 
     if (payload.full_name !== undefined)
       updatePayload.full_name = payload.full_name.trim();
+    if (payload.job_title !== undefined)
+      updatePayload.job_title = emptyToNull(payload.job_title);
     if (payload.phone !== undefined)
       updatePayload.phone = emptyToNull(payload.phone);
     if (payload.tc_identity_number !== undefined)

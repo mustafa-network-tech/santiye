@@ -100,6 +100,12 @@ export function WorkPlanTeamTable(props: Props) {
                       {chiefName || "—"}
                     </div>
 
+                    {chiefMember?.job_title && (
+                      <div className="mt-0.5 break-words text-[10px] font-medium leading-tight text-slate-600">
+                        ({chiefMember.job_title})
+                      </div>
+                    )}
+
                     {chiefName && (
                       <div className="mt-1 break-words text-[11px] font-medium leading-tight text-slate-600">
                         {chiefPhone || "—"}
@@ -112,13 +118,18 @@ export function WorkPlanTeamTable(props: Props) {
                           <div
                             key={`${member.personnel_id || member.full_name}-${memberIndex}`}
                             className={[
-                              "break-words px-1.5 py-0.5 text-[12px] font-medium leading-tight",
+                              "min-w-0 break-words px-1.5 py-0.5 text-[12px] font-medium leading-tight",
                               memberIndex % 2 === 1
                                 ? "border-l border-slate-300"
                                 : "",
                             ].join(" ")}
                           >
-                            {member.full_name}
+                            <div>{member.full_name}</div>
+                            {member.job_title && (
+                              <div className="mt-0.5 text-[10px] font-normal leading-tight text-slate-600">
+                                ({member.job_title})
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
