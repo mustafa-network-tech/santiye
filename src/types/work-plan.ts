@@ -2,6 +2,7 @@ export type Personnel = {
   id: string;
   full_name: string;
   phone: string | null;
+  tc_identity_number: string | null;
   is_active: boolean;
   employment_start_date: string | null;
   employment_end_date: string | null;
@@ -15,6 +16,7 @@ export type Personnel = {
 export type PersonnelInsert = {
   full_name: string;
   phone?: string | null;
+  tc_identity_number?: string | null;
   is_active?: boolean;
   employment_start_date?: string | null;
   employment_end_date?: string | null;

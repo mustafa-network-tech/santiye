@@ -13,6 +13,13 @@ export const personnelSchema = z
       .max(30)
       .optional()
       .or(z.literal("")),
+    tc_identity_number: z
+      .string()
+      .trim()
+      .refine(
+        (value) => value === "" || /^\d{11}$/.test(value),
+        "TC Kimlik No tam olarak 11 rakam olmalı"
+      ),
     employment_start_date: z.string().optional().or(z.literal("")),
     employment_end_date: z.string().optional().or(z.literal("")),
     is_active: z.boolean(),

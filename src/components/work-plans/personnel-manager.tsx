@@ -76,12 +76,14 @@ export function PersonnelManager({
   const [editing, setEditing] = useState<Personnel | null>(null);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("");
+  const [showPassive, setShowPassive] = useState(false);
 
   const form = useForm<PersonnelFormValues>({
     resolver: zodResolver(personnelSchema),
     defaultValues: {
       full_name: "",
       phone: "",
+      tc_identity_number: "",
       employment_start_date: "",
       employment_end_date: "",
       is_active: true,
@@ -94,6 +96,7 @@ export function PersonnelManager({
     form.reset({
       full_name: "",
       phone: "",
+      tc_identity_number: "",
       employment_start_date: "",
       employment_end_date: "",
       is_active: true,
@@ -107,6 +110,7 @@ export function PersonnelManager({
     form.reset({
       full_name: person.full_name,
       phone: person.phone ?? "",
+      tc_identity_number: person.tc_identity_number ?? "",
       employment_start_date: person.employment_start_date ?? "",
       employment_end_date: person.employment_end_date ?? "",
       is_active: person.is_active,
@@ -154,28 +158,26 @@ export function PersonnelManager({
         const updated = await repo.update(editing.id, {
           ...values,
           phone: values.phone || null,
+          tc_identity_number: values.tc_identity_number || null,
           notes: values.notes || null,
           updated_by: user.id,
         });
         setItems((prev) =>
-          prev
-            .map((p) => (p.id === updated.id ? updated : p))
-            .sort((a, b) => a.full_name.localeCompare(b.full_name, "tr"))
+          sortByCreatedAtDesc(
+            prev.map((p) => (p.id === updated.id ? updated : p))
+          )
         );
         toast.success("Personel güncellendi");
       } else {
         const created = await repo.create({
           ...values,
           phone: values.phone || null,
+          tc_identity_number: values.tc_identity_number || null,
           notes: values.notes || null,
           created_by: user.id,
           updated_by: user.id,
         });
-        setItems((prev) =>
-          [...prev, created].sort((a, b) =>
-            a.full_name.localeCompare(b.full_name, "tr")
-          )
-        );
+        setItems((prev) => sortByCreatedAtDesc([...prev, created]));
         toast.success("Personel eklendi");
       }
       setOpen(false);
@@ -190,12 +192,16 @@ export function PersonnelManager({
     }
   }
 
-  const filtered = items.filter((p) => {
+  const activeCount = items.filter((person) => person.is_active).length;
+  const passiveCount = items.length - activeCount;
+  const filtered = sortByCreatedAtDesc(items).filter((p) => {
+    if (p.is_active === showPassive) return false;
     const q = filter.trim().toLowerCase();
     if (!q) return true;
     return (
       p.full_name.toLowerCase().includes(q) ||
       (p.phone ?? "").toLowerCase().includes(q) ||
+      (p.tc_identity_number ?? "").includes(q) ||
       (p.notes ?? "").toLowerCase().includes(q)
     );
   });
@@ -231,13 +237,26 @@ export function PersonnelManager({
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Personel</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {showPassive ? "Pasif Personeller" : "Aktif Personeller"}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            İş planında kullanılacak personel listesi. Ekiplere kalıcı bağlı
-            değildir.
+            {showPassive ? passiveCount : activeCount} personel · Yeni
+            kayıttan eskiye sıralı
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowPassive((current) => !current);
+              setFilter("");
+            }}
+          >
+            {showPassive
+              ? `Aktif Personeller (${activeCount})`
+              : `Pasif Personeller (${passiveCount})`}
+          </Button>
           <Button variant="outline" onClick={printPersonnelList}>
             <Printer className="h-4 w-4" />
             Listeyi Yazdır
@@ -283,14 +302,18 @@ export function PersonnelManager({
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Liste</CardTitle>
+          <CardTitle className="text-base">
+            {showPassive ? "Pasif Personeller" : "Aktif Personeller"}
+          </CardTitle>
           <CardDescription>
-            Aktif personeller günlük planda seçilebilir.
+            {showPassive
+              ? "Pasife alınmış personellerin geçmiş kayıtları korunur."
+              : "Aktif personeller günlük planda seçilebilir."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Input
-            placeholder="Ad, telefon veya not ara..."
+            placeholder="Ad, telefon, TC Kimlik No veya not ara..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
@@ -337,6 +360,9 @@ export function PersonnelManager({
                       <p className="text-sm text-muted-foreground">
                         {person.phone || "Telefon yok"}
                         {person.notes ? ` · ${person.notes}` : ""}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        TC Kimlik No: {maskTcIdentityNumber(person.tc_identity_number)}
                       </p>
                       <div className="mt-2 grid gap-x-5 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
                         <span>
@@ -398,6 +424,26 @@ export function PersonnelManager({
             <div className="space-y-2">
               <Label htmlFor="phone">Telefon</Label>
               <Input id="phone" {...form.register("phone")} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tc_identity_number">TC Kimlik No</Label>
+              <Input
+                id="tc_identity_number"
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={11}
+                {...form.register("tc_identity_number")}
+                onInput={(event) => {
+                  event.currentTarget.value = event.currentTarget.value
+                    .replace(/\D/g, "")
+                    .slice(0, 11);
+                }}
+              />
+              {form.formState.errors.tc_identity_number && (
+                <p className="text-xs text-destructive">
+                  {form.formState.errors.tc_identity_number.message}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="employment_start_date">İşe Giriş Tarihi</Label>
@@ -470,4 +516,15 @@ function escapeHtml(value: string) {
         "'": "&#039;",
       })[character]!
   );
+}
+
+function sortByCreatedAtDesc(personnel: Personnel[]) {
+  return [...personnel].sort(
+    (a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)
+  );
+}
+
+function maskTcIdentityNumber(value: string | null) {
+  if (!value) return "Girilmemiş";
+  return `${value.slice(0, 3)}******${value.slice(-2)}`;
 }
