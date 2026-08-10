@@ -35,6 +35,16 @@ export function countAttendanceRecords(records: AttendanceRecord[]) {
   return totals;
 }
 
+export function countPayableDays(records: AttendanceRecord[]) {
+  const totals = countAttendanceRecords(records);
+  const sundayWorked = records.filter((record) => {
+    if (record.status !== "worked") return false;
+    const [year, month, day] = record.date.split("-").map(Number);
+    return new Date(Date.UTC(year, month - 1, day)).getUTCDay() === 0;
+  }).length;
+  return totals.worked + totals.weekly_rest + sundayWorked;
+}
+
 export async function downloadAttendanceSummaryExcel(options: {
   personnel: AttendanceExcelPerson[];
   year: number;
@@ -70,7 +80,7 @@ export async function downloadAttendanceSummaryExcel(options: {
       medicalReport: totals.medical_report,
       unexcusedAbsence: totals.unexcused_absence,
       weeklyRest: totals.weekly_rest,
-      payableDays: totals.worked + totals.weekly_rest,
+      payableDays: countPayableDays(person.records),
     });
   });
 

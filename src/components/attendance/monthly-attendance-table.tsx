@@ -315,6 +315,7 @@ export function MonthlyAttendanceTable({
         Personel: personnel.full_name,
       };
       const totals = { ...EMPTY_TOTALS, ...personnel.totals };
+      let sundayWorked = 0;
       days.forEach((day) => {
         const key = cellKey(personnel.id, day.isoDate);
         if (dirty.has(key)) {
@@ -324,11 +325,13 @@ export function MonthlyAttendanceTable({
           if (current) totals[current] += 1;
         }
         const status = getDisplayStatus(personnel.id, day.isoDate);
+        if (day.isSunday && status === "worked") sundayWorked += 1;
         row[`${String(day.day).padStart(2, "0")} ${day.dayName}`] = status
           ? getAttendanceMeta(status).symbol
           : "";
       });
-      row[PAYABLE_DAYS_LABEL] = totals.worked + totals.weekly_rest;
+      row[PAYABLE_DAYS_LABEL] =
+        totals.worked + totals.weekly_rest + sundayWorked;
       return row;
     });
   }
@@ -805,7 +808,7 @@ const AttendanceRow = memo(function AttendanceRow({
   ) => void;
   editable: boolean;
 }) {
-  const totals = useMemo(() => {
+  const { totals, sundayWorked } = useMemo(() => {
     const next = { ...EMPTY_TOTALS, ...personnel.totals };
     days.forEach((day) => {
       const key = cellKey(personnel.id, day.isoDate);
@@ -815,7 +818,14 @@ const AttendanceRow = memo(function AttendanceRow({
       if (original) next[original] = Math.max(0, next[original] - 1);
       if (current) next[current] += 1;
     });
-    return next;
+    const sundayWorkCount = days.filter((day) => {
+      const key = cellKey(personnel.id, day.isoDate);
+      const status = dirty.has(key)
+        ? dirty.get(key) ?? null
+        : originalRecords.get(key) ?? null;
+      return day.isSunday && status === "worked";
+    }).length;
+    return { totals: next, sundayWorked: sundayWorkCount };
   }, [days, dirty, originalRecords, personnel]);
 
   return (
@@ -873,7 +883,7 @@ const AttendanceRow = memo(function AttendanceRow({
       })}
 
       <td className="min-w-[130px] border-b border-r bg-muted/30 px-2 py-2 text-center font-semibold tabular-nums">
-        {totals.worked + totals.weekly_rest}
+        {totals.worked + totals.weekly_rest + sundayWorked}
       </td>
     </tr>
   );

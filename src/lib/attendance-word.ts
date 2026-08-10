@@ -2,6 +2,7 @@ import type { AttendanceRecord } from "@/types/attendance";
 import { getAttendanceMeta, MONTH_NAMES } from "@/lib/constants/attendance";
 import {
   countAttendanceRecords,
+  countPayableDays,
   maskTcIdentityNumber,
   toFileSlug,
 } from "@/lib/attendance-excel";
@@ -135,7 +136,7 @@ export async function downloadMonthlyAttendanceWord(options: {
         cell(totals.medical_report),
         cell(totals.weekly_rest),
         cell(totals.unexcused_absence),
-        cell(totals.worked + totals.weekly_rest, AlignmentType.CENTER, true),
+        cell(countPayableDays(person.records), AlignmentType.CENTER, true),
       ],
     });
   });
@@ -224,7 +225,7 @@ export async function downloadPersonnelAttendanceWord(options: {
     ["Raporlu Gün", totals.medical_report],
     ["Hafta Tatili", totals.weekly_rest],
     ["Mazeretsiz Gelmedi", totals.unexcused_absence],
-    ["Toplam Hak Edilen Gün", totals.worked + totals.weekly_rest],
+    ["Toplam Hak Edilen Gün", countPayableDays(options.person.records)],
   ];
   const records = [...options.person.records].sort((a, b) => a.date.localeCompare(b.date));
   const dailyHeader = new TableRow({
