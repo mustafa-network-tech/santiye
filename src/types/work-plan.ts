@@ -7,6 +7,7 @@ export type Personnel = {
   is_active: boolean;
   employment_start_date: string | null;
   employment_end_date: string | null;
+  monthly_salary: number;
   notes: string | null;
   created_by: string | null;
   updated_by: string | null;
@@ -22,6 +23,7 @@ export type PersonnelInsert = {
   is_active?: boolean;
   employment_start_date?: string | null;
   employment_end_date?: string | null;
+  monthly_salary?: number;
   notes?: string | null;
   created_by?: string | null;
   updated_by?: string | null;
@@ -49,6 +51,11 @@ export type WorkPlanTeamSnapshot = {
   chief_personnel_id: string | null;
   chief_name: string;
   chief_phone: string;
+  project_id?: string | null;
+  vehicle_id?: string | null;
+  work_location?: string | null;
+  work_description?: string | null;
+  notes?: string | null;
   members: WorkPlanMemberSnapshot[];
 };
 

@@ -94,3 +94,5 @@ export type PersonnelAttendanceDetail = {
   }[];
   leave_history: { year: number; days: number }[];
 };
+
+export type PayrollRow = { personnel_id:string;full_name:string;monthly_salary:number;worked_days:number;absence_days:number;report_days:number;overtime_days:number;advance_total:number;absence_deduction:number;overtime_payment:number;net_receivable:number };

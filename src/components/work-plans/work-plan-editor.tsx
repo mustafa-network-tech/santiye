@@ -63,6 +63,11 @@ type TeamDraft = {
   chief_personnel_id: string;
   chief_name: string;
   chief_phone: string;
+  project_id: string | null;
+  vehicle_id: string | null;
+  work_location: string;
+  work_description: string;
+  notes: string;
   members: {
     personnel_id: string | null;
     full_name: string;
@@ -99,6 +104,11 @@ function emptyTeam(): TeamDraft {
     chief_personnel_id: "",
     chief_name: "",
     chief_phone: "",
+    project_id: null,
+    vehicle_id: null,
+    work_location: "",
+    work_description: "",
+    notes: "",
     members: [],
   };
 }
@@ -126,6 +136,11 @@ export function WorkPlanEditor({
         chief_personnel_id: t.chief_personnel_id ?? "",
         chief_name: t.chief_name,
         chief_phone: t.chief_phone,
+        project_id: t.project_id ?? null,
+        vehicle_id: t.vehicle_id ?? null,
+        work_location: t.work_location ?? "",
+        work_description: t.work_description ?? "",
+        notes: t.notes ?? "",
         members: ensureChiefFirst(t.members).map((m) => ({
           personnel_id: m.personnel_id,
           full_name: m.full_name,
@@ -470,6 +485,11 @@ export function WorkPlanEditor({
           chief_personnel_id: team.chief_personnel_id || null,
           chief_name: team.chief_name,
           chief_phone: team.chief_phone,
+          project_id: team.project_id,
+          vehicle_id: team.vehicle_id,
+          work_location: team.work_location,
+          work_description: team.work_description,
+          notes: team.notes,
           members: ensureChiefFirst(
             team.members.map((m) =>
               m.is_chief

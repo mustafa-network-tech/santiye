@@ -31,6 +31,7 @@ import type {
   MonthlyAttendanceData,
   MonthlyAttendancePersonnel,
   PersonnelActivityFilter,
+  PayrollRow,
 } from "@/types/attendance";
 import {
   ATTENDANCE_STATUSES,
@@ -68,6 +69,7 @@ type Props = {
   historyMode?: boolean;
   archives?: AttendanceMonthArchive[];
   readOnly?: boolean;
+  payroll?: PayrollRow[];
 };
 
 const EMPTY_TOTALS: AttendanceTotals = {
@@ -101,6 +103,7 @@ export function MonthlyAttendanceTable({
   historyMode = false,
   archives = [],
   readOnly = false,
+  payroll = [],
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -747,6 +750,7 @@ export function MonthlyAttendanceTable({
           )}
         </div>
       </Card>
+      <Card className="overflow-hidden"><CardContent className="pt-6"><h2 className="mb-3 font-semibold">Aylık Maaş / Hakediş Özeti</h2><div className="overflow-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left"><th className="p-2">Personel</th><th className="p-2">Maaş</th><th className="p-2">Eksik</th><th className="p-2">Rapor</th><th className="p-2">Mesai</th><th className="p-2">Avans</th><th className="p-2">Alacak</th></tr></thead><tbody>{payroll.map((row)=><tr key={row.personnel_id} className="border-b"><td className="p-2 font-medium">{row.full_name}</td><td className="p-2">₺{Number(row.monthly_salary).toLocaleString("tr-TR")}</td><td className="p-2">{row.absence_days}</td><td className="p-2">{row.report_days}</td><td className="p-2">{row.overtime_days}</td><td className="p-2">₺{Number(row.advance_total).toLocaleString("tr-TR")}</td><td className="p-2 font-semibold">₺{Number(row.net_receivable).toLocaleString("tr-TR")}</td></tr>)}</tbody></table></div></CardContent></Card>
     </div>
   );
 }

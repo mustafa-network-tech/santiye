@@ -18,6 +18,11 @@ type TeamRow = {
   chief_personnel_id: string | null;
   chief_name: string;
   chief_phone: string;
+  project_id?: string | null;
+  vehicle_id?: string | null;
+  work_location?: string | null;
+  work_description?: string | null;
+  notes?: string | null;
   daily_work_plan_team_members?: MemberRow[] | null;
 };
 
@@ -65,6 +70,11 @@ function mapTeam(row: TeamRow): WorkPlanTeamSnapshot {
     chief_personnel_id: row.chief_personnel_id,
     chief_name: row.chief_name,
     chief_phone: row.chief_phone,
+    project_id: row.project_id ?? null,
+    vehicle_id: row.vehicle_id ?? null,
+    work_location: row.work_location ?? null,
+    work_description: row.work_description ?? null,
+    notes: row.notes ?? null,
     members: members.map((m) => ({
       id: m.id,
       personnel_id: m.personnel_id,
@@ -326,6 +336,11 @@ export class WorkPlanRepository {
           chief_personnel_id: team.chief_personnel_id,
           chief_name: team.chief_name.trim(),
           chief_phone: team.chief_phone.trim(),
+          project_id: team.project_id ?? null,
+          vehicle_id: team.vehicle_id ?? null,
+          work_location: team.work_location?.trim() || null,
+          work_description: team.work_description?.trim() || null,
+          notes: team.notes?.trim() || null,
         })
         .select("*")
         .single();

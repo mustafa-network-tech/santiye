@@ -87,6 +87,7 @@ export function PersonnelManager({
       tc_identity_number: "",
       employment_start_date: "",
       employment_end_date: "",
+      monthly_salary: 0,
       is_active: true,
       notes: "",
     },
@@ -101,6 +102,7 @@ export function PersonnelManager({
       tc_identity_number: "",
       employment_start_date: "",
       employment_end_date: "",
+      monthly_salary: 0,
       is_active: true,
       notes: "",
     });
@@ -116,6 +118,7 @@ export function PersonnelManager({
       tc_identity_number: person.tc_identity_number ?? "",
       employment_start_date: person.employment_start_date ?? "",
       employment_end_date: person.employment_end_date ?? "",
+      monthly_salary: person.monthly_salary ?? 0,
       is_active: person.is_active,
       notes: person.notes ?? "",
     });
@@ -476,6 +479,10 @@ export function PersonnelManager({
                 type="date"
                 {...form.register("employment_start_date")}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="monthly_salary">Aylık Maaş (₺)</Label>
+              <Input id="monthly_salary" type="number" min="0" step="0.01" {...form.register("monthly_salary")} />
             </div>
             <div className="space-y-2">
               <Label>Durum</Label>

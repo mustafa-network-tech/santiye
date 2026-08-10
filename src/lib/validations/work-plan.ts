@@ -23,6 +23,7 @@ export const personnelSchema = z
       ),
     employment_start_date: z.string().optional().or(z.literal("")),
     employment_end_date: z.string().optional().or(z.literal("")),
+    monthly_salary: z.coerce.number().min(0, "Maaş negatif olamaz"),
     is_active: z.boolean(),
     notes: z.string().trim().max(2000).optional().or(z.literal("")),
   })
