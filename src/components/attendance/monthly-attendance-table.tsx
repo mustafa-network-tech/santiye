@@ -79,14 +79,7 @@ const EMPTY_TOTALS: AttendanceTotals = {
   weekly_rest: 0,
 };
 
-const TOTAL_COLUMNS: { key: AttendanceStatus; shortLabel: string }[] = [
-  { key: "worked", shortLabel: "Çalıştı" },
-  { key: "absent", shortLabel: "Çalışmadı" },
-  { key: "unexcused_absence", shortLabel: "MG" },
-  { key: "leave", shortLabel: "İzinli" },
-  { key: "medical_report", shortLabel: "Raporlu" },
-  { key: "weekly_rest", shortLabel: "HT" },
-];
+const PAYABLE_DAYS_LABEL = "Toplam Hak Edilen Gün";
 
 const MANUAL_ATTENDANCE_STATUSES = ATTENDANCE_STATUSES.filter(
   (status) => status.value !== "weekly_rest"
@@ -335,9 +328,7 @@ export function MonthlyAttendanceTable({
           ? getAttendanceMeta(status).symbol
           : "";
       });
-      TOTAL_COLUMNS.forEach((column) => {
-        row[column.shortLabel] = totals[column.key];
-      });
+      row[PAYABLE_DAYS_LABEL] = totals.worked + totals.weekly_rest;
       return row;
     });
   }
@@ -393,7 +384,7 @@ export function MonthlyAttendanceTable({
             ...days.map(
               (day) => `${String(day.day).padStart(2, "0")} ${day.dayName}`
             ),
-            ...TOTAL_COLUMNS.map((column) => column.shortLabel),
+            PAYABLE_DAYS_LABEL,
           ];
     const body = rows.map((row) => headers.map((header) => row[header] ?? ""));
     const document = new jsPDF({
@@ -720,7 +711,7 @@ export function MonthlyAttendanceTable({
         <div className="max-h-[72vh] overflow-auto">
           <table
             className="border-separate border-spacing-0 text-sm"
-            style={{ minWidth: 220 + days.length * 54 + 5 * 82 }}
+            style={{ minWidth: 220 + days.length * 54 + 130 }}
           >
             <thead className="sticky top-0 z-30 bg-background">
               <tr>
@@ -757,14 +748,9 @@ export function MonthlyAttendanceTable({
                     </span>
                   </th>
                 ))}
-                {TOTAL_COLUMNS.map((column) => (
-                  <th
-                    key={column.key}
-                    className="min-w-[82px] border-b border-r bg-muted/70 px-2 py-2 text-center text-[10px] font-semibold uppercase"
-                  >
-                    {column.shortLabel}
-                  </th>
-                ))}
+                <th className="min-w-[130px] border-b border-r bg-muted/70 px-2 py-2 text-center text-[10px] font-semibold uppercase">
+                  {PAYABLE_DAYS_LABEL}
+                </th>
               </tr>
             </thead>
 
@@ -886,14 +872,9 @@ const AttendanceRow = memo(function AttendanceRow({
         );
       })}
 
-      {TOTAL_COLUMNS.map((column) => (
-        <td
-          key={column.key}
-          className="min-w-[82px] border-b border-r bg-muted/30 px-2 py-2 text-center font-semibold tabular-nums"
-        >
-          {totals[column.key]}
-        </td>
-      ))}
+      <td className="min-w-[130px] border-b border-r bg-muted/30 px-2 py-2 text-center font-semibold tabular-nums">
+        {totals.worked + totals.weekly_rest}
+      </td>
     </tr>
   );
 });

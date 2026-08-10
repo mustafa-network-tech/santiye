@@ -57,6 +57,7 @@ export async function downloadAttendanceSummaryExcel(options: {
       width: 31,
     },
     { header: "Hafta Tatili Gün Sayısı", key: "weeklyRest", width: 24 },
+    { header: "Toplam Hak Edilen Gün", key: "payableDays", width: 25 },
   ];
 
   options.personnel.forEach((person) => {
@@ -69,6 +70,7 @@ export async function downloadAttendanceSummaryExcel(options: {
       medicalReport: totals.medical_report,
       unexcusedAbsence: totals.unexcused_absence,
       weeklyRest: totals.weekly_rest,
+      payableDays: totals.worked + totals.weekly_rest,
     });
   });
 
@@ -76,7 +78,7 @@ export async function downloadAttendanceSummaryExcel(options: {
   worksheet.getRow(1).alignment = { vertical: "middle", horizontal: "center" };
   worksheet.getColumn("tcIdentityNumber").numFmt = "@";
   worksheet.views = [{ state: "frozen", ySplit: 1 }];
-  worksheet.autoFilter = { from: "A1", to: "G1" };
+  worksheet.autoFilter = { from: "A1", to: "H1" };
 
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([new Uint8Array(buffer)], {

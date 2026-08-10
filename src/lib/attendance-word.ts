@@ -86,7 +86,7 @@ export async function downloadMonthlyAttendanceWord(options: {
     "Raporlu Gün",
     "Hafta Tatili",
     "Mazeretsiz Gelmedi",
-    "Toplam Gün",
+    "Toplam Hak Edilen Gün",
   ];
   const cell = (
     text: string | number,
@@ -135,7 +135,7 @@ export async function downloadMonthlyAttendanceWord(options: {
         cell(totals.medical_report),
         cell(totals.weekly_rest),
         cell(totals.unexcused_absence),
-        cell(person.records.length, AlignmentType.CENTER, true),
+        cell(totals.worked + totals.weekly_rest, AlignmentType.CENTER, true),
       ],
     });
   });
@@ -224,7 +224,7 @@ export async function downloadPersonnelAttendanceWord(options: {
     ["Raporlu Gün", totals.medical_report],
     ["Hafta Tatili", totals.weekly_rest],
     ["Mazeretsiz Gelmedi", totals.unexcused_absence],
-    ["Toplam Gün", options.person.records.length],
+    ["Toplam Hak Edilen Gün", totals.worked + totals.weekly_rest],
   ];
   const records = [...options.person.records].sort((a, b) => a.date.localeCompare(b.date));
   const dailyHeader = new TableRow({

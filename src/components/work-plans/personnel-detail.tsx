@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -86,6 +86,11 @@ export function PersonnelDetail({
   const [advanceAmount, setAdvanceAmount] = useState("");
   const [advanceNotes, setAdvanceNotes] = useState("");
   const [advanceSaving, setAdvanceSaving] = useState(false);
+  const [advanceItems, setAdvanceItems] = useState(advances);
+
+  useEffect(() => {
+    setAdvanceItems(advances);
+  }, [advances]);
 
   function updatePeriod(nextYear: number, nextMonth: number) {
     router.push(
@@ -147,14 +152,22 @@ export function PersonnelDetail({
       const supabase = createClient();
       const { data: authData, error: authError } = await supabase.auth.getUser();
       if (authError || !authData.user) throw authError ?? new Error("Oturum bulunamadı");
-      const { error } = await supabase.from("personnel_advances").insert({
-        personnel_id: personnel.id,
-        advance_date: advanceDate,
-        amount,
-        notes: advanceNotes.trim() || null,
-        created_by: authData.user.id,
-      });
+      const { data: savedAdvance, error } = await supabase
+        .from("personnel_advances")
+        .insert({
+          personnel_id: personnel.id,
+          advance_date: advanceDate,
+          amount,
+          notes: advanceNotes.trim() || null,
+          created_by: authData.user.id,
+        })
+        .select("id, personnel_id, advance_date, amount, notes, created_at")
+        .single();
       if (error) throw error;
+      setAdvanceItems((current) => [
+        { ...savedAdvance, amount: Number(savedAdvance.amount) } as PersonnelAdvance,
+        ...current,
+      ]);
       toast.success("Avans kaydedildi");
       setAdvanceOpen(false);
       setAdvanceAmount("");
@@ -162,9 +175,13 @@ export function PersonnelDetail({
       router.refresh();
     } catch (error) {
       console.error(error);
-      toast.error("Avans kaydedilemedi", {
-        description: error instanceof Error ? error.message : undefined,
-      });
+      const message =
+        error && typeof error === "object" && "message" in error
+          ? String(error.message)
+          : error instanceof Error
+            ? error.message
+            : "Supabase kaydı oluşturulamadı";
+      toast.error("Avans kaydedilemedi", { description: message });
     } finally {
       setAdvanceSaving(false);
     }
@@ -392,13 +409,13 @@ export function PersonnelDetail({
 
           <div>
             <p className="mb-2 text-sm font-medium">Avans Dökümü</p>
-            {advances.length === 0 ? (
+            {advanceItems.length === 0 ? (
               <p className="rounded-xl border p-3 text-sm text-muted-foreground">
                 Bu ay için avans kaydı bulunmuyor.
               </p>
             ) : (
               <div className="space-y-2">
-                {advances.map((advance) => (
+                {advanceItems.map((advance) => (
                   <div key={advance.id} className="flex flex-col gap-1 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm font-medium">{formatDate(advance.advance_date)}</p>
