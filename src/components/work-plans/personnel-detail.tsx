@@ -16,7 +16,11 @@ import {
   UserRound,
 } from "lucide-react";
 import type { Personnel } from "@/types/work-plan";
-import type { PersonnelAttendanceDetail } from "@/types/attendance";
+import type {
+  PayrollRow,
+  PersonnelAdvance,
+  PersonnelAttendanceDetail,
+} from "@/types/attendance";
 import {
   MONTH_NAMES,
   getAttendanceMeta,
@@ -46,6 +50,8 @@ type Props = {
   summary: PersonnelAttendanceDetail;
   year: number;
   month: number;
+  payroll: PayrollRow | null;
+  advances: PersonnelAdvance[];
 };
 
 export function PersonnelDetail({
@@ -53,6 +59,8 @@ export function PersonnelDetail({
   summary,
   year,
   month,
+  payroll,
+  advances,
 }: Props) {
   const router = useRouter();
 
@@ -99,6 +107,11 @@ export function PersonnelDetail({
   const recordsByDate = new Map(
     summary.month_records.map((record) => [record.date, record])
   );
+  const money = (value: number | null | undefined) =>
+    `₺${Number(value ?? 0).toLocaleString("tr-TR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
 
   async function exportPersonnelExcel() {
     try {
@@ -274,6 +287,54 @@ export function PersonnelDetail({
           </div>
           <div className="rounded-xl bg-orange-50 p-2.5 text-orange-700 dark:bg-orange-950/40">
             <CircleOff className="h-5 w-5" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            {MONTH_NAMES[month - 1]} {year} Maaş ve Hakediş
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["Aylık Maaş", money(payroll?.monthly_salary ?? personnel.monthly_salary)],
+              ["Çalışılan Gün", payroll?.worked_days ?? 0],
+              ["Otomatik HT", payroll?.weekly_rest_days ?? 0],
+              ["Hak Edilen Gün", payroll?.payable_days ?? 0],
+              ["Brüt Hakediş", money(payroll?.gross_accrued)],
+              ["Pazar Mesaisi", money(payroll?.overtime_payment)],
+              ["Avans Toplamı", money(payroll?.advance_total)],
+              ["Net Alacak", money(payroll?.net_receivable)],
+            ].map(([label, value]) => (
+              <div key={String(label)} className="rounded-xl border p-3">
+                <p className="text-xs text-muted-foreground">{label}</p>
+                <p className="mt-1 text-xl font-semibold">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div>
+            <p className="mb-2 text-sm font-medium">Avans Dökümü</p>
+            {advances.length === 0 ? (
+              <p className="rounded-xl border p-3 text-sm text-muted-foreground">
+                Bu ay için avans kaydı bulunmuyor.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {advances.map((advance) => (
+                  <div key={advance.id} className="flex flex-col gap-1 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{formatDate(advance.advance_date)}</p>
+                      <p className="text-xs text-muted-foreground">{advance.notes?.trim() || "Açıklama yok"}</p>
+                    </div>
+                    <strong>{money(advance.amount)}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

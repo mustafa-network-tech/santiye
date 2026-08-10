@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PersonnelRepository } from "@/modules/work-plans/personnel-repository";
 import { AttendanceRepository } from "@/modules/attendance/attendance-repository";
 import { PersonnelDetail } from "@/components/work-plans/personnel-detail";
+import type { PayrollRow, PersonnelAdvance } from "@/types/attendance";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -48,12 +49,27 @@ export default async function PersonnelDetailPage({
   const supabase = await createClient();
   const personnelRepository = new PersonnelRepository(supabase);
   const attendanceRepository = new AttendanceRepository(supabase);
-  const [personnel, summary] = await Promise.all([
+  const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+  const monthEnd = `${year}-${String(month).padStart(2, "0")}-${String(
+    new Date(year, month, 0).getDate()
+  ).padStart(2, "0")}`;
+  const [personnel, summary, payrollResult, advancesResult] = await Promise.all([
     personnelRepository.getById(id),
     attendanceRepository.getPersonnelDetail(id, year, month),
+    supabase.rpc("get_monthly_payroll", { p_year: year, p_month: month }),
+    supabase
+      .from("personnel_advances")
+      .select("id, personnel_id, advance_date, amount, notes, created_at")
+      .eq("personnel_id", id)
+      .gte("advance_date", monthStart)
+      .lte("advance_date", monthEnd)
+      .order("advance_date", { ascending: false }),
   ]);
 
   if (!personnel || !summary) notFound();
+  const payroll = ((payrollResult.data ?? []) as PayrollRow[]).find(
+    (row) => row.personnel_id === id
+  ) ?? null;
 
   return (
     <PersonnelDetail
@@ -61,6 +77,8 @@ export default async function PersonnelDetailPage({
       summary={summary}
       year={year}
       month={month}
+      payroll={payroll}
+      advances={(advancesResult.data ?? []) as PersonnelAdvance[]}
     />
   );
 }

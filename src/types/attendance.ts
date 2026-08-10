@@ -111,3 +111,12 @@ export type PayrollRow = {
   gross_accrued: number;
   net_receivable: number;
 };
+
+export type PersonnelAdvance = {
+  id: string;
+  personnel_id: string;
+  advance_date: string;
+  amount: number;
+  notes: string | null;
+  created_at: string;
+};
