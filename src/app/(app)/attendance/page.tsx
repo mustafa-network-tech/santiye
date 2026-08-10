@@ -54,15 +54,21 @@ export default async function AttendancePage({ searchParams }: Props) {
       : "all";
 
   const supabase = await createClient();
+  const attendanceRepository = new AttendanceRepository(supabase);
+  try {
+    await attendanceRepository.ensureSundays(year, month);
+  } catch {
+    // Yetkisiz kullanıcılar puantajı salt okunur görüntülemeye devam edebilir.
+  }
   const [data, exportData, canWrite, payrollResult] = await Promise.all([
-    new AttendanceRepository(supabase).getMonth({
+    attendanceRepository.getMonth({
       year,
       month,
       activeFilter,
       search,
       statusFilter,
     }),
-    new AttendanceRepository(supabase).getMonth({
+    attendanceRepository.getMonth({
       year,
       month,
       activeFilter: "all",

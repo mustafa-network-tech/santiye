@@ -90,6 +90,32 @@ const TOTAL_COLUMNS: { key: AttendanceStatus; shortLabel: string }[] = [
   { key: "weekly_rest", shortLabel: "HT" },
 ];
 
+const MANUAL_ATTENDANCE_STATUSES = ATTENDANCE_STATUSES.filter(
+  (status) => status.value !== "weekly_rest"
+);
+
+function getIstanbulNow() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Istanbul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value ?? "";
+  return {
+    date: `${part("year")}-${part("month")}-${part("day")}`,
+    hour: Number(part("hour")),
+  };
+}
+
+function canEditAttendanceDate(date: string) {
+  const now = getIstanbulNow();
+  return date < now.date || (date === now.date && now.hour >= 9);
+}
+
 function cellKey(personnelId: string, date: string) {
   return `${personnelId}|${date}`;
 }
@@ -231,7 +257,10 @@ export function MonthlyAttendanceTable({
     status: AttendanceStatus
   ) {
     const date = days[selectedDay - 1]?.isoDate;
-    if (!date) return;
+    if (!date || !canEditAttendanceDate(date)) {
+      toast.error("Bu gün için puantaj henüz girilemez");
+      return;
+    }
     Array.from(personnelIds).forEach((personnelId) =>
       setAttendance(personnelId, date, status)
     );
@@ -578,7 +607,7 @@ export function MonthlyAttendanceTable({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tüm Durumlar</SelectItem>
-              {ATTENDANCE_STATUSES.map((status) => (
+              {MANUAL_ATTENDANCE_STATUSES.map((status) => (
                 <SelectItem key={status.value} value={status.value}>
                   {status.symbol} {status.label}
                 </SelectItem>
@@ -617,7 +646,7 @@ export function MonthlyAttendanceTable({
                 </SelectTrigger>
                 <SelectContent>
                   {days.map((day) => (
-                    <SelectItem key={day.isoDate} value={String(day.day)}>
+                    <SelectItem key={day.isoDate} value={String(day.day)} disabled={!canEditAttendanceDate(day.isoDate)}>
                       {String(day.day).padStart(2, "0")} {day.dayName}
                     </SelectItem>
                   ))}
@@ -659,7 +688,7 @@ export function MonthlyAttendanceTable({
           </div>
 
           <div className="flex flex-wrap gap-3 border-t pt-3 text-xs text-muted-foreground">
-            {ATTENDANCE_STATUSES.map((status) => (
+            {MANUAL_ATTENDANCE_STATUSES.map((status) => (
               <span key={status.value} className="flex items-center gap-1.5">
                 <span
                   className={`inline-flex h-6 min-w-7 items-center justify-center rounded border px-1 font-bold ${status.className}`}
@@ -750,7 +779,7 @@ export function MonthlyAttendanceTable({
           )}
         </div>
       </Card>
-      <Card className="overflow-hidden"><CardContent className="pt-6"><h2 className="mb-3 font-semibold">Aylık Maaş / Hakediş Özeti</h2><div className="overflow-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left"><th className="p-2">Personel</th><th className="p-2">Maaş</th><th className="p-2">Eksik</th><th className="p-2">Rapor</th><th className="p-2">Mesai</th><th className="p-2">Avans</th><th className="p-2">Alacak</th></tr></thead><tbody>{payroll.map((row)=><tr key={row.personnel_id} className="border-b"><td className="p-2 font-medium">{row.full_name}</td><td className="p-2">₺{Number(row.monthly_salary).toLocaleString("tr-TR")}</td><td className="p-2">{row.absence_days}</td><td className="p-2">{row.report_days}</td><td className="p-2">{row.overtime_days}</td><td className="p-2">₺{Number(row.advance_total).toLocaleString("tr-TR")}</td><td className="p-2 font-semibold">₺{Number(row.net_receivable).toLocaleString("tr-TR")}</td></tr>)}</tbody></table></div></CardContent></Card>
+      <Card className="overflow-hidden"><CardContent className="pt-6"><h2 className="mb-3 font-semibold">Aylık Maaş / Hakediş Özeti</h2><div className="overflow-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left"><th className="p-2">Personel</th><th className="p-2">Aylık Maaş</th><th className="p-2">Çalıştı</th><th className="p-2">HT</th><th className="p-2">Hak Edilen Gün</th><th className="p-2">Pazar Mesaisi</th><th className="p-2">Brüt Hakediş</th><th className="p-2">Avans</th><th className="p-2">Net Alacak</th></tr></thead><tbody>{payroll.map((row)=><tr key={row.personnel_id} className="border-b"><td className="p-2 font-medium">{row.full_name}</td><td className="p-2">₺{Number(row.monthly_salary).toLocaleString("tr-TR")}</td><td className="p-2">{row.worked_days}</td><td className="p-2">{row.weekly_rest_days}</td><td className="p-2 font-semibold">{row.payable_days}</td><td className="p-2">{row.overtime_days}</td><td className="p-2">₺{Number(row.gross_accrued).toLocaleString("tr-TR")}</td><td className="p-2">₺{Number(row.advance_total).toLocaleString("tr-TR")}</td><td className="p-2 font-semibold">₺{Number(row.net_receivable).toLocaleString("tr-TR")}</td></tr>)}</tbody></table></div></CardContent></Card>
     </div>
   );
 }
@@ -832,10 +861,11 @@ const AttendanceRow = memo(function AttendanceRow({
               day.isSunday ? "bg-cyan-50/60 dark:bg-cyan-950/25" : ""
             }`}
           >
-            <AttendanceCell
-              status={status}
-              dirty={isDirty}
-              editable={editable}
+              <AttendanceCell
+                status={status}
+                dirty={isDirty}
+              editable={editable && canEditAttendanceDate(day.isoDate)}
+              isSunday={day.isSunday}
               onChange={(nextStatus) =>
                 onChange(personnel.id, day.isoDate, nextStatus)
               }
@@ -861,11 +891,13 @@ const AttendanceCell = memo(function AttendanceCell({
   dirty,
   onChange,
   editable,
+  isSunday,
 }: {
   status: AttendanceStatus | null;
   dirty: boolean;
   onChange: (status: AttendanceStatus | null) => void;
   editable: boolean;
+  isSunday: boolean;
 }) {
   const meta = status ? getAttendanceMeta(status) : null;
   if (!editable) {
@@ -901,7 +933,9 @@ const AttendanceCell = memo(function AttendanceCell({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="center">
-        {ATTENDANCE_STATUSES.map((item) => (
+        {MANUAL_ATTENDANCE_STATUSES.filter(
+          (item) => !isSunday || item.value === "worked"
+        ).map((item) => (
           <DropdownMenuItem
             key={item.value}
             onSelect={() => onChange(item.value)}

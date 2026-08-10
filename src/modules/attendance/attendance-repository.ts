@@ -13,6 +13,14 @@ import type {
 export class AttendanceRepository {
   constructor(private readonly supabase: SupabaseClient) {}
 
+  async ensureSundays(year: number, month: number): Promise<void> {
+    const { error } = await this.supabase.rpc(
+      "ensure_sunday_attendance_for_month",
+      { p_year: year, p_month: month }
+    );
+    if (error) throw error;
+  }
+
   async getMonth(options: {
     year: number;
     month: number;
