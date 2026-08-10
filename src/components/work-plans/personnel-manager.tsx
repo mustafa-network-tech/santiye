@@ -419,7 +419,7 @@ export function PersonnelManager({
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editing ? "Personeli Düzenle" : "Yeni Personel"}
@@ -483,6 +483,11 @@ export function PersonnelManager({
             <div className="space-y-2">
               <Label htmlFor="monthly_salary">Aylık Maaş (₺)</Label>
               <Input id="monthly_salary" type="number" min="0" step="0.01" {...form.register("monthly_salary")} />
+              {form.formState.errors.monthly_salary && (
+                <p className="text-xs text-destructive">
+                  {form.formState.errors.monthly_salary.message}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Durum</Label>
