@@ -186,7 +186,16 @@ export function PersonnelDetail({
                 <Phone className="h-4 w-4" />
                 {personnel.phone || "Telefon numarası girilmemiş"}
               </p>
-              <div className="mt-3 grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
+              <div className="mt-3 grid gap-x-6 gap-y-1 text-sm text-muted-foreground sm:grid-cols-2">
+                <span>
+                  Görev: {personnel.job_title?.trim() || "-"}
+                </span>
+                <span>
+                  TC Kimlik No: {personnel.tc_identity_number || "-"}
+                </span>
+                <span className="font-semibold text-foreground">
+                  Aylık Maaş: {money(personnel.monthly_salary)}
+                </span>
                 <span>
                   İşe Giriş: {formatDate(personnel.employment_start_date)}
                 </span>
