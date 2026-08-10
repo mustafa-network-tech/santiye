@@ -57,4 +57,4 @@ src/
   lib/           # Supabase, validasyon, sabitler
   providers/     # Theme + React Query
   types/         # Paylaşılan tipler
-```
+
