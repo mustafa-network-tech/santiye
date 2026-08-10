@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -11,6 +12,7 @@ import {
   FileSpreadsheet,
   FileText,
   Phone,
+  Plus,
   ShieldCheck,
   Umbrella,
   UserRound,
@@ -28,6 +30,7 @@ import {
 } from "@/lib/constants/attendance";
 import { formatEmploymentDuration } from "@/lib/personnel";
 import { formatDate } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 import {
   countAttendanceRecords,
   downloadAttendanceSummaryExcel,
@@ -35,6 +38,9 @@ import {
 } from "@/lib/attendance-excel";
 import { downloadPersonnelAttendanceWord } from "@/lib/attendance-word";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -44,6 +50,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type Props = {
   personnel: Personnel;
@@ -52,6 +64,7 @@ type Props = {
   month: number;
   payroll: PayrollRow | null;
   advances: PersonnelAdvance[];
+  canWriteAdvances: boolean;
 };
 
 export function PersonnelDetail({
@@ -61,8 +74,18 @@ export function PersonnelDetail({
   month,
   payroll,
   advances,
+  canWriteAdvances,
 }: Props) {
   const router = useRouter();
+  const [advanceOpen, setAdvanceOpen] = useState(false);
+  const [advanceDate, setAdvanceDate] = useState(() =>
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Istanbul",
+    }).format(new Date())
+  );
+  const [advanceAmount, setAdvanceAmount] = useState("");
+  const [advanceNotes, setAdvanceNotes] = useState("");
+  const [advanceSaving, setAdvanceSaving] = useState(false);
 
   function updatePeriod(nextYear: number, nextMonth: number) {
     router.push(
@@ -112,6 +135,40 @@ export function PersonnelDetail({
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
+
+  async function saveAdvance() {
+    const amount = Number(advanceAmount.replace(",", "."));
+    if (!advanceDate || !Number.isFinite(amount) || amount <= 0) {
+      toast.error("Geçerli bir tarih ve avans tutarı girin");
+      return;
+    }
+    setAdvanceSaving(true);
+    try {
+      const supabase = createClient();
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) throw authError ?? new Error("Oturum bulunamadı");
+      const { error } = await supabase.from("personnel_advances").insert({
+        personnel_id: personnel.id,
+        advance_date: advanceDate,
+        amount,
+        notes: advanceNotes.trim() || null,
+        created_by: authData.user.id,
+      });
+      if (error) throw error;
+      toast.success("Avans kaydedildi");
+      setAdvanceOpen(false);
+      setAdvanceAmount("");
+      setAdvanceNotes("");
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      toast.error("Avans kaydedilemedi", {
+        description: error instanceof Error ? error.message : undefined,
+      });
+    } finally {
+      setAdvanceSaving(false);
+    }
+  }
 
   async function exportPersonnelExcel() {
     try {
@@ -302,21 +359,29 @@ export function PersonnelDetail({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">
-            {MONTH_NAMES[month - 1]} {year} Maaş ve Hakediş
-          </CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="text-base">
+              {MONTH_NAMES[month - 1]} {year} Maaş ve Hakediş
+            </CardTitle>
+            {canWriteAdvances && (
+              <Button size="sm" onClick={() => setAdvanceOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Avans Ekle
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
               ["Aylık Maaş", money(payroll?.monthly_salary ?? personnel.monthly_salary)],
-              ["Çalışılan Gün", payroll?.worked_days ?? 0],
-              ["Otomatik HT", payroll?.weekly_rest_days ?? 0],
-              ["Hak Edilen Gün", payroll?.payable_days ?? 0],
+              ["Çalıştığı Gün", `${payroll?.worked_days ?? 0} gün`],
+              ["HT", `${payroll?.weekly_rest_days ?? 0} gün`],
+              ["Pazar Mesaisi", `${payroll?.overtime_days ?? 0} gün`],
               ["Brüt Hakediş", money(payroll?.gross_accrued)],
-              ["Pazar Mesaisi", money(payroll?.overtime_payment)],
               ["Avans Toplamı", money(payroll?.advance_total)],
               ["Net Alacak", money(payroll?.net_receivable)],
+              ["Hak Edilen Gün", `${payroll?.payable_days ?? 0} gün`],
             ].map(([label, value]) => (
               <div key={String(label)} className="rounded-xl border p-3">
                 <p className="text-xs text-muted-foreground">{label}</p>
@@ -347,6 +412,31 @@ export function PersonnelDetail({
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={advanceOpen} onOpenChange={setAdvanceOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Avans Ekle</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="advance_date">Tarih</Label>
+              <Input id="advance_date" type="date" value={advanceDate} onChange={(event) => setAdvanceDate(event.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="advance_amount">Tutar (₺)</Label>
+              <Input id="advance_amount" type="number" min="0.01" step="0.01" value={advanceAmount} onChange={(event) => setAdvanceAmount(event.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="advance_notes">Açıklama (Opsiyonel)</Label>
+              <Textarea id="advance_notes" value={advanceNotes} onChange={(event) => setAdvanceNotes(event.target.value)} />
+            </div>
+            <Button className="w-full" onClick={saveAdvance} disabled={advanceSaving}>
+              {advanceSaving ? "Kaydediliyor..." : "Avansı Kaydet"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>

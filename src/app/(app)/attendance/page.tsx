@@ -60,7 +60,7 @@ export default async function AttendancePage({ searchParams }: Props) {
   } catch {
     // Yetkisiz kullanıcılar puantajı salt okunur görüntülemeye devam edebilir.
   }
-  const [data, exportData, canWrite, payrollResult] = await Promise.all([
+  const [data, exportData, canWrite] = await Promise.all([
     attendanceRepository.getMonth({
       year,
       month,
@@ -76,7 +76,6 @@ export default async function AttendancePage({ searchParams }: Props) {
       statusFilter: "all",
     }),
     new UserRepository(supabase).canWrite("attendance"),
-    supabase.rpc("get_monthly_payroll", { p_year: year, p_month: month }),
   ]);
 
   return (
@@ -87,7 +86,6 @@ export default async function AttendancePage({ searchParams }: Props) {
       initialActivityFilter={activeFilter}
       initialStatusFilter={statusFilter}
       readOnly={!canWrite}
-      payroll={(payrollResult.data ?? []) as import("@/types/attendance").PayrollRow[]}
     />
   );
 }
