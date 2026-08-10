@@ -261,6 +261,10 @@ export function MonthlyAttendanceTable({
       toast.error("Bu gün için puantaj henüz girilemez");
       return;
     }
+    if (days[selectedDay - 1]?.isSunday && status !== "worked") {
+      toast.error("Pazar günü yalnızca Çalıştı olarak değiştirilebilir");
+      return;
+    }
     Array.from(personnelIds).forEach((personnelId) =>
       setAttendance(personnelId, date, status)
     );
@@ -607,7 +611,7 @@ export function MonthlyAttendanceTable({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tüm Durumlar</SelectItem>
-              {MANUAL_ATTENDANCE_STATUSES.map((status) => (
+              {ATTENDANCE_STATUSES.map((status) => (
                 <SelectItem key={status.value} value={status.value}>
                   {status.symbol} {status.label}
                 </SelectItem>
@@ -653,13 +657,20 @@ export function MonthlyAttendanceTable({
                 </SelectContent>
               </Select>
 
-              {ATTENDANCE_STATUSES.map((status) => (
+              {MANUAL_ATTENDANCE_STATUSES.map((status) => (
                 <Button
                   key={status.value}
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={selectedPersonnel.size === 0}
+                  disabled={
+                    selectedPersonnel.size === 0 ||
+                    (days[selectedDay - 1]?.isSunday &&
+                      status.value !== "worked") ||
+                    !canEditAttendanceDate(
+                      days[selectedDay - 1]?.isoDate ?? "9999-12-31"
+                    )
+                  }
                   onClick={() =>
                     applyToPersonnel(selectedPersonnel, status.value)
                   }
@@ -675,6 +686,11 @@ export function MonthlyAttendanceTable({
               type="button"
               variant="secondary"
               size="sm"
+              disabled={
+                !canEditAttendanceDate(
+                  days[selectedDay - 1]?.isoDate ?? "9999-12-31"
+                )
+              }
               onClick={() =>
                 applyToPersonnel(
                   initialData.active_personnel_ids,
