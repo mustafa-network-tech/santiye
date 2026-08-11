@@ -18,6 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  Copy,
   GripVertical,
   Loader2,
   Plus,
@@ -129,7 +130,7 @@ export function WorkPlanEditor({
     if (initialTeams?.length) {
       return initialTeams.map((t) => ({
         client_id: t.id ?? newClientId(),
-        project_code: t.project_code,
+        project_code: t.project_code === "-" ? "" : t.project_code,
         project_name: t.project_name,
         team_type: t.team_type,
         vehicle_plate: t.vehicle_plate,
@@ -154,6 +155,7 @@ export function WorkPlanEditor({
     return [emptyTeam()];
   });
   const [loading, setLoading] = useState(false);
+  const [loadingLatest, setLoadingLatest] = useState(false);
   const [typeSuggestions, setTypeSuggestions] = useState<string[]>([]);
   const [absenceDialogOpen, setAbsenceDialogOpen] = useState(false);
   const [absences, setAbsences] = useState<WorkPlanAbsenceSnapshot[]>(
@@ -403,6 +405,62 @@ export function WorkPlanEditor({
     );
   }
 
+  async function loadLatestPlan() {
+    setLoadingLatest(true);
+    try {
+      const latest = await new WorkPlanRepository(createClient()).getLatestBefore(
+        planDate
+      );
+      if (!latest) {
+        toast.info("Önceki bir iş planı bulunamadı");
+        return;
+      }
+
+      setTeams(
+        latest.teams.map((team) => {
+          const currentChief = personnel.find(
+            (person) => person.id === team.chief_personnel_id
+          );
+          return {
+          client_id: newClientId(),
+          project_code: team.project_code === "-" ? "" : team.project_code,
+          project_name: team.project_name,
+          team_type: team.team_type,
+          vehicle_plate: team.vehicle_plate,
+          chief_personnel_id: team.chief_personnel_id ?? "",
+          chief_name: currentChief?.full_name ?? team.chief_name,
+          chief_phone: currentChief?.phone ?? team.chief_phone,
+          project_id: team.project_id ?? null,
+          vehicle_id: team.vehicle_id ?? null,
+          work_location: "",
+          work_description: "",
+          notes: "",
+          members: ensureChiefFirst(team.members).map((member) => {
+            const currentPerson = personnel.find(
+              (person) => person.id === member.personnel_id
+            );
+            return {
+              personnel_id: member.personnel_id,
+              full_name: currentPerson?.full_name ?? member.full_name,
+              job_title: currentPerson?.job_title ?? member.job_title,
+              phone: member.is_chief
+                ? currentPerson?.phone ?? member.phone
+                : null,
+              is_chief: member.is_chief,
+              sort_order: member.sort_order,
+            };
+          }),
+        }})
+      );
+      toast.success("Son liste yeni gün için şablon olarak getirildi");
+    } catch (error) {
+      console.error(error);
+      toast.error("Son liste getirilemedi");
+    } finally {
+      setLoadingLatest(false);
+    }
+  }
+
   async function handleSave() {
     if (!planDate) {
       toast.error("Plan tarihi seçin");
@@ -410,8 +468,8 @@ export function WorkPlanEditor({
     }
 
     for (const [idx, team] of teams.entries()) {
-      if (!team.project_code.trim() || !team.project_name.trim()) {
-        toast.error(`Ekip ${idx + 1}: Proje ID ve adı zorunlu`);
+      if (!team.project_name.trim()) {
+        toast.error(`Ekip ${idx + 1}: Proje adı zorunlu`);
         return;
       }
       if (!team.team_type.trim() || !team.vehicle_plate.trim()) {
@@ -540,10 +598,23 @@ export function WorkPlanEditor({
             Ekipler ve personeller o güne özel snapshot olarak saklanır.
           </p>
         </div>
-        <Button onClick={handleSave} disabled={loading}>
-          {loading && <Loader2 className="animate-spin" />}
-          Planı Kaydet
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {!existingPlanId && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={loadLatestPlan}
+              disabled={loading || loadingLatest || !planDate}
+            >
+              {loadingLatest ? <Loader2 className="animate-spin" /> : <Copy />}
+              Son Listeyi Getir
+            </Button>
+          )}
+          <Button onClick={handleSave} disabled={loading || loadingLatest}>
+            {loading && <Loader2 className="animate-spin" />}
+            Planı Kaydet
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -692,6 +763,7 @@ export function WorkPlanEditor({
                     }
                     placeholder="GF-102"
                   />
+                  <p className="text-xs text-muted-foreground">Opsiyonel</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Ekip Şefi</Label>
@@ -723,11 +795,7 @@ export function WorkPlanEditor({
                   <Label>Ekip Şefi Telefonu</Label>
                   <Input
                     value={team.chief_phone}
-                    onChange={(e) =>
-                      updateTeam(team.client_id, {
-                        chief_phone: e.target.value,
-                      })
-                    }
+                    readOnly
                     placeholder="05xx xxx xx xx"
                   />
                 </div>

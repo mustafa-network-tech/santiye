@@ -182,6 +182,19 @@ export class WorkPlanRepository {
     if (error) throw error;
   }
 
+  async getLatestBefore(planDate: string): Promise<DailyWorkPlanWithTeams | null> {
+    const { data, error } = await this.supabase
+      .from("daily_work_plans")
+      .select("id")
+      .lt("plan_date", planDate)
+      .order("plan_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data?.id ? this.getById(data.id as string) : null;
+  }
+
   async deleteTeam(teamId: string): Promise<void> {
     const { error } = await this.supabase
       .from("daily_work_plan_teams")
@@ -329,7 +342,7 @@ export class WorkPlanRepository {
         .insert({
           plan_id: planId,
           sort_order: i,
-          project_code: team.project_code.trim(),
+          project_code: team.project_code.trim() || "-",
           project_name: team.project_name.trim(),
           team_type: team.team_type.trim(),
           vehicle_plate: team.vehicle_plate.trim(),

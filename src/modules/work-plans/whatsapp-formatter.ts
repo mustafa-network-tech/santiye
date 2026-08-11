@@ -13,31 +13,27 @@ export function buildWhatsAppText(plan: DailyWorkPlanWithTeams): string {
   ];
 
   plan.teams.forEach((team, index) => {
-    const members = [...team.members].sort((a, b) => a.sort_order - b.sort_order);
-    lines.push(`Ekip ${index + 1}`);
+    const members = ensureChiefFirst(team.members);
+    const chief = members.find((member) => member.is_chief);
+    const formatMember = (name: string, jobTitle?: string | null) =>
+      jobTitle?.trim() ? `${name} (${jobTitle.trim()})` : name;
+
+    lines.push(`*EKİP ${index + 1}*`);
     lines.push(
-      "Personel | Araç Plakası | Ekip Türü | Proje Adı | Proje ID"
+      `Ekip Başı: ${formatMember(
+        chief?.full_name || team.chief_name,
+        chief?.job_title
+      )}`
     );
-
-    members.forEach((member, idx) => {
-      const jobTitle = member.job_title ? `\n(${member.job_title})` : "";
-      if (idx === 0) {
-        const phone = member.is_chief
-          ? `\n${member.phone || team.chief_phone}`
-          : "";
-        lines.push(
-          `${member.full_name}${jobTitle}${phone} | ${team.vehicle_plate} | ${team.team_type} | ${team.project_name} | ${team.project_code}`
-        );
-      } else {
-        lines.push(`${member.full_name}${jobTitle} |  |  |  | `);
-      }
+    lines.push(`Telefon: ${chief?.phone || team.chief_phone || "-"}`);
+    lines.push(`Araç: ${team.vehicle_plate || "-"}`);
+    lines.push(`Ekip Türü: ${team.team_type || "-"}`);
+    lines.push(`Proje Adı: ${team.project_name || "-"}`);
+    lines.push(`Proje ID: ${team.project_code?.trim() || "-"}`);
+    lines.push("Personeller:");
+    members.forEach((member) => {
+      lines.push(`- ${formatMember(member.full_name, member.job_title)}`);
     });
-
-    if (members.length === 0) {
-      lines.push(
-        `— | ${team.vehicle_plate} | ${team.team_type} | ${team.project_name} | ${team.project_code}`
-      );
-    }
 
     lines.push("");
   });
