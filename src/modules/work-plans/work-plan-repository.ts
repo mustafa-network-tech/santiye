@@ -39,6 +39,23 @@ type AbsenceRow = {
   status: "leave" | "sick_report";
 };
 
+function persistenceError(stage: string, error: unknown): Error {
+  const source = error as {
+    message?: string;
+    details?: string;
+    hint?: string;
+    code?: string;
+  };
+  const detail = [source?.message, source?.details, source?.hint]
+    .filter(Boolean)
+    .join(" — ");
+  const wrapped = new Error(`${stage}: ${detail || "Bilinmeyen Supabase hatası"}`);
+  if (source?.code) {
+    Object.assign(wrapped, { code: source.code });
+  }
+  return wrapped;
+}
+
 function mapAbsences(rows?: AbsenceRow[] | null): WorkPlanAbsenceSnapshot[] {
   return [...(rows ?? [])]
     .sort((a, b) => a.full_name.localeCompare(b.full_name, "tr"))
@@ -294,21 +311,28 @@ export class WorkPlanRepository {
         })
         .eq("id", planId);
 
-      if (updateError) throw updateError;
+      if (updateError) throw persistenceError("Plan güncellenemedi", updateError);
 
       const { error: deleteTeamsError } = await this.supabase
         .from("daily_work_plan_teams")
         .delete()
         .eq("plan_id", planId);
 
-      if (deleteTeamsError) throw deleteTeamsError;
+      if (deleteTeamsError) {
+        throw persistenceError("Eski ekipler temizlenemedi", deleteTeamsError);
+      }
 
       const { error: deleteAbsencesError } = await this.supabase
         .from("daily_work_plan_absences")
         .delete()
         .eq("work_plan_id", planId);
 
-      if (deleteAbsencesError) throw deleteAbsencesError;
+      if (deleteAbsencesError) {
+        throw persistenceError(
+          "Eski izinli/raporlu kayıtları temizlenemedi",
+          deleteAbsencesError
+        );
+      }
     } else {
       const { data: created, error: createError } = await this.supabase
         .from("daily_work_plans")
@@ -321,7 +345,7 @@ export class WorkPlanRepository {
         .select("*")
         .single();
 
-      if (createError) throw createError;
+      if (createError) throw persistenceError("Plan oluşturulamadı", createError);
       planId = created.id;
     }
 
@@ -343,7 +367,9 @@ export class WorkPlanRepository {
         .select("*")
         .single();
 
-      if (teamError) throw teamError;
+      if (teamError) {
+        throw persistenceError(`Ekip ${i + 1} kaydedilemedi`, teamError);
+      }
 
       const memberRows = team.members.map((m, idx) => ({
         team_id: teamRow.id,
@@ -359,7 +385,12 @@ export class WorkPlanRepository {
         .from("daily_work_plan_team_members")
         .insert(memberRows);
 
-      if (membersError) throw membersError;
+      if (membersError) {
+        throw persistenceError(
+          `Ekip ${i + 1} personelleri kaydedilemedi`,
+          membersError
+        );
+      }
     }
 
     if (input.absences.length > 0) {
@@ -373,10 +404,20 @@ export class WorkPlanRepository {
             status: absence.status,
           }))
         );
-      if (absencesError) throw absencesError;
+      if (absencesError) {
+        throw persistenceError(
+          "İzinli/raporlu personeller kaydedilemedi",
+          absencesError
+        );
+      }
     }
 
-    const full = await this.getById(planId!);
+    let full: DailyWorkPlanWithTeams | null;
+    try {
+      full = await this.getById(planId!);
+    } catch (error) {
+      throw persistenceError("Kaydedilen plan tekrar okunamadı", error);
+    }
     if (!full) throw new Error("Plan kaydedilemedi");
     return full;
   }

@@ -538,12 +538,8 @@ export function WorkPlanEditor({
       router.refresh();
     } catch (error) {
       console.error(error);
-      const conflictMessage =
-        error instanceof Error &&
-        (error.message.includes("bu tarihte başka bir ekipte görevli") ||
-          error.message.includes(
-            "plakalı araç bu tarihte başka bir ekipte kullanılıyor"
-          ))
+      const errorMessage =
+        error instanceof Error && error.message.trim()
           ? error.message
           : null;
       const isUniqueViolation =
@@ -552,10 +548,9 @@ export function WorkPlanEditor({
         "code" in error &&
         (error as { code?: string }).code === "23505";
       const message =
-        conflictMessage ??
         (isUniqueViolation
           ? "Bu tarihte zaten bir iş planı var"
-          : "İş planı kaydedilemedi");
+          : errorMessage ?? "İş planı kaydedilemedi");
       toast.error(message);
     } finally {
       setLoading(false);
