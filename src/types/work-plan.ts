@@ -51,11 +51,6 @@ export type WorkPlanTeamSnapshot = {
   chief_personnel_id: string | null;
   chief_name: string;
   chief_phone: string;
-  project_id?: string | null;
-  vehicle_id?: string | null;
-  work_location?: string | null;
-  work_description?: string | null;
-  notes?: string | null;
   members: WorkPlanMemberSnapshot[];
 };
 
