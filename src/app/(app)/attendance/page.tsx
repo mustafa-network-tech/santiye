@@ -71,7 +71,7 @@ export default async function AttendancePage({ searchParams }: Props) {
     attendanceRepository.getMonth({
       year,
       month,
-      activeFilter: "all",
+      activeFilter: "active",
       search: "",
       statusFilter: "all",
     }),

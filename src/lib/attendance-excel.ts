@@ -2,6 +2,7 @@ import type {
   AttendanceRecord,
   AttendanceStatus,
 } from "@/types/attendance";
+import { getAttendanceMeta, getMonthDays } from "@/lib/constants/attendance";
 
 type AttendanceExcelPerson = {
   fullName: string;
@@ -53,42 +54,60 @@ export async function downloadAttendanceSummaryExcel(options: {
 }) {
   const { Workbook } = await import("exceljs");
   const workbook = new Workbook();
-  const worksheet = workbook.addWorksheet("Puantaj Özeti");
+  const worksheet = workbook.addWorksheet("Puantaj Dökümü");
+  const days = getMonthDays(options.year, options.month);
 
   worksheet.columns = [
+    { header: "Sıra", key: "sequence", width: 7 },
     { header: "Ad Soyad", key: "fullName", width: 28 },
-    { header: "TC Kimlik No", key: "tcIdentityNumber", width: 18 },
-    { header: "Çalıştığı Gün Sayısı", key: "worked", width: 22 },
-    { header: "İzinli Gün Sayısı", key: "leave", width: 19 },
-    { header: "Raporlu Gün Sayısı", key: "medicalReport", width: 20 },
-    {
-      header: "Mazeretsiz Gelmedi Gün Sayısı",
-      key: "unexcusedAbsence",
-      width: 31,
-    },
-    { header: "Hafta Tatili Gün Sayısı", key: "weeklyRest", width: 24 },
-    { header: "Toplam Hak Edilen Gün", key: "payableDays", width: 25 },
+    { header: "TC Kimlik No", key: "tcIdentityNumber", width: 16 },
+    ...days.map((day) => ({
+      header: `${String(day.day).padStart(2, "0")} ${day.dayName}`,
+      key: `day${day.day}`,
+      width: 9,
+    })),
+    { header: "Toplam Hak Edilen Gün", key: "payableDays", width: 24 },
   ];
 
-  options.personnel.forEach((person) => {
-    const totals = countAttendanceRecords(person.records);
-    worksheet.addRow({
+  options.personnel.forEach((person, index) => {
+    const recordsByDate = new Map(
+      person.records.map((record) => [record.date, record.status])
+    );
+    const row: Record<string, string | number> = {
+      sequence: index + 1,
       fullName: person.fullName,
-      tcIdentityNumber: maskTcIdentityNumber(person.tcIdentityNumber),
-      worked: totals.worked,
-      leave: totals.leave,
-      medicalReport: totals.medical_report,
-      unexcusedAbsence: totals.unexcused_absence,
-      weeklyRest: totals.weekly_rest,
+      tcIdentityNumber: person.tcIdentityNumber ?? "",
       payableDays: countPayableDays(person.records),
+    };
+
+    days.forEach((day) => {
+      const status = recordsByDate.get(day.isoDate);
+      row[`day${day.day}`] = status ? getAttendanceMeta(status).symbol : "";
     });
+    worksheet.addRow(row);
   });
 
   worksheet.getRow(1).font = { bold: true };
   worksheet.getRow(1).alignment = { vertical: "middle", horizontal: "center" };
   worksheet.getColumn("tcIdentityNumber").numFmt = "@";
-  worksheet.views = [{ state: "frozen", ySplit: 1 }];
-  worksheet.autoFilter = { from: "A1", to: "H1" };
+  worksheet.eachRow((row, rowNumber) => {
+    row.height = rowNumber === 1 ? 28 : 22;
+    row.eachCell((cell) => {
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+      cell.border = {
+        top: { style: "thin" },
+        left: { style: "thin" },
+        bottom: { style: "thin" },
+        right: { style: "thin" },
+      };
+    });
+    if (rowNumber > 1) row.getCell("fullName").alignment = { vertical: "middle", horizontal: "left" };
+  });
+  worksheet.views = [{ state: "frozen", xSplit: 3, ySplit: 1 }];
+  worksheet.autoFilter = {
+    from: "A1",
+    to: `${worksheet.getColumn(worksheet.columnCount).letter}1`,
+  };
 
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([new Uint8Array(buffer)], {
