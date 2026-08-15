@@ -17,14 +17,14 @@ export function WorkPlanAbsences({ absences, poster = false }: Props) {
     <section
       className={
         poster
-          ? "mt-4 overflow-hidden border-2 border-[#222222] bg-white text-[#111111]"
+          ? "mt-4 overflow-hidden border-2 border-[#000000] bg-white text-[#111111]"
           : "overflow-hidden rounded-xl border bg-card"
       }
     >
-      <h2 className="border-b-2 border-[#222222] bg-[#C2A21A] px-4 py-2 text-[11px] font-extrabold tracking-wide text-[#111111]">
+      <h2 className="border-b-2 border-[#000000] bg-[#C2A21A] px-4 py-2 text-[11px] font-extrabold tracking-wide text-[#111111]">
         İZİNLİ / RAPORLU PERSONEL
       </h2>
-      <div className={poster ? "divide-y divide-[#222222]" : "grid gap-2 p-3 sm:grid-cols-2"}>
+      <div className={poster ? "divide-y divide-[#000000]" : "grid gap-2 p-3 sm:grid-cols-2"}>
         {absences.map((absence) => (
           <div
             key={absence.id ?? absence.personnel_id}

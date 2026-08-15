@@ -227,7 +227,7 @@ export function WhatsAppPreview({ plan, open, onClose, onEdit }: Props) {
             className="w-full min-w-0 overflow-hidden rounded-2xl border bg-white p-3 text-[#111111] shadow-sm sm:p-5"
           >
             {/* BAŞLIK */}
-            <div className="mb-3 grid grid-cols-[56px_1fr_auto] items-center gap-3 border-2 border-b-0 border-[#222222] bg-[#999999] px-3 py-2.5 text-[#111111]">
+            <div className="mb-3 grid grid-cols-[56px_1fr_auto] items-center gap-3 border-2 border-b-0 border-[#000000] bg-[#999999] px-3 py-2.5 text-[#111111]">
               <BrandLogo size={42} />
               <div>
                 <p className="text-[15px] font-extrabold tracking-wide">
