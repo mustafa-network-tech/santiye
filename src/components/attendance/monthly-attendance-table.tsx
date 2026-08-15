@@ -85,6 +85,10 @@ const MANUAL_ATTENDANCE_STATUSES = ATTENDANCE_STATUSES.filter(
   (status) => status.value !== "weekly_rest"
 );
 
+const SUNDAY_ATTENDANCE_STATUSES = ATTENDANCE_STATUSES.filter((status) =>
+  ["worked", "absent", "weekly_rest"].includes(status.value)
+);
+
 function getIstanbulNow() {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Istanbul",
@@ -251,8 +255,11 @@ export function MonthlyAttendanceTable({
       toast.error("Bu gün için puantaj henüz girilemez");
       return;
     }
-    if (days[selectedDay - 1]?.isSunday && status !== "worked") {
-      toast.error("Pazar günü yalnızca Çalıştı olarak değiştirilebilir");
+    if (
+      days[selectedDay - 1]?.isSunday &&
+      !SUNDAY_ATTENDANCE_STATUSES.some((item) => item.value === status)
+    ) {
+      toast.error("Pazar günü yalnızca Çalıştı, Çalışmadı veya HT olabilir");
       return;
     }
     Array.from(personnelIds).forEach((personnelId) =>
@@ -648,7 +655,10 @@ export function MonthlyAttendanceTable({
                 </SelectContent>
               </Select>
 
-              {MANUAL_ATTENDANCE_STATUSES.map((status) => (
+              {(days[selectedDay - 1]?.isSunday
+                ? SUNDAY_ATTENDANCE_STATUSES
+                : MANUAL_ATTENDANCE_STATUSES
+              ).map((status) => (
                 <Button
                   key={status.value}
                   type="button"
@@ -656,8 +666,6 @@ export function MonthlyAttendanceTable({
                   size="sm"
                   disabled={
                     selectedPersonnel.size === 0 ||
-                    (days[selectedDay - 1]?.isSunday &&
-                      status.value !== "worked") ||
                     !canEditAttendanceDate(
                       days[selectedDay - 1]?.isoDate ?? "9999-12-31"
                     )
@@ -936,8 +944,9 @@ const AttendanceCell = memo(function AttendanceCell({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="center">
-        {MANUAL_ATTENDANCE_STATUSES.filter(
-          (item) => !isSunday || item.value === "worked"
+        {(isSunday
+          ? SUNDAY_ATTENDANCE_STATUSES
+          : MANUAL_ATTENDANCE_STATUSES
         ).map((item) => (
           <DropdownMenuItem
             key={item.value}
