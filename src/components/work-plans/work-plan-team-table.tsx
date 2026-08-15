@@ -1,159 +1,74 @@
-import type { WorkPlanTeamSnapshot } from "@/types/work-plan";
+import type { WorkPlanMemberSnapshot, WorkPlanTeamSnapshot } from "@/types/work-plan";
 
 type Props =
-  | {
-      teams: WorkPlanTeamSnapshot[];
-      team?: never;
-      teamIndex?: never;
-    }
-  | {
-      teams?: never;
-      team: WorkPlanTeamSnapshot;
-      teamIndex: number;
-    };
+  | { teams: WorkPlanTeamSnapshot[]; team?: never; teamIndex?: never }
+  | { teams?: never; team: WorkPlanTeamSnapshot; teamIndex: number };
+
+const columns = [
+  ["EKİP", "5%"], ["SIRA", "5%"], ["FİRMA", "7%"],
+  ["PERSONEL", "23%"], ["ARAÇ PLAKASI", "12%"],
+  ["EKİP TÜRÜ", "11%"], ["PROJE ADI", "27%"], ["PROJE ID", "10%"],
+] as const;
+
+function isChief(member: WorkPlanMemberSnapshot, team: WorkPlanTeamSnapshot) {
+  return member.is_chief ||
+    (!!team.chief_personnel_id && member.personnel_id === team.chief_personnel_id) ||
+    (!team.chief_personnel_id && !!team.chief_name && member.full_name === team.chief_name);
+}
 
 export function WorkPlanTeamTable(props: Props) {
-  // Hem eski kullanım:
-  // <WorkPlanTeamTable team={team} teamIndex={index} />
-  //
-  // hem yeni kullanım:
-  // <WorkPlanTeamTable teams={plan.teams} />
-  //
-  // desteklenir.
-  const teams =
-    "teams" in props && props.teams
-      ? props.teams
-      : props.team
-        ? [props.team]
-        : [];
-
-  const startIndex =
-    "teamIndex" in props && typeof props.teamIndex === "number"
-      ? props.teamIndex
-      : 0;
+  const teams = "teams" in props && props.teams ? props.teams : props.team ? [props.team] : [];
+  const startIndex = "teamIndex" in props && typeof props.teamIndex === "number" ? props.teamIndex : 0;
 
   return (
-    <div className="w-full min-w-0 overflow-hidden rounded-xl border border-slate-300">
-      <table className="w-full table-fixed border-collapse text-left text-[12px] text-slate-900">
+    <div className="w-full min-w-0 overflow-hidden border-2 border-slate-700 bg-white">
+      <table className="w-full table-fixed border-collapse text-left text-[12px] leading-tight text-slate-950">
+        <colgroup>{columns.map(([label, width]) => <col key={label} style={{ width }} />)}</colgroup>
         <thead>
-          <tr className="bg-slate-100 text-[10px] uppercase tracking-wide text-slate-600">
-            <th className="w-[37%] border border-slate-300 px-2 py-2.5 text-center font-semibold">
-              Personel
-            </th>
-
-            <th className="w-[15%] border border-slate-300 px-2 py-2.5 font-semibold">
-              Araç Plakası
-            </th>
-
-            <th className="w-[14%] border border-slate-300 px-2 py-2.5 font-semibold">
-              Ekip Türü
-            </th>
-
-            <th className="w-[21%] border border-slate-300 px-2 py-2.5 font-semibold">
-              Proje Adı
-            </th>
-
-            <th className="w-[13%] border border-slate-300 px-2 py-2.5 font-semibold">
-              Proje ID
-            </th>
+          <tr className="bg-[#c49a2c] text-[10px] uppercase tracking-[0.02em] text-slate-950">
+            {columns.map(([label]) => (
+              <th key={label} className="border border-slate-700 px-1.5 py-2.5 text-center font-extrabold">{label}</th>
+            ))}
           </tr>
         </thead>
-
         <tbody>
           {teams.map((team, index) => {
             const teamIndex = startIndex + index;
+            const sortedMembers = [...team.members].sort((a, b) => a.sort_order - b.sort_order);
+            const members: WorkPlanMemberSnapshot[] = sortedMembers.length > 0 ? sortedMembers : [{
+              personnel_id: team.chief_personnel_id,
+              full_name: team.chief_name || "—",
+              job_title: null,
+              phone: team.chief_phone || null,
+              is_chief: true,
+              sort_order: 0,
+            }];
+            const rowSpan = members.length;
+            const background = teamIndex % 2 === 0 ? "bg-[#d8e1e7]" : "bg-[#eeeeec]";
+            const mergedCell = "border border-slate-700 px-1.5 py-2 text-center align-middle font-semibold break-words";
 
-            const members = [...team.members].sort(
-              (a, b) => a.sort_order - b.sort_order
-            );
-
-            const chiefMember = members.find((member) => member.is_chief);
-            const chiefName = chiefMember?.full_name || team.chief_name;
-            const chiefPhone = chiefMember?.phone || team.chief_phone;
-            const personnel = members.filter((member) => {
-              if (member.is_chief) return false;
-              if (chiefMember) return member !== chiefMember;
-
-              return !(
-                (team.chief_personnel_id &&
-                  member.personnel_id === team.chief_personnel_id) ||
-                (team.chief_name && member.full_name === team.chief_name)
+            return members.map((member, memberIndex) => {
+              const chief = isChief(member, team);
+              const secondary = chief ? member.phone || team.chief_phone : member.job_title;
+              const edge = `${memberIndex === 0 ? "border-t-2" : ""} ${memberIndex === rowSpan - 1 ? "border-b-2" : ""}`;
+              return (
+                <tr key={`${team.id ?? teamIndex}-${member.personnel_id ?? member.full_name}-${memberIndex}`} className={`${background} ${edge} border-slate-700`}>
+                  {memberIndex === 0 && <td rowSpan={rowSpan} className={mergedCell}>{teamIndex + 1}</td>}
+                  <td className="border border-slate-700 px-1 py-2 text-center align-middle font-semibold">{memberIndex + 1}</td>
+                  <td className="border border-slate-700 px-1 py-2 text-center align-middle font-bold">AZG</td>
+                  <td className="border border-slate-700 px-2.5 py-2 text-left align-middle">
+                    <div className="break-words text-[13px] font-semibold leading-tight">{member.full_name || "—"}</div>
+                    {secondary && <div className="mt-1 break-words text-[10px] font-medium leading-tight text-slate-700">({secondary})</div>}
+                  </td>
+                  {memberIndex === 0 && <>
+                    <td rowSpan={rowSpan} className={mergedCell}>{team.vehicle_plate || "—"}</td>
+                    <td rowSpan={rowSpan} className={mergedCell}>{team.team_type || "—"}</td>
+                    <td rowSpan={rowSpan} className={mergedCell}>{team.project_name || "—"}</td>
+                    <td rowSpan={rowSpan} className={mergedCell}>{team.project_code || "—"}</td>
+                  </>}
+                </tr>
               );
             });
-
-            const teamBackgrounds = [
-              "bg-sky-100",
-              "bg-amber-100",
-              "bg-emerald-100",
-              "bg-violet-100",
-              "bg-rose-100",
-            ];
-            const background =
-              teamBackgrounds[teamIndex % teamBackgrounds.length];
-
-            return (
-              <tr key={`team-${teamIndex}`} className={`${background} align-middle`}>
-                {/* PERSONEL */}
-                <td className="border-2 border-x-slate-500 border-y-slate-600 px-2.5 py-2.5">
-                  <div className="min-w-0 text-center">
-                    <div className="break-words text-[13px] font-semibold leading-tight">
-                      {chiefName || "—"}
-                    </div>
-
-                    {chiefMember?.job_title && (
-                      <div className="mt-0.5 break-words text-[10px] font-medium leading-tight text-slate-600">
-                        ({chiefMember.job_title})
-                      </div>
-                    )}
-
-                    {chiefName && (
-                      <div className="mt-1 break-words text-[11px] font-medium leading-tight text-slate-600">
-                        {chiefPhone || "—"}
-                      </div>
-                    )}
-
-                    {personnel.length > 0 && (
-                      <div className="mt-2 grid grid-cols-2 border-t border-slate-300 pt-2">
-                        {personnel.map((member, memberIndex) => (
-                          <div
-                            key={`${member.personnel_id || member.full_name}-${memberIndex}`}
-                            className={[
-                              "min-w-0 break-words px-1.5 py-0.5 text-[12px] font-medium leading-tight",
-                              memberIndex % 2 === 1
-                                ? "border-l border-slate-300"
-                                : "",
-                            ].join(" ")}
-                          >
-                            <div>{member.full_name}</div>
-                            {member.job_title && (
-                              <div className="mt-0.5 text-[10px] font-normal leading-tight text-slate-600">
-                                ({member.job_title})
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </td>
-
-                <td className="break-words border-2 border-x-slate-500 border-y-slate-600 px-2 py-2.5 align-middle text-[13px] font-semibold">
-                  {team.vehicle_plate || "—"}
-                </td>
-
-                <td className="break-words border-2 border-x-slate-500 border-y-slate-600 px-2 py-2.5 align-middle text-[12px] font-semibold">
-                  {team.team_type || "—"}
-                </td>
-
-                <td className="break-words border-2 border-x-slate-500 border-y-slate-600 px-2 py-2.5 align-middle text-[12px] font-semibold">
-                  {team.project_name || "—"}
-                </td>
-
-                <td className="break-words border-2 border-x-slate-500 border-y-slate-600 px-2 py-2.5 align-middle text-[12px] font-semibold">
-                  {team.project_code || "—"}
-                </td>
-              </tr>
-            );
           })}
         </tbody>
       </table>

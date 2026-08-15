@@ -227,27 +227,27 @@ export function WhatsAppPreview({ plan, open, onClose, onEdit }: Props) {
             className="w-full min-w-0 overflow-hidden rounded-2xl border bg-white p-3 text-slate-900 shadow-sm sm:p-5"
           >
             {/* BAŞLIK */}
-            <div className="relative mb-4 flex items-center border-b border-slate-200 pb-4">
-              <div className="absolute left-0">
-              <BrandLogo size={48} />
-               </div>
-
-              <div className="w-full text-center">
-                <p className="text-lg font-bold tracking-tight">
-                 AZG İLETİŞİM MERKEZ
+            <div className="mb-3 grid grid-cols-[56px_1fr_auto] items-center gap-3 border-2 border-b-0 border-slate-700 bg-white px-3 py-2.5">
+              <BrandLogo size={42} />
+              <div>
+                <p className="text-[15px] font-extrabold tracking-wide">
+                  ÇANAKKALE / MERKEZ
                 </p>
-                 <p className="text-lg font-bold tracking-tight">
-                 GÜNLÜK İŞ PLANI
+                <p className="mt-0.5 text-[11px] font-semibold tracking-wide text-slate-600">
+                  GÜNLÜK İŞ PLANI
                 </p>
-
-                <p className="text-sm text-slate-600">
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600">
+                  Plan Tarihi
+                </p>
+                <p className="mt-0.5 text-[15px] font-extrabold">
                   {formatDate(plan.plan_date, {
                     day: "2-digit",
                     month: "2-digit",
                     year: "numeric",
                   })}
                 </p>
-                
               </div>
             </div>
 

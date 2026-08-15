@@ -17,23 +17,23 @@ export function WorkPlanAbsences({ absences, poster = false }: Props) {
     <section
       className={
         poster
-          ? "mt-4 overflow-hidden rounded-xl border-2 border-slate-300 bg-slate-50"
+          ? "mt-4 overflow-hidden border-2 border-slate-700 bg-white"
           : "overflow-hidden rounded-xl border bg-card"
       }
     >
-      <h2 className="border-b border-slate-300 bg-slate-200 px-4 py-2 text-sm font-bold tracking-wide text-slate-900">
+      <h2 className="border-b-2 border-slate-700 bg-[#c49a2c] px-4 py-2 text-[11px] font-extrabold tracking-wide text-slate-950">
         İZİNLİ / RAPORLU PERSONEL
       </h2>
-      <div className="grid gap-2 p-3 sm:grid-cols-2">
+      <div className={poster ? "divide-y divide-slate-700" : "grid gap-2 p-3 sm:grid-cols-2"}>
         {absences.map((absence) => (
           <div
             key={absence.id ?? absence.personnel_id}
-            className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900"
+            className={poster ? "flex min-w-0 items-center justify-between gap-3 bg-[#eeeeec] px-3 py-2 text-slate-950" : "flex min-w-0 items-center justify-between gap-3 rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900"}
           >
             <span className="min-w-0 break-words text-sm font-semibold">
               {absence.full_name}
             </span>
-            <span className="shrink-0 rounded-md bg-slate-200 px-2 py-1 text-xs font-bold">
+            <span className={poster ? "shrink-0 text-xs font-extrabold" : "shrink-0 rounded-md bg-slate-200 px-2 py-1 text-xs font-bold"}>
               {statusLabels[absence.status]}
             </span>
           </div>
