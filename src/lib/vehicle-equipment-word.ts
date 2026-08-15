@@ -1,16 +1,14 @@
 import type { Vehicle } from "@/types/vehicle";
 import type { InventoryCustodyBalance } from "@/types/inventory";
-import { formatInventoryQuantity } from "@/lib/constants/inventory";
 
 export async function downloadVehicleEquipmentWord(vehicle: Vehicle, balances: InventoryCustodyBalance[]) {
   const { AlignmentType, Document, HeadingLevel, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType } = await import("docx");
   const rows = balances.map((balance, index) => new TableRow({ children: [
     new TableCell({ children: [new Paragraph(String(index + 1))] }),
     new TableCell({ children: [new Paragraph(balance.material?.material_name || "—")] }),
-    new TableCell({ children: [new Paragraph(balance.material?.material_code || "—")] }),
-    new TableCell({ children: [new Paragraph(balance.material ? formatInventoryQuantity(balance.quantity, balance.material.unit) : String(balance.quantity))] }),
+    new TableCell({ children: [new Paragraph(`${Number(balance.quantity).toLocaleString("tr-TR")} adet`)] }),
   ] }));
-  const header = new TableRow({ tableHeader: true, children: ["Sıra", "Malzeme", "Malzeme ID", "Miktar"].map((label) => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: label, bold: true })] })] })) });
+  const header = new TableRow({ tableHeader: true, children: ["Sıra", "Malzeme", "Miktar"].map((label) => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: label, bold: true })] })] })) });
   const doc = new Document({ sections: [{ children: [
     new Paragraph({ text: "AZG İLETİŞİM ARAÇ EKİPMAN LİSTESİ", heading: HeadingLevel.TITLE, alignment: AlignmentType.CENTER }),
     new Paragraph({ children: [new TextRun({ text: "Araç: ", bold: true }), new TextRun(vehicle.plate)] }),

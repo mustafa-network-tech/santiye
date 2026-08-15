@@ -4,8 +4,7 @@ import { useMemo, useState } from "react";
 import { ArrowRightLeft, CarFront, Loader2, Plus, Warehouse } from "lucide-react";
 import { toast } from "sonner";
 import type { Vehicle } from "@/types/vehicle";
-import type { CustodyLocationType, InventoryCustodyBalance, InventoryCustodyMovement, InventoryMaterial, InventoryUnit } from "@/types/inventory";
-import { INVENTORY_UNITS, formatInventoryQuantity } from "@/lib/constants/inventory";
+import type { CustodyLocationType, InventoryCustodyBalance, InventoryCustodyMovement, InventoryMaterial } from "@/types/inventory";
 import { formatDateTime } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { InventoryRepository } from "@/modules/inventory/inventory-repository";
@@ -38,7 +37,7 @@ export function CustodyManager({ initialMaterials, initialBalances, initialMovem
   const [quantity, setQuantity] = useState("1");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
-  const [newItem, setNewItem] = useState({ name: "", code: "", unit: "piece" as InventoryUnit, quantity: "1", location: "warehouse", vehicleId: "", notes: "" });
+  const [newItem, setNewItem] = useState({ name: "", quantity: "1", location: "warehouse", vehicleId: "", notes: "" });
 
   const equipmentBalances = balances.filter((balance) => materials.some((item) => item.id === balance.material_id));
   const totals = useMemo(() => materials.map((material) => ({
@@ -68,16 +67,16 @@ export function CustodyManager({ initialMaterials, initialBalances, initialMovem
     if (newItem.name.trim().length < 2 || !Number.isFinite(amount) || amount <= 0) {
       toast.error("Malzeme adı ve geçerli miktar zorunlu"); return;
     }
-    if (newItem.unit === "piece" && !Number.isInteger(amount)) { toast.error("Adet tam sayı olmalıdır"); return; }
+    if (!Number.isInteger(amount)) { toast.error("Adet tam sayı olmalıdır"); return; }
     if (newItem.location === "vehicle" && !newItem.vehicleId) { toast.error("Araç seçin"); return; }
     setLoading(true);
     try {
       const repository = new InventoryRepository(createClient());
-      await repository.createCustodyMaterial({ material_name: newItem.name, material_code: newItem.code,
-        unit: newItem.unit, initial_quantity: amount,
+      await repository.createCustodyMaterial({ material_name: newItem.name,
+        unit: "piece", initial_quantity: amount,
         vehicle_id: newItem.location === "vehicle" ? newItem.vehicleId : null, notes: newItem.notes });
       await reload(repository); setCreateOpen(false);
-      setNewItem({ name: "", code: "", unit: "piece", quantity: "1", location: "warehouse", vehicleId: "", notes: "" });
+      setNewItem({ name: "", quantity: "1", location: "warehouse", vehicleId: "", notes: "" });
       toast.success("Yeni araç ekipmanı kaydedildi");
     } catch (error) { console.error(error); toast.error("Ekipman kaydedilemedi", { description: (error as Error).message }); }
     finally { setLoading(false); }
@@ -86,8 +85,7 @@ export function CustodyManager({ initialMaterials, initialBalances, initialMovem
   async function submitTransfer() {
     if (!source || !materialId) return;
     const amount = Number(quantity);
-    const material = materials.find((item) => item.id === materialId);
-    if (!Number.isFinite(amount) || amount <= 0 || (material?.unit === "piece" && !Number.isInteger(amount))) {
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isInteger(amount)) {
       toast.error("Geçerli bir miktar girin"); return;
     }
     if (targetType === "vehicle" && !targetId) { toast.error("Araç seçin"); return; }
@@ -115,13 +113,13 @@ export function CustodyManager({ initialMaterials, initialBalances, initialMovem
 
     <Card><CardHeader><CardTitle className="text-base">Tüm Ekipmanlar</CardTitle></CardHeader>
       <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{totals.map(({ material, assigned }) => <div key={material.id} className="rounded-xl border p-4">
-        <div className="flex justify-between gap-3"><div><p className="font-semibold">{material.material_name}</p><p className="text-xs text-muted-foreground">{material.material_code || "Ekipman ID yok"}</p></div>
-          <Badge>Toplam {formatInventoryQuantity(Number(material.stock_quantity) + assigned, material.unit)}</Badge></div>
-        <div className="mt-3 grid grid-cols-2 text-sm"><span>Depo: <strong>{formatInventoryQuantity(material.stock_quantity, material.unit)}</strong></span><span>Araçlarda: <strong>{formatInventoryQuantity(assigned, material.unit)}</strong></span></div>
+        <div className="flex justify-between gap-3"><p className="font-semibold">{material.material_name}</p>
+          <Badge>Toplam {formatEquipmentQuantity(Number(material.stock_quantity) + assigned)}</Badge></div>
+        <div className="mt-3 grid grid-cols-2 text-sm"><span>Depo: <strong>{formatEquipmentQuantity(material.stock_quantity)}</strong></span><span>Araçlarda: <strong>{formatEquipmentQuantity(assigned)}</strong></span></div>
       </div>)}{!totals.length && <p className="text-sm text-muted-foreground">Henüz araç ekipmanı eklenmedi.</p>}</CardContent></Card>
 
     <Card><CardHeader><CardTitle className="text-base">Araç ve Depo Dağılımı</CardTitle></CardHeader><CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {equipmentBalances.map((balance) => <div key={balance.id} className="rounded-xl border p-4"><div className="flex justify-between gap-3"><div><p className="font-semibold">{balance.holder_name}</p><p className="text-sm text-muted-foreground">{balance.material?.material_name}</p></div><Badge>{balance.material ? formatInventoryQuantity(balance.quantity, balance.material.unit) : balance.quantity}</Badge></div>
+      {equipmentBalances.map((balance) => <div key={balance.id} className="rounded-xl border p-4"><div className="flex justify-between gap-3"><div><p className="font-semibold">{balance.holder_name}</p><p className="text-sm text-muted-foreground">{balance.material?.material_name}</p></div><Badge>{formatEquipmentQuantity(balance.quantity)}</Badge></div>
         <p className="mt-2 text-xs text-muted-foreground">{balance.holder_type === "vehicle" ? "Araç" : "Eski zimmet kaydı"}</p>
         {!readOnly && <Button variant="outline" size="sm" className="mt-3 w-full" onClick={() => openTransfer(balance)}><ArrowRightLeft className="h-4 w-4" />Aktar / Depoya İade</Button>}</div>)}
       {!equipmentBalances.length && <p className="text-sm text-muted-foreground">Araçlara zimmetli ekipman yok.</p>}
@@ -131,18 +129,17 @@ export function CustodyManager({ initialMaterials, initialBalances, initialMovem
 
     <Dialog open={createOpen} onOpenChange={setCreateOpen}><DialogContent><DialogHeader><DialogTitle>Yeni Araç Ekipmanı</DialogTitle></DialogHeader><div className="space-y-4">
       <Field label="Malzeme Adı"><Input value={newItem.name} onChange={(e) => setNewItem((v) => ({ ...v, name: e.target.value }))} placeholder="Merdiven, jeneratör, pense..." /></Field>
-      <div className="grid grid-cols-2 gap-3"><Field label="Malzeme ID"><Input value={newItem.code} onChange={(e) => setNewItem((v) => ({ ...v, code: e.target.value }))} /></Field><Field label="Birim"><Select value={newItem.unit} onValueChange={(unit: InventoryUnit) => setNewItem((v) => ({ ...v, unit }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{INVENTORY_UNITS.map((unit) => <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>)}</SelectContent></Select></Field></div>
-      <Field label="Miktar"><Input type="number" min="0.001" value={newItem.quantity} onChange={(e) => setNewItem((v) => ({ ...v, quantity: e.target.value }))} /></Field>
+      <Field label="Miktar (Adet)"><Input type="number" min="1" step="1" value={newItem.quantity} onChange={(e) => setNewItem((v) => ({ ...v, quantity: e.target.value }))} /></Field>
       <Field label="İlk Konum"><Select value={newItem.location} onValueChange={(location) => setNewItem((v) => ({ ...v, location, vehicleId: "" }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="warehouse">Şantiye Deposu</SelectItem><SelectItem value="vehicle">Araç</SelectItem></SelectContent></Select></Field>
       {newItem.location === "vehicle" && <VehicleSelect vehicles={vehicles} value={newItem.vehicleId} onChange={(vehicleId) => setNewItem((v) => ({ ...v, vehicleId }))} />}
       <Field label="Not"><Textarea value={newItem.notes} onChange={(e) => setNewItem((v) => ({ ...v, notes: e.target.value }))} /></Field><Button className="w-full" disabled={loading} onClick={createMaterial}>{loading && <Loader2 className="h-4 w-4 animate-spin" />}Kaydet</Button>
     </div></DialogContent></Dialog>
 
     <Dialog open={Boolean(source)} onOpenChange={(open) => !open && setSource(null)}><DialogContent><DialogHeader><DialogTitle>{source?.type === "warehouse" ? "Depodan Araca Zimmetle" : "Ekipmanı Aktar"}</DialogTitle></DialogHeader>{source && <div className="space-y-4">
-      {source.type === "warehouse" ? <Field label="Malzeme"><Select value={materialId} onValueChange={setMaterialId}><SelectTrigger><SelectValue placeholder="Malzeme seçin" /></SelectTrigger><SelectContent>{materials.filter((m) => Number(m.stock_quantity) > 0).map((m) => <SelectItem key={m.id} value={m.id}>{m.material_name} · {formatInventoryQuantity(m.stock_quantity, m.unit)}</SelectItem>)}</SelectContent></Select></Field> : <div className="rounded-xl bg-muted p-3 text-sm"><strong>{source.balance?.holder_name}</strong><p>{source.balance?.material?.material_name}</p></div>}
+      {source.type === "warehouse" ? <Field label="Malzeme"><Select value={materialId} onValueChange={setMaterialId}><SelectTrigger><SelectValue placeholder="Malzeme seçin" /></SelectTrigger><SelectContent>{materials.filter((m) => Number(m.stock_quantity) > 0).map((m) => <SelectItem key={m.id} value={m.id}>{m.material_name} · {formatEquipmentQuantity(m.stock_quantity)}</SelectItem>)}</SelectContent></Select></Field> : <div className="rounded-xl bg-muted p-3 text-sm"><strong>{source.balance?.holder_name}</strong><p>{source.balance?.material?.material_name}</p></div>}
       <Field label="Hedef"><Select value={targetType} onValueChange={(value: "warehouse" | "vehicle") => { setTargetType(value); setTargetId(""); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="warehouse"><Warehouse className="mr-2 inline h-4 w-4" />Şantiye Deposu</SelectItem><SelectItem value="vehicle">Araç</SelectItem></SelectContent></Select></Field>
       {targetType === "vehicle" && <VehicleSelect vehicles={vehicles.filter((v) => source.balance?.holder_id !== v.id)} value={targetId} onChange={setTargetId} />}
-      <Field label={`Miktar (En fazla ${maxQuantity})`}><Input type="number" min="0.001" max={maxQuantity} value={quantity} onChange={(e) => setQuantity(e.target.value)} /></Field><Field label="Not"><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} /></Field><Button className="w-full" disabled={loading || !materialId} onClick={submitTransfer}>{loading && <Loader2 className="h-4 w-4 animate-spin" />}İşlemi Kaydet</Button>
+      <Field label={`Miktar (Adet, en fazla ${maxQuantity})`}><Input type="number" min="1" step="1" max={maxQuantity} value={quantity} onChange={(e) => setQuantity(e.target.value)} /></Field><Field label="Not"><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} /></Field><Button className="w-full" disabled={loading || !materialId} onClick={submitTransfer}>{loading && <Loader2 className="h-4 w-4 animate-spin" />}İşlemi Kaydet</Button>
     </div>}</DialogContent></Dialog>
   </div>;
 }
@@ -152,3 +149,7 @@ function VehicleSelect({ vehicles, value, onChange }: { vehicles: Vehicle[]; val
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <div className="space-y-2"><Label>{label}</Label>{children}</div>; }
+
+function formatEquipmentQuantity(quantity: number) {
+  return `${Number(quantity).toLocaleString("tr-TR")} adet`;
+}

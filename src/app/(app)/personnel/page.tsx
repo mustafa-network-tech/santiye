@@ -3,6 +3,7 @@ import { PersonnelRepository } from "@/modules/work-plans/personnel-repository";
 import { AttendanceRepository } from "@/modules/attendance/attendance-repository";
 import { PersonnelManager } from "@/components/work-plans/personnel-manager";
 import { UserRepository } from "@/modules/users/user-repository";
+import { VehicleRepository } from "@/modules/vehicles/vehicle-repository";
 
 export const metadata = {
   title: "Personel",
@@ -46,7 +47,7 @@ export default async function PersonnelPage({ searchParams }: Props) {
 
   const supabase = await createClient();
   const attendanceRepository = new AttendanceRepository(supabase);
-  const [personnel, attendanceSummary, personnelSummaries, canWrite] = await Promise.all([
+  const [personnel, attendanceSummary, personnelSummaries, assignedVehicles, canWrite] = await Promise.all([
     new PersonnelRepository(supabase).list(),
     validPersonnelId
       ? attendanceRepository.getPersonnelSummary(
@@ -56,6 +57,7 @@ export default async function PersonnelPage({ searchParams }: Props) {
         )
       : Promise.resolve(null),
     attendanceRepository.getPersonnelListSummaries(year, month),
+    new VehicleRepository(supabase).list(),
     new UserRepository(supabase).canWrite("personnel"),
   ]);
 
@@ -64,6 +66,7 @@ export default async function PersonnelPage({ searchParams }: Props) {
       initialPersonnel={personnel}
       attendanceSummary={attendanceSummary}
       personnelSummaries={personnelSummaries}
+      assignedVehicles={assignedVehicles.filter((vehicle) => vehicle.assigned_personnel_id)}
       summaryYear={year}
       summaryMonth={month}
       readOnly={!canWrite}

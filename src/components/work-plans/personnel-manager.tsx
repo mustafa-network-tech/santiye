@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Personnel } from "@/types/work-plan";
+import type { Vehicle } from "@/types/vehicle";
 import type { PersonnelAttendanceSummary } from "@/types/attendance";
 import type { PersonnelListSummary } from "@/types/attendance";
 import { MONTH_NAMES } from "@/lib/constants/attendance";
@@ -57,6 +58,7 @@ type Props = {
   initialPersonnel: Personnel[];
   attendanceSummary?: PersonnelAttendanceSummary | null;
   personnelSummaries?: PersonnelListSummary[];
+  assignedVehicles?: Vehicle[];
   summaryYear?: number;
   summaryMonth?: number;
   readOnly?: boolean;
@@ -66,6 +68,7 @@ export function PersonnelManager({
   initialPersonnel,
   attendanceSummary,
   personnelSummaries = [],
+  assignedVehicles = [],
   summaryYear = new Date().getFullYear(),
   summaryMonth = new Date().getMonth() + 1,
   readOnly = false,
@@ -335,6 +338,9 @@ export function PersonnelManager({
             ) : (
               filtered.map((person) => {
                 const summary = summaryByPersonnel.get(person.id);
+                const assignedVehicle = assignedVehicles.find(
+                  (vehicle) => vehicle.assigned_personnel_id === person.id
+                );
                 return (
                 <div
                   key={person.id}
@@ -365,6 +371,11 @@ export function PersonnelManager({
                         >
                           {person.is_active ? "Aktif" : "Pasif"}
                         </Badge>
+                        {assignedVehicle && (
+                          <Badge className="border bg-background text-foreground">
+                            {assignedVehicle.plate}
+                          </Badge>
+                        )}
                       </div>
                       {person.job_title && (
                         <p className="text-sm text-muted-foreground">

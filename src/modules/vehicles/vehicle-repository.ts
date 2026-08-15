@@ -5,6 +5,7 @@ import type {
   VehicleDeadlineAlert,
   VehicleInput,
   VehicleUpdate,
+  VehicleFuelLog,
 } from "@/types/vehicle";
 
 function emptyToNull(value?: string | null) {
@@ -119,6 +120,43 @@ export class VehicleRepository {
       .eq("id", id)
       .select("*")
       .single();
+    if (error) throw error;
+    return data as Vehicle;
+  }
+
+  async listFuelLogs(): Promise<VehicleFuelLog[]> {
+    const { data, error } = await this.supabase
+      .from("vehicle_fuel_logs")
+      .select("*")
+      .order("fuel_date", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as VehicleFuelLog[];
+  }
+
+  async recordFuelPurchase(payload: {
+    vehicle_id: string;
+    fuel_date: string;
+    odometer_km: number;
+    liters: number;
+    notes?: string;
+  }): Promise<VehicleFuelLog> {
+    const { data, error } = await this.supabase.rpc("record_vehicle_fuel_purchase", {
+      p_vehicle_id: payload.vehicle_id,
+      p_fuel_date: payload.fuel_date,
+      p_odometer_km: payload.odometer_km,
+      p_liters: payload.liters,
+      p_notes: payload.notes || null,
+    });
+    if (error) throw error;
+    return data as VehicleFuelLog;
+  }
+
+  async assignPersonnel(vehicleId: string, personnelId: string | null): Promise<Vehicle> {
+    const { data, error } = await this.supabase.rpc("assign_vehicle_personnel", {
+      p_vehicle_id: vehicleId,
+      p_personnel_id: personnelId,
+    });
     if (error) throw error;
     return data as Vehicle;
   }
