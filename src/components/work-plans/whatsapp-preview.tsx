@@ -224,21 +224,21 @@ export function WhatsAppPreview({ plan, open, onClose, onEdit }: Props) {
           {/* PNG OLARAK ALINACAK ALAN */}
           <div
             ref={posterRef}
-            className="w-full min-w-0 overflow-hidden rounded-2xl border bg-white p-3 text-slate-900 shadow-sm sm:p-5"
+            className="w-full min-w-0 overflow-hidden rounded-2xl border bg-white p-3 text-[#111111] shadow-sm sm:p-5"
           >
             {/* BAŞLIK */}
-            <div className="mb-3 grid grid-cols-[56px_1fr_auto] items-center gap-3 border-2 border-b-0 border-slate-700 bg-white px-3 py-2.5">
+            <div className="mb-3 grid grid-cols-[56px_1fr_auto] items-center gap-3 border-2 border-b-0 border-[#222222] bg-[#B7B7B7] px-3 py-2.5 text-[#111111]">
               <BrandLogo size={42} />
               <div>
                 <p className="text-[15px] font-extrabold tracking-wide">
                   ÇANAKKALE / MERKEZ
                 </p>
-                <p className="mt-0.5 text-[11px] font-semibold tracking-wide text-slate-600">
+                <p className="mt-0.5 text-[11px] font-semibold tracking-wide text-[#111111]">
                   GÜNLÜK İŞ PLANI
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-[#111111]">
                   Plan Tarihi
                 </p>
                 <p className="mt-0.5 text-[15px] font-extrabold">

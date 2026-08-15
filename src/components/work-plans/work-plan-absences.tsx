@@ -17,18 +17,18 @@ export function WorkPlanAbsences({ absences, poster = false }: Props) {
     <section
       className={
         poster
-          ? "mt-4 overflow-hidden border-2 border-slate-700 bg-white"
+          ? "mt-4 overflow-hidden border-2 border-[#222222] bg-white text-[#111111]"
           : "overflow-hidden rounded-xl border bg-card"
       }
     >
-      <h2 className="border-b-2 border-slate-700 bg-[#c49a2c] px-4 py-2 text-[11px] font-extrabold tracking-wide text-slate-950">
+      <h2 className="border-b-2 border-[#222222] bg-[#A77A00] px-4 py-2 text-[11px] font-extrabold tracking-wide text-[#111111]">
         İZİNLİ / RAPORLU PERSONEL
       </h2>
-      <div className={poster ? "divide-y divide-slate-700" : "grid gap-2 p-3 sm:grid-cols-2"}>
+      <div className={poster ? "divide-y divide-[#222222]" : "grid gap-2 p-3 sm:grid-cols-2"}>
         {absences.map((absence) => (
           <div
             key={absence.id ?? absence.personnel_id}
-            className={poster ? "flex min-w-0 items-center justify-between gap-3 bg-[#eeeeec] px-3 py-2 text-slate-950" : "flex min-w-0 items-center justify-between gap-3 rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900"}
+            className={poster ? "flex min-w-0 items-center justify-between gap-3 bg-[#A6A6A6] px-3 py-2 text-[#111111]" : "flex min-w-0 items-center justify-between gap-3 rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900"}
           >
             <span className="min-w-0 break-words text-sm font-semibold">
               {absence.full_name}
