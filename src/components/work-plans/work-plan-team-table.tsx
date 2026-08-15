@@ -10,7 +10,7 @@ const columns = [
   ["EKİP TÜRÜ", "11%"], ["PROJE ADI", "27%"], ["PROJE ID", "10%"],
 ] as const;
 
-const cellBorderStyle = { border: "2px solid #000000" } as const;
+const cellBorderStyle = { border: "1px solid #000000" } as const;
 
 function isChief(member: WorkPlanMemberSnapshot, team: WorkPlanTeamSnapshot) {
   return member.is_chief ||
@@ -23,7 +23,7 @@ export function WorkPlanTeamTable(props: Props) {
   const startIndex = "teamIndex" in props && typeof props.teamIndex === "number" ? props.teamIndex : 0;
 
   return (
-    <div className="w-full min-w-0 overflow-hidden border-2 border-[#000000] bg-white">
+    <div className="w-full min-w-0 overflow-hidden border border-[#000000] bg-white">
       <table
         className="w-full table-fixed bg-black text-left text-[12px] leading-tight text-[#111111]"
         style={{ borderCollapse: "separate", borderSpacing: 0 }}
