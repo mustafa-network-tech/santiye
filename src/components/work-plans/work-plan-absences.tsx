@@ -21,7 +21,7 @@ export function WorkPlanAbsences({ absences, poster = false }: Props) {
           : "overflow-hidden rounded-xl border bg-card"
       }
     >
-      <h2 className="border-b-2 border-[#222222] bg-[#A77A00] px-4 py-2 text-[11px] font-extrabold tracking-wide text-[#111111]">
+      <h2 className="border-b-2 border-[#222222] bg-[#C2A21A] px-4 py-2 text-[11px] font-extrabold tracking-wide text-[#111111]">
         İZİNLİ / RAPORLU PERSONEL
       </h2>
       <div className={poster ? "divide-y divide-[#222222]" : "grid gap-2 p-3 sm:grid-cols-2"}>
