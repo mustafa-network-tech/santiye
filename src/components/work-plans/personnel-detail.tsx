@@ -65,6 +65,7 @@ type Props = {
   payroll: PayrollRow | null;
   advances: PersonnelAdvance[];
   canWriteAdvances: boolean;
+  assignedVehiclePlate?: string | null;
 };
 
 export function PersonnelDetail({
@@ -75,6 +76,7 @@ export function PersonnelDetail({
   payroll,
   advances,
   canWriteAdvances,
+  assignedVehiclePlate = null,
 }: Props) {
   const router = useRouter();
   const [advanceOpen, setAdvanceOpen] = useState(false);
@@ -255,6 +257,11 @@ export function PersonnelDetail({
                 >
                   {personnel.is_active ? "Aktif" : "Pasif"}
                 </Badge>
+                {assignedVehiclePlate && (
+                  <Badge className="border bg-background text-foreground">
+                    {assignedVehiclePlate}
+                  </Badge>
+                )}
               </div>
               <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
                 <Phone className="h-4 w-4" />

@@ -54,7 +54,7 @@ export default async function PersonnelDetailPage({
   const monthEnd = `${year}-${String(month).padStart(2, "0")}-${String(
     new Date(year, month, 0).getDate()
   ).padStart(2, "0")}`;
-  const [personnel, summary, payrollResult, advancesResult, canWriteAdvances] = await Promise.all([
+  const [personnel, summary, payrollResult, advancesResult, assignedVehicleResult, canWriteAdvances] = await Promise.all([
     personnelRepository.getById(id),
     attendanceRepository.getPersonnelDetail(id, year, month),
     supabase.rpc("get_monthly_payroll", { p_year: year, p_month: month }),
@@ -65,6 +65,11 @@ export default async function PersonnelDetailPage({
       .gte("advance_date", monthStart)
       .lte("advance_date", monthEnd)
       .order("advance_date", { ascending: false }),
+    supabase
+      .from("vehicles")
+      .select("plate")
+      .eq("assigned_personnel_id", id)
+      .maybeSingle(),
     new UserRepository(supabase).canWrite("attendance"),
   ]);
 
@@ -81,6 +86,7 @@ export default async function PersonnelDetailPage({
       month={month}
       payroll={payroll}
       advances={(advancesResult.data ?? []) as PersonnelAdvance[]}
+      assignedVehiclePlate={assignedVehicleResult.data?.plate ?? null}
       canWriteAdvances={canWriteAdvances}
     />
   );
