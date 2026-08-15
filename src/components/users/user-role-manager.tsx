@@ -44,6 +44,7 @@ const PERMISSION_FIELDS: {
     | "vehicles_write"
     | "inventory_write"
     | "custody_write"
+    | "productions_write"
   >;
   label: string;
 }[] = [
@@ -54,6 +55,7 @@ const PERMISSION_FIELDS: {
   { module: "vehicles", field: "vehicles_write", label: "Araçlar" },
   { module: "inventory", field: "inventory_write", label: "Malzeme Stok" },
   { module: "custody", field: "custody_write", label: "Araç Ekipmanları" },
+  { module: "productions", field: "productions_write", label: "İmalatlar" },
 ];
 
 export function UserRoleManager({
@@ -404,6 +406,7 @@ function emptyPermissions(userId: string): CompanyManagerPermissions {
     vehicles_write: false,
     inventory_write: false,
     custody_write: false,
+    productions_write: false,
     updated_by: null,
     updated_at: new Date(0).toISOString(),
   };

@@ -20,6 +20,7 @@ import {
   Menu,
   X,
   ChevronDown,
+  Hammer,
 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -52,6 +53,13 @@ const NAV_ITEMS = [
     href: "/work-plans",
     label: "İş Planı",
     icon: ClipboardList,
+    accounting: false,
+    group: "OPERASYON",
+  },
+  {
+    href: "/imalatlar",
+    label: "İmalatlar",
+    icon: Hammer,
     accounting: false,
     group: "OPERASYON",
   },
