@@ -58,14 +58,6 @@ drop trigger if exists production_entries_set_updated_at on public.production_en
 create trigger production_entries_set_updated_at before update on public.production_entries
 for each row execute function public.set_updated_at();
 
-insert into public.production_item_definitions(name, unit, is_active)
-values
-  ('FOY Kablo Çekimi', 'MT', true),
-  ('Ek Yapımı', 'ADET', true),
-  ('Camper Aktarması', 'ADET', true),
-  ('Krone İşleme', 'DEVRE', true)
-on conflict(name) do nothing;
-
 alter table public.production_item_definitions enable row level security;
 alter table public.production_entries enable row level security;
 alter table public.production_jobs enable row level security;

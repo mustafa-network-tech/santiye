@@ -16,6 +16,7 @@ import type {
   InventoryMovement,
   InventoryMovementType,
 } from "@/types/inventory";
+import type { Project } from "@/types/project";
 import {
   INVENTORY_UNITS,
   formatInventoryQuantity,
@@ -57,10 +58,12 @@ type MovementDialogState = {
 export function InventoryManager({
   initialMaterials,
   initialMovements,
+  projects,
   readOnly = false,
 }: {
   initialMaterials: InventoryMaterial[];
   initialMovements: InventoryMovement[];
+  projects: Project[];
   readOnly?: boolean;
 }) {
   const [materials, setMaterials] = useState(initialMaterials);
@@ -70,6 +73,8 @@ export function InventoryManager({
   const [movementDialog, setMovementDialog] =
     useState<MovementDialogState>(null);
   const [loading, setLoading] = useState(false);
+  const [usageMode, setUsageMode] = useState<"project" | "manual">("project");
+  const [selectedProjectId, setSelectedProjectId] = useState("");
 
   const materialForm = useForm<InventoryMaterialFormValues>({
     resolver: zodResolver(inventoryMaterialSchema),
@@ -101,6 +106,18 @@ export function InventoryManager({
       ].some((value) => value.toLocaleLowerCase("tr-TR").includes(query))
     );
   }, [materials, search]);
+  const groupedMaterials = useMemo(() => {
+    const groups = new Map<string, { name: string; materials: InventoryMaterial[] }>();
+    for (const material of filteredMaterials) {
+      const key = material.material_name.trim().toLocaleLowerCase("tr-TR");
+      const group = groups.get(key);
+      if (group) group.materials.push(material);
+      else groups.set(key, { name: material.material_name.trim(), materials: [material] });
+    }
+    return [...groups.values()]
+      .map((group) => ({ ...group, materials: group.materials.sort((a, b) => (a.material_code || "").localeCompare(b.material_code || "", "tr")) }))
+      .sort((a, b) => a.name.localeCompare(b.name, "tr"));
+  }, [filteredMaterials]);
 
   function openNewMaterial() {
     materialForm.reset({
@@ -122,6 +139,8 @@ export function InventoryManager({
       usage_location: "",
       description: "",
     });
+    setUsageMode("project");
+    setSelectedProjectId("");
     setMovementDialog({ material, type });
   }
 
@@ -239,56 +258,28 @@ export function InventoryManager({
             placeholder="Malzeme cinsi veya ID ara..."
           />
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {filteredMaterials.map((material) => (
-              <div key={material.id} className="rounded-2xl border p-4">
-                <div className="flex items-start justify-between gap-3">
+            {groupedMaterials.map((group) => (
+              <div key={group.name.toLocaleLowerCase("tr-TR")} className="rounded-2xl border p-4">
+                <div className="flex items-start gap-3 border-b pb-3">
                   <div className="flex min-w-0 items-start gap-3">
                     <span className="rounded-xl bg-primary/10 p-2 text-primary">
                       <Boxes className="h-5 w-5" />
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate font-semibold">
-                        {material.material_name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Malzeme ID: {material.material_code || "—"}
-                      </p>
+                      <p className="font-semibold">{group.name}</p>
+                      <p className="text-xs text-muted-foreground">{group.materials.length} farklı Malzeme ID</p>
                     </div>
                   </div>
-                  <Badge className="shrink-0 text-sm">
-                    {formatInventoryQuantity(
-                      material.stock_quantity,
-                      material.unit
-                    )}
-                  </Badge>
                 </div>
-                {material.notes && (
-                  <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
-                    {material.notes}
-                  </p>
-                )}
-                {!readOnly && <div className="mt-4 grid grid-cols-2 gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openMovement(material, "in")}
-                  >
-                    <ArrowDownToLine className="h-4 w-4" />
-                    Stok Ekle
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => openMovement(material, "out")}
-                    disabled={Number(material.stock_quantity) <= 0}
-                  >
-                    <ArrowUpFromLine className="h-4 w-4" />
-                    Stoktan Düş
-                  </Button>
-                </div>}
+                <div className="mt-3 space-y-3">{group.materials.map((material) => <div key={material.id} className="rounded-xl bg-muted/50 p-3">
+                  <div className="flex items-center justify-between gap-3"><span className="text-sm">ID: <strong>{material.material_code || "—"}</strong></span><Badge>{formatInventoryQuantity(material.stock_quantity, material.unit)}</Badge></div>
+                  {material.notes && <p className="mt-1 text-xs text-muted-foreground">{material.notes}</p>}
+                  {!readOnly && <div className="mt-3 grid grid-cols-2 gap-2"><Button variant="outline" size="sm" onClick={() => openMovement(material, "in")}><ArrowDownToLine className="h-4 w-4" />Stok Ekle</Button><Button size="sm" onClick={() => openMovement(material, "out")} disabled={Number(material.stock_quantity) <= 0}><ArrowUpFromLine className="h-4 w-4" />Stoktan Düş</Button></div>}
+                </div>)}</div>
               </div>
             ))}
           </div>
-          {filteredMaterials.length === 0 && (
+          {groupedMaterials.length === 0 && (
             <p className="py-10 text-center text-sm text-muted-foreground">
               Malzeme bulunamadı.
             </p>
@@ -483,17 +474,14 @@ export function InventoryManager({
                 />
               </Field>
               {movementDialog.type === "out" && (
-                <Field
-                  label="Kullanım Yeri"
-                  error={
-                    movementForm.formState.errors.usage_location?.message
-                  }
-                >
-                  <Input
-                    placeholder="Proje, şantiye veya kullanım alanı"
-                    {...movementForm.register("usage_location")}
-                  />
-                </Field>
+                <div className="space-y-4">
+                  <Field label="Kullanım Yeri Türü">
+                    <Select value={usageMode} onValueChange={(value: "project" | "manual") => { setUsageMode(value); setSelectedProjectId(""); movementForm.setValue("usage_location", ""); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="project">Projeden Seç</SelectItem><SelectItem value="manual">Manuel Alan Gir</SelectItem></SelectContent></Select>
+                  </Field>
+                  {usageMode === "project" ? <Field label="Proje ID / Proje" error={movementForm.formState.errors.usage_location?.message}>
+                    <Select value={selectedProjectId} onValueChange={(value) => { const project = projects.find((item) => item.id === value); setSelectedProjectId(value); movementForm.setValue("usage_location", project ? `${project.project_code} · ${project.name}` : "", { shouldValidate: true }); }}><SelectTrigger><SelectValue placeholder="Proje seçin" /></SelectTrigger><SelectContent>{projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.project_code} · {project.name}</SelectItem>)}</SelectContent></Select>
+                  </Field> : <Field label="Manuel Kullanım Alanı" error={movementForm.formState.errors.usage_location?.message}><Input placeholder="Proje ID, şantiye veya kullanım alanı" {...movementForm.register("usage_location")} /></Field>}
+                </div>
               )}
               <Field label="Açıklama (Zorunlu Değil)">
                 <Textarea {...movementForm.register("description")} />
