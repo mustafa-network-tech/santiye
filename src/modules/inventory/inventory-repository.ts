@@ -48,8 +48,9 @@ export class InventoryRepository {
     const { data, error } = await this.supabase
       .from("inventory_movements")
       .select(
-        "*, material:inventory_materials(material_name, material_code, unit)"
+        "*, material:inventory_materials!inner(material_name, material_code, unit, material_category)"
       )
+      .eq("material.material_category", "stock")
       .order("created_at", { ascending: false })
       .limit(limit);
     if (error) throw error;
@@ -102,8 +103,9 @@ export class InventoryRepository {
     const { data, error } = await this.supabase
       .from("inventory_custody_balances")
       .select(
-        "*, material:inventory_materials(material_name, material_code, unit)"
+        "*, material:inventory_materials!inner(material_name, material_code, unit, material_category)"
       )
+      .eq("material.material_category", "equipment")
       .order("holder_name");
     if (error) throw error;
     return (data ?? []) as InventoryCustodyBalance[];
@@ -128,8 +130,9 @@ export class InventoryRepository {
   async listVehicleCustodyBalances(vehicleId?: string): Promise<InventoryCustodyBalance[]> {
     let query = this.supabase
       .from("inventory_custody_balances")
-      .select("*, material:inventory_materials(material_name, material_code, unit)")
+      .select("*, material:inventory_materials!inner(material_name, material_code, unit, material_category)")
       .eq("holder_type", "vehicle")
+      .eq("material.material_category", "equipment")
       .gt("quantity", 0);
     if (vehicleId) query = query.eq("holder_id", vehicleId);
     const { data, error } = await query.order("holder_name");
@@ -143,8 +146,9 @@ export class InventoryRepository {
     const { data, error } = await this.supabase
       .from("inventory_custody_movements")
       .select(
-        "*, material:inventory_materials(material_name, material_code, unit)"
+        "*, material:inventory_materials!inner(material_name, material_code, unit, material_category)"
       )
+      .eq("material.material_category", "equipment")
       .order("created_at", { ascending: false })
       .limit(limit);
     if (error) throw error;
