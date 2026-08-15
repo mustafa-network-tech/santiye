@@ -1,5 +1,6 @@
 export type InventoryUnit = "piece" | "meter" | "kilogram";
 export type InventoryMovementType = "in" | "out";
+export type InventoryMaterialCategory = "stock" | "equipment";
 
 export type InventoryMaterial = {
   id: string;
@@ -7,6 +8,7 @@ export type InventoryMaterial = {
   material_name: string;
   unit: InventoryUnit;
   stock_quantity: number;
+  material_category: InventoryMaterialCategory;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -28,7 +30,7 @@ export type InventoryMovement = {
   } | null;
 };
 
-export type CustodyLocationType = "warehouse" | "personnel" | "team";
+export type CustodyLocationType = "warehouse" | "personnel" | "team" | "vehicle";
 
 export type InventoryCustodyBalance = {
   id: string;

@@ -8,18 +8,40 @@ import type {
   InventoryMovement,
   InventoryMovementType,
   InventoryUnit,
+  InventoryMaterialCategory,
 } from "@/types/inventory";
 
 export class InventoryRepository {
   constructor(private readonly supabase: SupabaseClient) {}
 
-  async listMaterials(): Promise<InventoryMaterial[]> {
-    const { data, error } = await this.supabase
+  async listMaterials(category?: InventoryMaterialCategory): Promise<InventoryMaterial[]> {
+    let query = this.supabase
       .from("inventory_materials")
       .select("*")
       .order("material_name");
+    if (category) query = query.eq("material_category", category);
+    const { data, error } = await query;
     if (error) throw error;
     return (data ?? []) as InventoryMaterial[];
+  }
+
+  async createCustodyMaterial(payload: {
+    material_name: string;
+    material_code?: string;
+    unit: InventoryUnit;
+    initial_quantity: number;
+    vehicle_id?: string | null;
+    notes?: string;
+  }): Promise<void> {
+    const { error } = await this.supabase.rpc("create_custody_material", {
+      p_material_name: payload.material_name,
+      p_material_code: payload.material_code || null,
+      p_unit: payload.unit,
+      p_initial_quantity: payload.initial_quantity,
+      p_vehicle_id: payload.vehicle_id || null,
+      p_notes: payload.notes || null,
+    });
+    if (error) throw error;
   }
 
   async listMovements(limit = 100): Promise<InventoryMovement[]> {
@@ -99,6 +121,18 @@ export class InventoryRepository {
       .eq("holder_id", personnelId)
       .gt("quantity", 0)
       .order("holder_name");
+    if (error) throw error;
+    return (data ?? []) as InventoryCustodyBalance[];
+  }
+
+  async listVehicleCustodyBalances(vehicleId?: string): Promise<InventoryCustodyBalance[]> {
+    let query = this.supabase
+      .from("inventory_custody_balances")
+      .select("*, material:inventory_materials(material_name, material_code, unit)")
+      .eq("holder_type", "vehicle")
+      .gt("quantity", 0);
+    if (vehicleId) query = query.eq("holder_id", vehicleId);
+    const { data, error } = await query.order("holder_name");
     if (error) throw error;
     return (data ?? []) as InventoryCustodyBalance[];
   }

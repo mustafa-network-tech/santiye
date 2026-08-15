@@ -1,499 +1,154 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
-import {
-  ArrowRightLeft,
-  Loader2,
-  Plus,
-  Warehouse,
-} from "lucide-react";
+import { ArrowRightLeft, CarFront, Loader2, Plus, Warehouse } from "lucide-react";
 import { toast } from "sonner";
-import type { Personnel } from "@/types/work-plan";
-import type {
-  CustodyLocationType,
-  CustodyTeamOption,
-  InventoryCustodyBalance,
-  InventoryCustodyMovement,
-  InventoryMaterial,
-} from "@/types/inventory";
-import { formatInventoryQuantity } from "@/lib/constants/inventory";
+import type { Vehicle } from "@/types/vehicle";
+import type { CustodyLocationType, InventoryCustodyBalance, InventoryCustodyMovement, InventoryMaterial, InventoryUnit } from "@/types/inventory";
+import { INVENTORY_UNITS, formatInventoryQuantity } from "@/lib/constants/inventory";
 import { formatDateTime } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { InventoryRepository } from "@/modules/inventory/inventory-repository";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-type TransferSource =
-  | { type: "warehouse"; balance: null }
-  | {
-      type: "personnel" | "team";
-      balance: InventoryCustodyBalance;
-    };
+type TransferSource = { type: CustodyLocationType; balance: InventoryCustodyBalance | null };
 
-export function CustodyManager({
-  initialMaterials,
-  initialBalances,
-  initialMovements,
-  personnel,
-  teams,
-  readOnly = false,
-}: {
+export function CustodyManager({ initialMaterials, initialBalances, initialMovements, vehicles, readOnly = false }: {
   initialMaterials: InventoryMaterial[];
   initialBalances: InventoryCustodyBalance[];
   initialMovements: InventoryCustodyMovement[];
-  personnel: Personnel[];
-  teams: CustodyTeamOption[];
+  vehicles: Vehicle[];
   readOnly?: boolean;
 }) {
   const [materials, setMaterials] = useState(initialMaterials);
   const [balances, setBalances] = useState(initialBalances);
   const [movements, setMovements] = useState(initialMovements);
   const [source, setSource] = useState<TransferSource | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const [materialId, setMaterialId] = useState("");
-  const [targetType, setTargetType] =
-    useState<CustodyLocationType>("personnel");
+  const [targetType, setTargetType] = useState<"warehouse" | "vehicle">("vehicle");
   const [targetId, setTargetId] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
-  const activePersonnel = personnel.filter((person) => person.is_active);
+  const [newItem, setNewItem] = useState({ name: "", code: "", unit: "piece" as InventoryUnit, quantity: "1", location: "warehouse", vehicleId: "", notes: "" });
 
-  const totals = useMemo(
-    () =>
-      materials.map((material) => {
-        const custodyQuantity = balances
-          .filter((balance) => balance.material_id === material.id)
-          .reduce((sum, balance) => sum + Number(balance.quantity), 0);
-        return {
-          material,
-          custodyQuantity,
-          totalQuantity: Number(material.stock_quantity) + custodyQuantity,
-        };
-      }),
-    [balances, materials]
-  );
-
-  function openWarehouseAssignment() {
-    setSource({ type: "warehouse", balance: null });
-    setMaterialId("");
-    setTargetType("personnel");
-    setTargetId("");
-    setQuantity("1");
-    setNotes("");
-  }
-
-  function openTransfer(balance: InventoryCustodyBalance) {
-    setSource({ type: balance.holder_type, balance });
-    setMaterialId(balance.material_id);
-    setTargetType("warehouse");
-    setTargetId("");
-    setQuantity("1");
-    setNotes("");
-  }
+  const equipmentBalances = balances.filter((balance) => materials.some((item) => item.id === balance.material_id));
+  const totals = useMemo(() => materials.map((material) => ({
+    material,
+    assigned: equipmentBalances.filter((balance) => balance.material_id === material.id).reduce((sum, balance) => sum + Number(balance.quantity), 0),
+  })), [equipmentBalances, materials]);
 
   async function reload(repository: InventoryRepository) {
     const [nextMaterials, nextBalances, nextMovements] = await Promise.all([
-      repository.listMaterials(),
-      repository.listCustodyBalances(),
-      repository.listCustodyMovements(),
+      repository.listMaterials("equipment"), repository.listCustodyBalances(), repository.listCustodyMovements(),
     ]);
-    setMaterials(nextMaterials);
-    setBalances(nextBalances);
-    setMovements(nextMovements);
+    setMaterials(nextMaterials); setBalances(nextBalances); setMovements(nextMovements);
+  }
+
+  function openWarehouseAssignment() {
+    setSource({ type: "warehouse", balance: null }); setMaterialId(""); setTargetType("vehicle");
+    setTargetId(""); setQuantity("1"); setNotes("");
+  }
+
+  function openTransfer(balance: InventoryCustodyBalance) {
+    setSource({ type: balance.holder_type, balance }); setMaterialId(balance.material_id);
+    setTargetType("warehouse"); setTargetId(""); setQuantity("1"); setNotes("");
+  }
+
+  async function createMaterial() {
+    const amount = Number(newItem.quantity);
+    if (newItem.name.trim().length < 2 || !Number.isFinite(amount) || amount <= 0) {
+      toast.error("Malzeme adı ve geçerli miktar zorunlu"); return;
+    }
+    if (newItem.unit === "piece" && !Number.isInteger(amount)) { toast.error("Adet tam sayı olmalıdır"); return; }
+    if (newItem.location === "vehicle" && !newItem.vehicleId) { toast.error("Araç seçin"); return; }
+    setLoading(true);
+    try {
+      const repository = new InventoryRepository(createClient());
+      await repository.createCustodyMaterial({ material_name: newItem.name, material_code: newItem.code,
+        unit: newItem.unit, initial_quantity: amount,
+        vehicle_id: newItem.location === "vehicle" ? newItem.vehicleId : null, notes: newItem.notes });
+      await reload(repository); setCreateOpen(false);
+      setNewItem({ name: "", code: "", unit: "piece", quantity: "1", location: "warehouse", vehicleId: "", notes: "" });
+      toast.success("Yeni araç ekipmanı kaydedildi");
+    } catch (error) { console.error(error); toast.error("Ekipman kaydedilemedi", { description: (error as Error).message }); }
+    finally { setLoading(false); }
   }
 
   async function submitTransfer() {
     if (!source || !materialId) return;
     const amount = Number(quantity);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      toast.error("Geçerli bir miktar girin");
-      return;
-    }
-    if (targetType !== "warehouse" && !targetId) {
-      toast.error("Hedef personel veya ekip seçin");
-      return;
-    }
     const material = materials.find((item) => item.id === materialId);
-    if (material?.unit === "piece" && !Number.isInteger(amount)) {
-      toast.error("Adet miktarı tam sayı olmalıdır");
-      return;
+    if (!Number.isFinite(amount) || amount <= 0 || (material?.unit === "piece" && !Number.isInteger(amount))) {
+      toast.error("Geçerli bir miktar girin"); return;
     }
-
+    if (targetType === "vehicle" && !targetId) { toast.error("Araç seçin"); return; }
     setLoading(true);
     try {
       const repository = new InventoryRepository(createClient());
-      await repository.transferCustody({
-        material_id: materialId,
-        quantity: amount,
-        from_type: source.type,
-        from_id: source.balance?.holder_id ?? null,
-        to_type: targetType,
-        to_id: targetType === "warehouse" ? null : targetId,
-        notes,
-      });
-      await reload(repository);
-      setSource(null);
-      toast.success(
-        targetType === "warehouse"
-          ? "Malzeme şantiye deposuna iade edildi"
-          : "Malzeme zimmeti kaydedildi"
-      );
-    } catch (error) {
-      console.error(error);
-      toast.error("Zimmet işlemi kaydedilemedi", {
-        description: (error as Error)?.message,
-      });
-    } finally {
-      setLoading(false);
-    }
+      await repository.transferCustody({ material_id: materialId, quantity: amount,
+        from_type: source.type, from_id: source.balance?.holder_id ?? null,
+        to_type: targetType, to_id: targetType === "vehicle" ? targetId : null, notes });
+      await reload(repository); setSource(null); toast.success("Ekipman konumu güncellendi");
+    } catch (error) { console.error(error); toast.error("Aktarım kaydedilemedi", { description: (error as Error).message }); }
+    finally { setLoading(false); }
   }
 
   const selectedMaterial = materials.find((item) => item.id === materialId);
-  const maxQuantity =
-    source?.type === "warehouse"
-      ? Number(selectedMaterial?.stock_quantity ?? 0)
-      : Number(source?.balance?.quantity ?? 0);
+  const maxQuantity = source?.type === "warehouse" ? Number(selectedMaterial?.stock_quantity ?? 0) : Number(source?.balance?.quantity ?? 0);
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Malzeme Zimmet
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Şantiye deposu, personel ve ekipler arasındaki malzeme takibi
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline">
-            <Link href="/inventory">
-              <Warehouse className="h-4 w-4" />
-              Şantiye Deposu
-            </Link>
-          </Button>
-          {!readOnly && (
-            <Button onClick={openWarehouseAssignment}>
-              <Plus className="h-4 w-4" />
-              Yeni Zimmet
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Toplam Malzemeler</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {totals.map(({ material, custodyQuantity, totalQuantity }) => (
-            <div key={material.id} className="rounded-xl border p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-semibold">{material.material_name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {material.material_code || "Malzeme ID yok"}
-                  </p>
-                </div>
-                <Badge>
-                  Toplam:{" "}
-                  {formatInventoryQuantity(totalQuantity, material.unit)}
-                </Badge>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                <span>
-                  Depo:{" "}
-                  <strong>
-                    {formatInventoryQuantity(
-                      material.stock_quantity,
-                      material.unit
-                    )}
-                  </strong>
-                </span>
-                <span>
-                  Zimmette:{" "}
-                  <strong>
-                    {formatInventoryQuantity(custodyQuantity, material.unit)}
-                  </strong>
-                </span>
-              </div>
-            </div>
-          ))}
-          {totals.length === 0 && (
-            <p className="py-8 text-sm text-muted-foreground">
-              Önce Şantiye Deposu alanından malzeme girişi yapın.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Aktif Zimmetler</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {balances.map((balance) => (
-              <div key={balance.id} className="rounded-xl border p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold">{balance.holder_name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {balance.material?.material_name}
-                    </p>
-                  </div>
-                  <Badge>
-                    {balance.material
-                      ? formatInventoryQuantity(
-                          balance.quantity,
-                          balance.material.unit
-                        )
-                      : balance.quantity}
-                  </Badge>
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {balance.holder_type === "personnel" ? "Personel" : "Ekip"}
-                </p>
-                {!readOnly && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-3 w-full"
-                    onClick={() => openTransfer(balance)}
-                  >
-                    <ArrowRightLeft className="h-4 w-4" />
-                    Aktar / Depoya İade
-                  </Button>
-                )}
-              </div>
-            ))}
-          </div>
-          {balances.length === 0 && (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              Aktif zimmet bulunmuyor.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Son Zimmet Hareketleri</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
-              <thead>
-                <tr className="border-b text-muted-foreground">
-                  <th className="px-3 py-2 font-medium">Tarih</th>
-                  <th className="px-3 py-2 font-medium">Malzeme</th>
-                  <th className="px-3 py-2 font-medium">Kaynak</th>
-                  <th className="px-3 py-2 font-medium">Hedef</th>
-                  <th className="px-3 py-2 font-medium">Miktar</th>
-                  <th className="px-3 py-2 font-medium">Not</th>
-                </tr>
-              </thead>
-              <tbody>
-                {movements.map((movement) => (
-                  <tr key={movement.id} className="border-b last:border-0">
-                    <td className="whitespace-nowrap px-3 py-3">
-                      {formatDateTime(movement.created_at)}
-                    </td>
-                    <td className="px-3 py-3 font-medium">
-                      {movement.material?.material_name || "—"}
-                    </td>
-                    <td className="px-3 py-3">{movement.from_name}</td>
-                    <td className="px-3 py-3">{movement.to_name}</td>
-                    <td className="whitespace-nowrap px-3 py-3">
-                      {movement.material
-                        ? formatInventoryQuantity(
-                            movement.quantity,
-                            movement.material.unit
-                          )
-                        : movement.quantity}
-                    </td>
-                    <td className="px-3 py-3">{movement.notes || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Dialog open={Boolean(source)} onOpenChange={(open) => !open && setSource(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {source?.type === "warehouse"
-                ? "Şantiye Deposundan Zimmetle"
-                : "Zimmeti Aktar"}
-            </DialogTitle>
-          </DialogHeader>
-          {source && (
-            <div className="space-y-4">
-              {source.type === "warehouse" ? (
-                <Field label="Malzeme">
-                  <Select value={materialId} onValueChange={setMaterialId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Malzeme seçin" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {materials
-                        .filter((item) => Number(item.stock_quantity) > 0)
-                        .map((material) => (
-                          <SelectItem key={material.id} value={material.id}>
-                            {material.material_name} ·{" "}
-                            {formatInventoryQuantity(
-                              material.stock_quantity,
-                              material.unit
-                            )}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              ) : (
-                <div className="rounded-xl bg-muted p-3 text-sm">
-                  <p className="font-semibold">{source.balance.holder_name}</p>
-                  <p className="text-muted-foreground">
-                    {source.balance.material?.material_name} ·{" "}
-                    {source.balance.material
-                      ? formatInventoryQuantity(
-                          source.balance.quantity,
-                          source.balance.material.unit
-                        )
-                      : source.balance.quantity}
-                  </p>
-                </div>
-              )}
-
-              <Field label="Hedef">
-                <Select
-                  value={targetType}
-                  onValueChange={(value: CustodyLocationType) => {
-                    setTargetType(value);
-                    setTargetId("");
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="warehouse">Şantiye Deposu</SelectItem>
-                    <SelectItem value="personnel">Personel</SelectItem>
-                    <SelectItem value="team">Ekip</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              {targetType === "personnel" && (
-                <Field label="Personel">
-                  <Select value={targetId} onValueChange={setTargetId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Personel seçin" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {activePersonnel
-                        .filter(
-                          (person) =>
-                            source.type !== "personnel" ||
-                            person.id !== source.balance.holder_id
-                        )
-                        .map((person) => (
-                          <SelectItem key={person.id} value={person.id}>
-                            {person.full_name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              )}
-
-              {targetType === "team" && (
-                <Field label="Ekip">
-                  <Select value={targetId} onValueChange={setTargetId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Ekip seçin" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teams
-                        .filter(
-                          (team) =>
-                            source.type !== "team" ||
-                            team.id !== source.balance.holder_id
-                        )
-                        .map((team) => (
-                          <SelectItem key={team.id} value={team.id}>
-                            {team.label}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              )}
-
-              <Field label={`Miktar${maxQuantity ? ` (En fazla ${maxQuantity})` : ""}`}>
-                <Input
-                  type="number"
-                  min="0"
-                  max={maxQuantity || undefined}
-                  step={selectedMaterial?.unit === "piece" ? "1" : "0.001"}
-                  value={quantity}
-                  onChange={(event) => setQuantity(event.target.value)}
-                />
-              </Field>
-              <Field label="Not (Zorunlu Değil)">
-                <Textarea
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                />
-              </Field>
-              <Button
-                className="w-full"
-                onClick={submitTransfer}
-                disabled={loading || !materialId}
-              >
-                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                İşlemi Kaydet
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+  return <div className="space-y-6">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div><h1 className="text-3xl font-semibold tracking-tight">Araç Ekipmanları</h1>
+        <p className="mt-1 text-sm text-muted-foreground">El aletleri ve ekipmanların şantiye deposu ile araçlar arasındaki takibi</p></div>
+      {!readOnly && <div className="flex gap-2"><Button variant="outline" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4" />Yeni Ekipman</Button>
+        <Button onClick={openWarehouseAssignment}><CarFront className="h-4 w-4" />Araca Zimmetle</Button></div>}
     </div>
-  );
+
+    <Card><CardHeader><CardTitle className="text-base">Tüm Ekipmanlar</CardTitle></CardHeader>
+      <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{totals.map(({ material, assigned }) => <div key={material.id} className="rounded-xl border p-4">
+        <div className="flex justify-between gap-3"><div><p className="font-semibold">{material.material_name}</p><p className="text-xs text-muted-foreground">{material.material_code || "Ekipman ID yok"}</p></div>
+          <Badge>Toplam {formatInventoryQuantity(Number(material.stock_quantity) + assigned, material.unit)}</Badge></div>
+        <div className="mt-3 grid grid-cols-2 text-sm"><span>Depo: <strong>{formatInventoryQuantity(material.stock_quantity, material.unit)}</strong></span><span>Araçlarda: <strong>{formatInventoryQuantity(assigned, material.unit)}</strong></span></div>
+      </div>)}{!totals.length && <p className="text-sm text-muted-foreground">Henüz araç ekipmanı eklenmedi.</p>}</CardContent></Card>
+
+    <Card><CardHeader><CardTitle className="text-base">Araç ve Depo Dağılımı</CardTitle></CardHeader><CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {equipmentBalances.map((balance) => <div key={balance.id} className="rounded-xl border p-4"><div className="flex justify-between gap-3"><div><p className="font-semibold">{balance.holder_name}</p><p className="text-sm text-muted-foreground">{balance.material?.material_name}</p></div><Badge>{balance.material ? formatInventoryQuantity(balance.quantity, balance.material.unit) : balance.quantity}</Badge></div>
+        <p className="mt-2 text-xs text-muted-foreground">{balance.holder_type === "vehicle" ? "Araç" : "Eski zimmet kaydı"}</p>
+        {!readOnly && <Button variant="outline" size="sm" className="mt-3 w-full" onClick={() => openTransfer(balance)}><ArrowRightLeft className="h-4 w-4" />Aktar / Depoya İade</Button>}</div>)}
+      {!equipmentBalances.length && <p className="text-sm text-muted-foreground">Araçlara zimmetli ekipman yok.</p>}
+    </CardContent></Card>
+
+    <Card><CardHeader><CardTitle className="text-base">Son Ekipman Hareketleri</CardTitle></CardHeader><CardContent><div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead><tr className="border-b text-muted-foreground"><th className="px-3 py-2">Tarih</th><th className="px-3 py-2">Malzeme</th><th className="px-3 py-2">Kaynak</th><th className="px-3 py-2">Hedef</th><th className="px-3 py-2">Miktar</th><th className="px-3 py-2">Not</th></tr></thead><tbody>{movements.filter((m) => materials.some((x) => x.id === m.material_id)).map((movement) => <tr key={movement.id} className="border-b"><td className="px-3 py-3">{formatDateTime(movement.created_at)}</td><td className="px-3 py-3 font-medium">{movement.material?.material_name}</td><td className="px-3 py-3">{movement.from_name}</td><td className="px-3 py-3">{movement.to_name}</td><td className="px-3 py-3">{movement.quantity}</td><td className="px-3 py-3">{movement.notes || "—"}</td></tr>)}</tbody></table></div></CardContent></Card>
+
+    <Dialog open={createOpen} onOpenChange={setCreateOpen}><DialogContent><DialogHeader><DialogTitle>Yeni Araç Ekipmanı</DialogTitle></DialogHeader><div className="space-y-4">
+      <Field label="Malzeme Adı"><Input value={newItem.name} onChange={(e) => setNewItem((v) => ({ ...v, name: e.target.value }))} placeholder="Merdiven, jeneratör, pense..." /></Field>
+      <div className="grid grid-cols-2 gap-3"><Field label="Malzeme ID"><Input value={newItem.code} onChange={(e) => setNewItem((v) => ({ ...v, code: e.target.value }))} /></Field><Field label="Birim"><Select value={newItem.unit} onValueChange={(unit: InventoryUnit) => setNewItem((v) => ({ ...v, unit }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{INVENTORY_UNITS.map((unit) => <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>)}</SelectContent></Select></Field></div>
+      <Field label="Miktar"><Input type="number" min="0.001" value={newItem.quantity} onChange={(e) => setNewItem((v) => ({ ...v, quantity: e.target.value }))} /></Field>
+      <Field label="İlk Konum"><Select value={newItem.location} onValueChange={(location) => setNewItem((v) => ({ ...v, location, vehicleId: "" }))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="warehouse">Şantiye Deposu</SelectItem><SelectItem value="vehicle">Araç</SelectItem></SelectContent></Select></Field>
+      {newItem.location === "vehicle" && <VehicleSelect vehicles={vehicles} value={newItem.vehicleId} onChange={(vehicleId) => setNewItem((v) => ({ ...v, vehicleId }))} />}
+      <Field label="Not"><Textarea value={newItem.notes} onChange={(e) => setNewItem((v) => ({ ...v, notes: e.target.value }))} /></Field><Button className="w-full" disabled={loading} onClick={createMaterial}>{loading && <Loader2 className="h-4 w-4 animate-spin" />}Kaydet</Button>
+    </div></DialogContent></Dialog>
+
+    <Dialog open={Boolean(source)} onOpenChange={(open) => !open && setSource(null)}><DialogContent><DialogHeader><DialogTitle>{source?.type === "warehouse" ? "Depodan Araca Zimmetle" : "Ekipmanı Aktar"}</DialogTitle></DialogHeader>{source && <div className="space-y-4">
+      {source.type === "warehouse" ? <Field label="Malzeme"><Select value={materialId} onValueChange={setMaterialId}><SelectTrigger><SelectValue placeholder="Malzeme seçin" /></SelectTrigger><SelectContent>{materials.filter((m) => Number(m.stock_quantity) > 0).map((m) => <SelectItem key={m.id} value={m.id}>{m.material_name} · {formatInventoryQuantity(m.stock_quantity, m.unit)}</SelectItem>)}</SelectContent></Select></Field> : <div className="rounded-xl bg-muted p-3 text-sm"><strong>{source.balance?.holder_name}</strong><p>{source.balance?.material?.material_name}</p></div>}
+      <Field label="Hedef"><Select value={targetType} onValueChange={(value: "warehouse" | "vehicle") => { setTargetType(value); setTargetId(""); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="warehouse"><Warehouse className="mr-2 inline h-4 w-4" />Şantiye Deposu</SelectItem><SelectItem value="vehicle">Araç</SelectItem></SelectContent></Select></Field>
+      {targetType === "vehicle" && <VehicleSelect vehicles={vehicles.filter((v) => source.balance?.holder_id !== v.id)} value={targetId} onChange={setTargetId} />}
+      <Field label={`Miktar (En fazla ${maxQuantity})`}><Input type="number" min="0.001" max={maxQuantity} value={quantity} onChange={(e) => setQuantity(e.target.value)} /></Field><Field label="Not"><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} /></Field><Button className="w-full" disabled={loading || !materialId} onClick={submitTransfer}>{loading && <Loader2 className="h-4 w-4 animate-spin" />}İşlemi Kaydet</Button>
+    </div>}</DialogContent></Dialog>
+  </div>;
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      {children}
-    </div>
-  );
+function VehicleSelect({ vehicles, value, onChange }: { vehicles: Vehicle[]; value: string; onChange: (value: string) => void }) {
+  return <Field label="Araç"><Select value={value} onValueChange={onChange}><SelectTrigger><SelectValue placeholder="Araç seçin" /></SelectTrigger><SelectContent>{vehicles.map((vehicle) => <SelectItem key={vehicle.id} value={vehicle.id}>{vehicle.plate} · {vehicle.brand} {vehicle.model}</SelectItem>)}</SelectContent></Select></Field>;
 }
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) { return <div className="space-y-2"><Label>{label}</Label>{children}</div>; }

@@ -79,7 +79,7 @@ const NAV_ITEMS = [
   },
   {
     href: "/custody",
-    label: "Malzeme Zimmet",
+    label: "Araç Ekipmanları",
     icon: PackageCheck,
     accounting: false,
     group: "KAYNAKLAR",

@@ -53,7 +53,7 @@ const PERMISSION_FIELDS: {
   { module: "attendance", field: "attendance_write", label: "Puantaj" },
   { module: "vehicles", field: "vehicles_write", label: "Araçlar" },
   { module: "inventory", field: "inventory_write", label: "Malzeme Stok" },
-  { module: "custody", field: "custody_write", label: "Malzeme Zimmet" },
+  { module: "custody", field: "custody_write", label: "Araç Ekipmanları" },
 ];
 
 export function UserRoleManager({

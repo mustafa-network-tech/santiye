@@ -3,9 +3,12 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CarFront, Gauge, Loader2, Pencil, Plus } from "lucide-react";
+import { CarFront, Download, Gauge, Loader2, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import type { Vehicle } from "@/types/vehicle";
+import type { InventoryCustodyBalance } from "@/types/inventory";
+import { formatInventoryQuantity } from "@/lib/constants/inventory";
+import { downloadVehicleEquipmentWord } from "@/lib/vehicle-equipment-word";
 import {
   vehicleSchema,
   type VehicleFormValues,
@@ -27,9 +30,11 @@ import { Textarea } from "@/components/ui/textarea";
 
 export function VehiclesManager({
   initialVehicles,
+  equipmentBalances,
   readOnly = false,
 }: {
   initialVehicles: Vehicle[];
+  equipmentBalances: InventoryCustodyBalance[];
   readOnly?: boolean;
 }) {
   const [vehicles, setVehicles] = useState(initialVehicles);
@@ -198,6 +203,38 @@ export function VehiclesManager({
                     {vehicle.notes || "Not yok"}
                   </span>
                 </div>
+                {(() => {
+                  const vehicleEquipment = equipmentBalances.filter(
+                    (balance) => balance.holder_id === vehicle.id
+                  );
+                  return (
+                    <div className="mt-4 border-t pt-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold">Zimmetli Ekipmanlar</p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={vehicleEquipment.length === 0}
+                          onClick={() => downloadVehicleEquipmentWord(vehicle, vehicleEquipment)}
+                        >
+                          <Download className="h-4 w-4" /> Word
+                        </Button>
+                      </div>
+                      {vehicleEquipment.length > 0 ? (
+                        <ul className="mt-2 space-y-1 text-sm">
+                          {vehicleEquipment.map((balance) => (
+                            <li key={balance.id} className="flex justify-between gap-3 rounded-md bg-muted px-2 py-1.5">
+                              <span>{balance.material?.material_name || "—"}</span>
+                              <strong>{balance.material ? formatInventoryQuantity(balance.quantity, balance.material.unit) : balance.quantity}</strong>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 text-xs text-muted-foreground">Bu araçta zimmetli ekipman yok.</p>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             ))}
           </div>

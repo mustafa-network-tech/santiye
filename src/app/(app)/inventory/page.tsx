@@ -11,7 +11,7 @@ export default async function InventoryPage() {
   const supabase = await createClient();
   const repository = new InventoryRepository(supabase);
   const [materials, movements, canWrite] = await Promise.all([
-    repository.listMaterials(),
+    repository.listMaterials("stock"),
     repository.listMovements(),
     new UserRepository(supabase).canWrite("inventory"),
   ]);

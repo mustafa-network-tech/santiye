@@ -1,11 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { InventoryRepository } from "@/modules/inventory/inventory-repository";
-import { PersonnelRepository } from "@/modules/work-plans/personnel-repository";
+import { VehicleRepository } from "@/modules/vehicles/vehicle-repository";
 import { UserRepository } from "@/modules/users/user-repository";
 import { CustodyManager } from "@/components/inventory/custody-manager";
 
 export const metadata = {
-  title: "Malzeme Zimmet",
+  title: "Araç Ekipmanları",
 };
 
 export default async function CustodyPage() {
@@ -15,15 +15,13 @@ export default async function CustodyPage() {
     materials,
     balances,
     movements,
-    personnel,
-    teams,
+    vehicles,
     canWrite,
   ] = await Promise.all([
-    inventoryRepository.listMaterials(),
+    inventoryRepository.listMaterials("equipment"),
     inventoryRepository.listCustodyBalances(),
     inventoryRepository.listCustodyMovements(),
-    new PersonnelRepository(supabase).list(),
-    inventoryRepository.listTeamOptions(),
+    new VehicleRepository(supabase).list(),
     new UserRepository(supabase).canWrite("custody"),
   ]);
 
@@ -32,8 +30,7 @@ export default async function CustodyPage() {
       initialMaterials={materials}
       initialBalances={balances}
       initialMovements={movements}
-      personnel={personnel}
-      teams={teams}
+      vehicles={vehicles}
       readOnly={!canWrite}
     />
   );
