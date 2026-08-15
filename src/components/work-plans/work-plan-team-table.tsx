@@ -21,13 +21,13 @@ export function WorkPlanTeamTable(props: Props) {
   const startIndex = "teamIndex" in props && typeof props.teamIndex === "number" ? props.teamIndex : 0;
 
   return (
-    <div className="w-full min-w-0 overflow-hidden border-2 border-[#222222] bg-white">
+    <div className="w-full min-w-0 overflow-hidden border-2 border-black bg-white">
       <table className="w-full table-fixed border-collapse text-left text-[12px] leading-tight text-[#111111]">
         <colgroup>{columns.map(([label, width]) => <col key={label} style={{ width }} />)}</colgroup>
         <thead>
-          <tr className="bg-[#C2A21A] text-[10px] uppercase tracking-[0.02em] text-[#111111]">
+          <tr className="bg-[#926900] text-[10px] uppercase tracking-[0.02em] text-[#111111]">
             {columns.map(([label]) => (
-              <th key={label} className="border border-[#222222] px-1.5 py-2.5 text-center font-extrabold">{label}</th>
+              <th key={label} className="border border-black px-1.5 py-2.5 text-center font-extrabold">{label}</th>
             ))}
           </tr>
         </thead>
@@ -44,19 +44,19 @@ export function WorkPlanTeamTable(props: Props) {
               sort_order: 0,
             }];
             const rowSpan = members.length;
-            const background = teamIndex % 2 === 0 ? "bg-[#5F88AD]" : "bg-[#E2E2E2]";
-            const mergedCell = "border border-[#222222] px-1.5 py-2 text-center align-middle font-semibold break-words";
+            const background = teamIndex % 2 === 0 ? "bg-[#5E748B]" : "bg-[#999999]";
+            const mergedCell = "border border-black px-1.5 py-2 text-center align-middle font-semibold break-words";
 
             return members.map((member, memberIndex) => {
               const chief = isChief(member, team);
               const secondary = chief ? member.phone || team.chief_phone : member.job_title;
               const edge = `${memberIndex === 0 ? "border-t-2" : ""} ${memberIndex === rowSpan - 1 ? "border-b-2" : ""}`;
               return (
-                <tr key={`${team.id ?? teamIndex}-${member.personnel_id ?? member.full_name}-${memberIndex}`} className={`${background} ${edge} border-[#222222]`}>
+                <tr key={`${team.id ?? teamIndex}-${member.personnel_id ?? member.full_name}-${memberIndex}`} className={`${background} ${edge} border-black`}>
                   {memberIndex === 0 && <td rowSpan={rowSpan} className={mergedCell}>{teamIndex + 1}</td>}
-                  <td className="border border-[#222222] px-1 py-2 text-center align-middle font-semibold">{memberIndex + 1}</td>
-                  <td className="border border-[#222222] px-1 py-2 text-center align-middle font-bold">AZG</td>
-                  <td className="border border-[#222222] px-2.5 py-2 text-left align-middle">
+                  <td className="border border-black px-1 py-2 text-center align-middle font-semibold">{memberIndex + 1}</td>
+                  <td className="border border-black px-1 py-2 text-center align-middle font-bold">AZG</td>
+                  <td className="border border-black px-2.5 py-2 text-left align-middle">
                     <div className="break-words text-[13px] font-semibold leading-tight">{member.full_name || "—"}</div>
                     {secondary && <div className="mt-1 break-words text-[10px] font-medium leading-tight text-[#111111]">({secondary})</div>}
                   </td>
