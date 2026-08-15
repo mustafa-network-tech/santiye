@@ -25,7 +25,7 @@ export function WorkPlanTeamTable(props: Props) {
       <table className="w-full table-fixed border-collapse text-left text-[12px] leading-tight text-[#111111]">
         <colgroup>{columns.map(([label, width]) => <col key={label} style={{ width }} />)}</colgroup>
         <thead>
-          <tr className="bg-[#926900] text-[10px] uppercase tracking-[0.02em] text-[#111111]">
+          <tr className="bg-[#C2A21A] text-[10px] uppercase tracking-[0.02em] text-[#111111]">
             {columns.map(([label]) => (
               <th key={label} className="border border-black px-1.5 py-2.5 text-center font-extrabold">{label}</th>
             ))}
@@ -44,7 +44,7 @@ export function WorkPlanTeamTable(props: Props) {
               sort_order: 0,
             }];
             const rowSpan = members.length;
-            const background = teamIndex % 2 === 0 ? "bg-[#5E748B]" : "bg-[#999999]";
+            const background = teamIndex % 2 === 0 ? "bg-[#5F88AD]" : "bg-[#E2E2E2]";
             const mergedCell = "border border-black px-1.5 py-2 text-center align-middle font-semibold break-words";
 
             return members.map((member, memberIndex) => {
