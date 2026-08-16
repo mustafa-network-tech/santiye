@@ -23,6 +23,7 @@ import { UserRepository } from "@/modules/users/user-repository";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -75,6 +76,11 @@ export function UserRoleManager({
     null
   );
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [permissionUserId, setPermissionUserId] = useState<string | null>(null);
+  const permissionUser = users.find((user) => user.id === permissionUserId) ?? null;
+  const permissionUserValues = permissionUser
+    ? permissions.find((item) => item.user_id === permissionUser.id) ?? emptyPermissions(permissionUser.id)
+    : null;
 
   const managerCount = useMemo(
     () =>
@@ -102,7 +108,7 @@ export function UserRoleManager({
       setUsers((current) =>
         current.map((item) => (item.id === updated.id ? updated : item))
       );
-      if (selected === "company_manager") {
+      if (selected === "company_manager" || selected === "accounting") {
         setPermissions((current) =>
           current.some((item) => item.user_id === user.id)
             ? current
@@ -235,9 +241,13 @@ export function UserRoleManager({
                   <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_190px] lg:items-center">
                     <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold">
-                        {user.full_name || "İsimsiz kullanıcı"}
-                      </p>
+                      {user.is_approved && (user.role === "company_manager" || user.role === "accounting") ? (
+                        <button type="button" className="font-semibold text-primary hover:underline" onClick={() => setPermissionUserId(user.id)}>
+                          {user.full_name || "İsimsiz kullanıcı"}
+                        </button>
+                      ) : (
+                        <p className="font-semibold">{user.full_name || "İsimsiz kullanıcı"}</p>
+                      )}
                       <Badge
                         className={
                           user.is_approved
@@ -323,7 +333,7 @@ export function UserRoleManager({
                     )}
                   </div>
 
-                  {user.is_approved && user.role === "company_manager" && (
+                  {user.is_approved && (user.role === "company_manager" || user.role === "accounting") && (
                     <div className="mt-4 border-t pt-4">
                       <p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         İşlem Yetkileri
@@ -360,8 +370,9 @@ export function UserRoleManager({
                         })}
                       </div>
                       <p className="mt-2 text-xs text-muted-foreground">
-                        Kapalı alanlar salt okunur kalır. Ayarlar ve kullanıcı
-                        yetkileri hiçbir zaman açılamaz.
+                        {user.role === "accounting"
+                          ? "Personel ve Puantaj varsayılan olarak salt okunur. Açılan diğer modüller menüde görünür ve işlem yapılabilir."
+                          : "Kapalı alanlar salt okunur kalır. Ayarlar ve kullanıcı yetkileri hiçbir zaman açılamaz."}
                       </p>
                     </div>
                   )}
@@ -370,6 +381,31 @@ export function UserRoleManager({
             })}
         </CardContent>
       </Card>
+
+      <Dialog open={permissionUserId !== null} onOpenChange={(open) => !open && setPermissionUserId(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{permissionUser?.full_name || permissionUser?.email || "Kullanıcı"} · Yetkiler</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              İşlem yetkilerini şantiye şefi açıp kapatabilir. Kapalı modüller salt okunur kalır.
+            </p>
+          </DialogHeader>
+          {permissionUser && permissionUserValues && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {PERMISSION_FIELDS.map((permission) => {
+                const enabled = permissionUserValues[permission.field];
+                const loadingKey = `${permissionUser.id}-${permission.module}`;
+                return (
+                  <Button key={permission.module} type="button" variant={enabled ? "default" : "outline"} className="justify-between" disabled={loadingPermission === loadingKey} onClick={() => togglePermission(permissionUser.id, permission.module, !enabled)}>
+                    {permission.label}
+                    {loadingPermission === loadingKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="text-xs">{enabled ? "Açık" : "Kapalı"}</span>}
+                  </Button>
+                );
+              })}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

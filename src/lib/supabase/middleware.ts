@@ -79,13 +79,23 @@ export async function updateSession(request: NextRequest) {
     !isPendingRoute &&
     !pathname.startsWith("/attendance") &&
     !pathname.startsWith("/personnel") &&
-    !pathname.startsWith("/notes") &&
     !pathname.startsWith("/profile")
   ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/attendance";
-    url.search = "";
-    return NextResponse.redirect(url);
+    const permissionModule = pathname.startsWith("/projects") ? "projects"
+      : pathname.startsWith("/work-plans") ? "work_plans"
+      : pathname.startsWith("/imalatlar") ? "productions"
+      : pathname.startsWith("/vehicles") ? "vehicles"
+      : pathname.startsWith("/inventory") ? "inventory"
+      : pathname.startsWith("/custody") ? "custody" : null;
+    const { data: allowed } = permissionModule
+      ? await supabase.rpc("has_module_write_permission", { p_module: permissionModule })
+      : { data: false };
+    if (allowed !== true) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/attendance";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
   }
 
   if (

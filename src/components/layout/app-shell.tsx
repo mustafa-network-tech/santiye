@@ -30,7 +30,7 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import type { UserProfile, UserRole } from "@/types/auth";
+import type { PermissionModule, UserProfile, UserRole } from "@/types/auth";
 import { USER_ROLE_LABELS } from "@/types/auth";
 import type { DueNoteNotification } from "@/types/note";
 
@@ -105,7 +105,7 @@ const NAV_ITEMS = [
     href: "/notes",
     label: "Notlar",
     icon: StickyNote,
-    accounting: true,
+    accounting: false,
     group: "SİSTEM",
   },
   {
@@ -129,11 +129,13 @@ export function AppShell({
   profile,
   avatarUrl,
   noteNotifications,
+  writableModules,
 }: {
   children: React.ReactNode;
   profile: UserProfile;
   avatarUrl: string | null;
   noteNotifications: DueNoteNotification[];
+  writableModules: PermissionModule[];
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -164,7 +166,8 @@ export function AppShell({
     }
 
     if (profile.role === "accounting") {
-      return item.accounting;
+      const module = moduleForPath(item.href);
+      return item.accounting || (module !== null && writableModules.includes(module));
     }
 
     return true;
@@ -448,8 +451,8 @@ export function AppShell({
             )}
             {profile.role === "accounting" && (
               <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
-                Muhasebe hesabı: Personel ve Puantaj bilgileri salt okunur
-                gösterilir.
+                Muhasebe hesabı: Personel ve Puantaj listeleri ile dökümler açıktır.
+                İşlem yetkileri şantiye şefi tarafından ayrıca verilir.
               </div>
             )}
             {children}
@@ -458,4 +461,16 @@ export function AppShell({
       </div>
     </div>
   );
+}
+
+function moduleForPath(pathname: string): PermissionModule | null {
+  if (pathname.startsWith("/projects")) return "projects";
+  if (pathname.startsWith("/work-plans")) return "work_plans";
+  if (pathname.startsWith("/personnel")) return "personnel";
+  if (pathname.startsWith("/attendance")) return "attendance";
+  if (pathname.startsWith("/vehicles")) return "vehicles";
+  if (pathname.startsWith("/inventory")) return "inventory";
+  if (pathname.startsWith("/custody")) return "custody";
+  if (pathname.startsWith("/imalatlar")) return "productions";
+  return null;
 }
