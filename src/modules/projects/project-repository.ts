@@ -392,6 +392,11 @@ export class ProjectRepository {
     });
   }
 
+  async delete(id: string): Promise<void> {
+    const { error } = await this.supabase.from("projects").delete().eq("id", id);
+    if (error) throw error;
+  }
+
   async getLocationSuggestions(query = "", limit = 20): Promise<string[]> {
     const { data, error } = await this.supabase.rpc("get_location_suggestions", {
       p_query: query,

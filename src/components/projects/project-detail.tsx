@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArchiveRestore, Loader2, Pencil } from "lucide-react";
+import { ArchiveRestore, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Project, ProjectSheet, ProjectCabinet } from "@/types/project";
 import type { Personnel } from "@/types/work-plan";
@@ -58,6 +58,25 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
       router.refresh();
     } catch {
       toast.error("Proje aktifleştirilemedi");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    const confirmed = window.confirm(
+      `${project.project_code} · ${project.name} kalıcı olarak silinsin mi?\n\nBağlı paftalar, kablolar, dolaplar ve tüm ilerleme kayıtları da silinecek. Bu işlem geri alınamaz.`
+    );
+    if (!confirmed) return;
+    setLoading(true);
+    try {
+      await new ProjectRepository(createClient()).delete(project.id);
+      toast.success("Proje kalıcı olarak silindi");
+      router.push("/projects");
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      toast.error("Proje silinemedi");
     } finally {
       setLoading(false);
     }
@@ -126,6 +145,12 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
                 <ArchiveRestore className="h-4 w-4" />
               )}
               Tekrar Aktif Et
+            </Button>
+          )}
+          {!readOnly && (
+            <Button variant="destructive" onClick={handleDelete} disabled={loading}>
+              {loading ? <Loader2 className="animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Projeyi Sil
             </Button>
           )}
         </div>
