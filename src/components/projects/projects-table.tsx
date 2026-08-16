@@ -115,6 +115,18 @@ export function ProjectsTable({
         header: "Mevki",
       },
       {
+        id: "matching_team_leaders",
+        header: "Ekip Başı İlerlemesi",
+        cell: ({ row }) =>
+          row.original.matching_team_leaders?.length ? (
+            <div className="max-w-[220px] text-sm font-medium">
+              {row.original.matching_team_leaders.join(", ")}
+            </div>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
         accessorKey: "status",
         header: "Durum",
         cell: ({ row }) => <ProjectStatusIndicators project={row.original} />,
@@ -190,7 +202,7 @@ export function ProjectsTable({
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 className="pl-9"
-                placeholder="ID, ad, mevki, açıklama..."
+                placeholder="Proje ID, proje adı veya ekip başı..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => {
@@ -381,8 +393,9 @@ export function ProjectsTable({
                 <SelectItem value="all">Tüm Kazı Durumları</SelectItem>
                 <SelectItem value="tracked">Kazı Var</SelectItem>
                 <SelectItem value="untracked">Kazı Yok</SelectItem>
-                <SelectItem value="true">Kazı Yapıldı</SelectItem>
-                <SelectItem value="false">Kazı Yapılmadı</SelectItem>
+                <SelectItem value="permit_waiting">Kazı Var · İzin Alınmadı</SelectItem>
+                <SelectItem value="excavation_waiting">İzin Alındı · Kazı Yapılmadı</SelectItem>
+                <SelectItem value="done">Kazı Yapıldı</SelectItem>
               </SelectContent>
             </Select>
           </div>

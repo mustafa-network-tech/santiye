@@ -29,6 +29,7 @@ export const projectCreateSchema = z.object({
     .or(z.literal("")),
   received_at: z.string().min(1, "Alınan tarih zorunlu"),
   tracks_obk: z.boolean(),
+  tracks_excavation: z.boolean(),
   sheet_count: z.coerce.number().int().positive().optional(),
   hp_count: z.coerce.number().int().nonnegative().optional(),
   is_single_sheet: z.boolean(),

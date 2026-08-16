@@ -41,6 +41,7 @@ export type Project = {
   sheet_count: number | null;
   hp_count: number | null;
   is_single_sheet: boolean;
+  matching_team_leaders?: string[];
 };
 
 export type ProjectInsert = {
@@ -51,6 +52,7 @@ export type ProjectInsert = {
   description?: string | null;
   received_at?: string | null;
   tracks_obk?: boolean;
+  tracks_excavation?: boolean;
   sheet_count?: number | null;
   hp_count?: number | null;
   is_single_sheet?: boolean;
@@ -59,8 +61,8 @@ export type ProjectInsert = {
 };
 
 export type ProjectSheetCable = { id: string; sheet_id: string; fiber_count: number; quantity: number; created_at: string };
-export type ProjectSheetProgress = { id: string; sheet_id: string; cable_id: string | null; stage: "cable" | "joint" | "obk" | "completed"; quantity: number; team_leader_personnel_id: string | null; team_leader_name: string; progress_date: string; notes: string | null; created_at: string };
-export type ProjectSheet = { id: string; project_id: string; name: string; hp_count: number | null; tracks_cable: boolean; tracks_joint: boolean; tracks_obk: boolean; created_at: string; updated_at: string; cables: ProjectSheetCable[]; progress: ProjectSheetProgress[] };
+export type ProjectSheetProgress = { id: string; sheet_id: string; cable_id: string | null; stage: "cable" | "joint" | "obk" | "excavation_permit_waiting" | "excavation_waiting" | "excavation_done" | "completed"; quantity: number; team_leader_personnel_id: string | null; team_leader_name: string; progress_date: string; notes: string | null; created_at: string };
+export type ProjectSheet = { id: string; project_id: string; name: string; hp_count: number | null; location: string | null; coordinates: string | null; tracks_cable: boolean; tracks_joint: boolean; tracks_obk: boolean; tracks_excavation: boolean; created_at: string; updated_at: string; cables: ProjectSheetCable[]; progress: ProjectSheetProgress[] };
 
 export type ProjectUpdate = {
   project_code?: string;
@@ -145,7 +147,7 @@ export type ProjectFilters = {
   obkStatus?: TrackingFilter;
   jointStatus?: TrackingFilter;
   cableStatus?: TrackingFilter;
-  excavationStatus?: TrackingFilter;
+  excavationStatus?: ExcavationTrackingFilter;
   analysisStage?: ProjectAnalysisStage;
   archiveScope?: "active" | "archived" | "all";
   page?: number;
@@ -160,6 +162,8 @@ export type TrackingFilter =
   | "untracked"
   | "true"
   | "false";
+
+export type ExcavationTrackingFilter = TrackingFilter | "permit_waiting" | "excavation_waiting" | "done";
 
 export type ProjectTrackingUpdate = {
   id: string;

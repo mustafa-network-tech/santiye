@@ -35,6 +35,7 @@ export class ProjectRepository {
     const ascending = (filters.sortOrder ?? "desc") === "asc";
 
     let query = this.supabase.from("projects").select("*", { count: "exact" });
+    const matchingLeadersByProject = new Map<string, Set<string>>();
 
     const scope = filters.archiveScope ?? "active";
     if (scope === "active") {
@@ -111,23 +112,49 @@ export class ProjectRepository {
     applyTrackingFilter(filters.obkStatus, "tracks_obk", "obk_pulled");
     applyTrackingFilter(filters.jointStatus, "tracks_joint", "joint_done");
     applyTrackingFilter(filters.cableStatus, "tracks_cable", "cable_pulled");
-    applyTrackingFilter(
-      filters.excavationStatus,
-      "tracks_excavation",
-      "excavation_done"
-    );
+    if (filters.excavationStatus && filters.excavationStatus !== "all") {
+      if (filters.excavationStatus === "untracked") {
+        query = query.eq("tracks_excavation", false);
+      } else {
+        const { data: excavationSheets, error: excavationError } = await this.supabase
+          .from("project_sheets")
+          .select("id, project_id, progress:project_sheet_progress(id, stage, progress_date, created_at)")
+          .eq("tracks_excavation", true);
+        if (excavationError) throw excavationError;
+        const ids = new Set<string>();
+        for (const sheet of excavationSheets ?? []) {
+          const progress = (sheet.progress as { stage: string; progress_date: string; created_at: string }[])
+            .filter((item) => item.stage.startsWith("excavation_"))
+            .sort((a, b) => `${b.progress_date}${b.created_at}`.localeCompare(`${a.progress_date}${a.created_at}`));
+          const latest = progress[0]?.stage;
+          const wanted = filters.excavationStatus;
+          const matches = wanted === "tracked" ||
+            ((wanted === "permit_waiting" || wanted === "false") && latest === "excavation_permit_waiting") ||
+            ((wanted === "excavation_waiting" || wanted === "false") && latest === "excavation_waiting") ||
+            ((wanted === "done" || wanted === "true") && latest === "excavation_done");
+          if (matches) ids.add(sheet.project_id as string);
+        }
+        query = query.in("id", ids.size ? [...ids] : ["00000000-0000-0000-0000-000000000000"]);
+      }
+    }
 
     if (filters.search?.trim()) {
       const term = filters.search.trim().replace(/[%_]/g, "\\$&");
-      query = query.or(
-        [
-          `project_code.ilike.%${term}%`,
-          `name.ilike.%${term}%`,
-          `location.ilike.%${term}%`,
-          `description.ilike.%${term}%`,
-          `progress_notes.ilike.%${term}%`,
-        ].join(",")
-      );
+      const { data: leaderRows, error: leaderError } = await this.supabase
+        .from("project_sheet_progress")
+        .select("team_leader_name, sheet:project_sheets!inner(project_id)")
+        .ilike("team_leader_name", `%${term}%`);
+      if (leaderError) throw leaderError;
+      for (const row of leaderRows ?? []) {
+        const relation = row.sheet as unknown as { project_id: string };
+        const names = matchingLeadersByProject.get(relation.project_id) ?? new Set<string>();
+        names.add(row.team_leader_name as string);
+        matchingLeadersByProject.set(relation.project_id, names);
+      }
+      const projectIds = [...matchingLeadersByProject.keys()];
+      const searchParts = [`project_code.ilike.%${term}%`, `name.ilike.%${term}%`];
+      if (projectIds.length) searchParts.push(`id.in.(${projectIds.join(",")})`);
+      query = query.or(searchParts.join(","));
     }
 
     const { data, error, count } = await query
@@ -139,7 +166,10 @@ export class ProjectRepository {
     const total = count ?? 0;
 
     return {
-      data: (data ?? []) as Project[],
+      data: (data ?? []).map((project) => ({
+        ...project,
+        matching_team_leaders: [...(matchingLeadersByProject.get(project.id as string) ?? [])],
+      })) as Project[],
       total,
       page,
       pageSize,
@@ -173,6 +203,7 @@ export class ProjectRepository {
       received_at: receivedAt,
       waiting_at: receivedAt,
       tracks_obk: payload.tracks_obk ?? false,
+      tracks_excavation: payload.tracks_excavation ?? false,
       sheet_count: payload.sheet_count ?? null,
       hp_count: payload.hp_count ?? null,
       is_single_sheet: payload.is_single_sheet ?? false,
@@ -190,7 +221,7 @@ export class ProjectRepository {
     if (payload.is_single_sheet) {
       const { error: sheetError } = await this.supabase.from("project_sheets").insert({
         project_id: data.id, name: "Tek Pafta", hp_count: payload.hp_count ?? null,
-        tracks_obk: payload.tracks_obk ?? false, created_by: payload.created_by ?? null,
+        tracks_obk: payload.tracks_obk ?? false, tracks_excavation: payload.tracks_excavation ?? false, created_by: payload.created_by ?? null,
       });
       if (sheetError) throw sheetError;
     }

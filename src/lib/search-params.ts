@@ -3,6 +3,7 @@ import type {
   ProjectFilters,
   ProjectStatus,
   TrackingFilter,
+  ExcavationTrackingFilter,
 } from "@/types/project";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants/project";
 
@@ -41,7 +42,7 @@ export function parseProjectSearchParams(
       defaults?.cableStatus ??
       "all",
     excavationStatus:
-      (get("excavation") as TrackingFilter | undefined) ??
+      (get("excavation") as ExcavationTrackingFilter | undefined) ??
       defaults?.excavationStatus ??
       "all",
     analysisStage:

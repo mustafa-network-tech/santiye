@@ -117,6 +117,7 @@ function CreateProjectForm({
       description: "",
       received_at: todayISODate(),
       tracks_obk: false,
+      tracks_excavation: false,
       sheet_count: 1,
       hp_count: 0,
       is_single_sheet: false,
@@ -162,6 +163,7 @@ function CreateProjectForm({
         received_at: values.received_at || todayISODate(),
         tracks_obk:
           isBfOrGfProject(values.project_type) && values.tracks_obk,
+        tracks_excavation: values.tracks_excavation,
         sheet_count: isBfOrGfProject(values.project_type) ? values.sheet_count : null,
         hp_count: isBfOrGfProject(values.project_type) ? values.hp_count : null,
         is_single_sheet: values.is_single_sheet,
@@ -285,6 +287,8 @@ function CreateProjectForm({
                 </span>
               </label>
             )}
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_excavation")} onChange={e=>form.setValue("tracks_excavation",e.target.checked)}/><span><span className="block text-sm font-medium">Kazı var</span><span className="block text-xs text-muted-foreground">Paftalarda kazı izni ve kazı yapım aşamaları takip edilir.</span></span></label>
 
             {isBfOrGf && <><div className="space-y-2"><Label htmlFor="sheet_count">Pafta Sayısı</Label><Input id="sheet_count" type="number" min="1" {...form.register("sheet_count")}/></div><div className="space-y-2"><Label htmlFor="hp_count">HP Bilgisi</Label><Input id="hp_count" type="number" min="0" {...form.register("hp_count")}/></div></>}
 
