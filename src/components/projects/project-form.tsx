@@ -504,7 +504,7 @@ function EditProjectForm({
               </label>
             )}
 
-            {(
+            {projectType !== "BGFD" && (
               <div className="md:col-span-2 space-y-4 rounded-2xl border bg-muted/30 p-4">
                 <div>
                   <p className="text-sm font-medium">

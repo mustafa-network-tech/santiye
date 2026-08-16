@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArchiveRestore, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
-import type { Project, ProjectSheet } from "@/types/project";
+import type { Project, ProjectSheet, ProjectCabinet } from "@/types/project";
 import type { Personnel } from "@/types/work-plan";
 import { ProjectSheetProgress } from "@/components/projects/project-sheet-progress";
+import { BgfdCabinetProgress } from "@/components/projects/bgfd-cabinet-progress";
 import {
   PROJECT_STATUSES,
   formatBooleanChoice,
@@ -27,9 +28,10 @@ type Props = {
   readOnly?: boolean;
   sheets: ProjectSheet[];
   personnel: Personnel[];
+  cabinets: ProjectCabinet[];
 };
 
-export function ProjectDetail({ project, typeLabel, sheets, personnel, readOnly = false }: Props) {
+export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets, readOnly = false }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const isBfOrGf = isBfOrGfProject(project.project_type);
@@ -190,9 +192,9 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, readOnly 
         </CardContent>
       </Card>
 
-      <ProjectSheetProgress project={project} sheets={sheets} personnel={personnel} readOnly={readOnly || project.is_archived} />
+      {project.project_type === "BGFD" ? <BgfdCabinetProgress project={project} cabinets={cabinets} personnel={personnel} readOnly={readOnly || project.is_archived}/> : <ProjectSheetProgress project={project} sheets={sheets} personnel={personnel} readOnly={readOnly || project.is_archived} />}
 
-      {(isBfOrGf ||
+      {project.project_type !== "BGFD" && (isBfOrGf ||
         isOngoing ||
         project.cable_pulled !== null ||
         project.obk_pulled !== null ||

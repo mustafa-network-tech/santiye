@@ -16,6 +16,11 @@ const SHORTCUTS = [
     className:
       "bg-cyan-600 text-white shadow-cyan-600/25 hover:bg-cyan-700",
   },
+  {
+    type: "BGFD",
+    className:
+      "bg-emerald-600 text-white shadow-emerald-600/25 hover:bg-emerald-700",
+  },
 ] as const;
 
 export function ProjectTypeShortcuts({ compact = false }: Props) {

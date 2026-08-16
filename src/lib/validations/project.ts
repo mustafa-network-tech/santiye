@@ -86,7 +86,7 @@ export const projectEditSchema = z
     const isBfOrGf =
       data.project_type === "BF" || data.project_type === "GF";
 
-    if (isOngoingProjectStatus(data.status) && !isBfOrGf) {
+    if (isOngoingProjectStatus(data.status) && !isBfOrGf && data.project_type !== "BGFD") {
       if (data.cable_pulled === "unset") {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

@@ -11,6 +11,7 @@ import type {
   ProjectTrackingUpdate,
   ProjectUpdate,
   ProjectSheet,
+  ProjectCabinet,
 } from "@/types/project";
 
 function emptyToNull(value?: string | null): string | null {
@@ -234,6 +235,15 @@ export class ProjectRepository {
       .eq("project_id", projectId).order("created_at");
     if (error) throw error;
     return (data ?? []) as ProjectSheet[];
+  }
+
+  async getCabinets(projectId: string): Promise<ProjectCabinet[]> {
+    const { data, error } = await this.supabase.from("project_cabinets")
+      .select("*, progress:project_cabinet_progress(*)")
+      .eq("project_id", projectId)
+      .order("cabinet_type").order("cabinet_no");
+    if (error) throw error;
+    return (data ?? []) as ProjectCabinet[];
   }
 
   async update(id: string, payload: ProjectUpdate): Promise<Project> {
