@@ -4,6 +4,7 @@ import { ProjectRepository } from "@/modules/projects/project-repository";
 import { SettingsRepository } from "@/modules/settings/settings-repository";
 import { ProjectDetail } from "@/components/projects/project-detail";
 import { UserRepository } from "@/modules/users/user-repository";
+import { PersonnelRepository } from "@/modules/work-plans/personnel-repository";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -24,10 +25,12 @@ export default async function ProjectDetailPage({ params }: Props) {
   const projectRepo = new ProjectRepository(supabase);
   const settingsRepo = new SettingsRepository(supabase);
 
-  const [project, customTypes, canWrite] = await Promise.all([
+  const [project, customTypes, canWrite, sheets, personnel] = await Promise.all([
     projectRepo.getById(id),
     settingsRepo.getCustomProjectTypes(),
     new UserRepository(supabase).canWrite("projects"),
+    projectRepo.getSheets(id),
+    new PersonnelRepository(supabase).list({ activeOnly: true }),
   ]);
 
   if (!project) notFound();
@@ -42,6 +45,8 @@ export default async function ProjectDetailPage({ params }: Props) {
       project={project}
       typeLabel={typeLabel}
       readOnly={!canWrite}
+      sheets={sheets}
+      personnel={personnel}
     />
   );
 }

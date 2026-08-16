@@ -38,6 +38,9 @@ export type Project = {
   updated_by: string | null;
   created_at: string;
   updated_at: string;
+  sheet_count: number | null;
+  hp_count: number | null;
+  is_single_sheet: boolean;
 };
 
 export type ProjectInsert = {
@@ -48,9 +51,16 @@ export type ProjectInsert = {
   description?: string | null;
   received_at?: string | null;
   tracks_obk?: boolean;
+  sheet_count?: number | null;
+  hp_count?: number | null;
+  is_single_sheet?: boolean;
   created_by?: string | null;
   updated_by?: string | null;
 };
+
+export type ProjectSheetCable = { id: string; sheet_id: string; fiber_count: number; quantity: number; created_at: string };
+export type ProjectSheetProgress = { id: string; sheet_id: string; cable_id: string | null; stage: "cable" | "joint" | "obk" | "completed"; quantity: number; team_leader_personnel_id: string | null; team_leader_name: string; progress_date: string; notes: string | null; created_at: string };
+export type ProjectSheet = { id: string; project_id: string; name: string; hp_count: number | null; tracks_cable: boolean; tracks_joint: boolean; tracks_obk: boolean; created_at: string; updated_at: string; cables: ProjectSheetCable[]; progress: ProjectSheetProgress[] };
 
 export type ProjectUpdate = {
   project_code?: string;

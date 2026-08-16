@@ -10,6 +10,7 @@ import type {
   ProjectInsert,
   ProjectTrackingUpdate,
   ProjectUpdate,
+  ProjectSheet,
 } from "@/types/project";
 
 function emptyToNull(value?: string | null): string | null {
@@ -172,6 +173,9 @@ export class ProjectRepository {
       received_at: receivedAt,
       waiting_at: receivedAt,
       tracks_obk: payload.tracks_obk ?? false,
+      sheet_count: payload.sheet_count ?? null,
+      hp_count: payload.hp_count ?? null,
+      is_single_sheet: payload.is_single_sheet ?? false,
       created_by: payload.created_by ?? null,
       updated_by: payload.updated_by ?? null,
     };
@@ -183,7 +187,22 @@ export class ProjectRepository {
       .single();
 
     if (error) throw error;
+    if (payload.is_single_sheet) {
+      const { error: sheetError } = await this.supabase.from("project_sheets").insert({
+        project_id: data.id, name: "Tek Pafta", hp_count: payload.hp_count ?? null,
+        tracks_obk: payload.tracks_obk ?? false, created_by: payload.created_by ?? null,
+      });
+      if (sheetError) throw sheetError;
+    }
     return data as Project;
+  }
+
+  async getSheets(projectId: string): Promise<ProjectSheet[]> {
+    const { data, error } = await this.supabase.from("project_sheets")
+      .select("*, cables:project_sheet_cables(*), progress:project_sheet_progress(*)")
+      .eq("project_id", projectId).order("created_at");
+    if (error) throw error;
+    return (data ?? []) as ProjectSheet[];
   }
 
   async update(id: string, payload: ProjectUpdate): Promise<Project> {

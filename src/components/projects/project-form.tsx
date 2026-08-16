@@ -117,6 +117,9 @@ function CreateProjectForm({
       description: "",
       received_at: todayISODate(),
       tracks_obk: false,
+      sheet_count: 1,
+      hp_count: 0,
+      is_single_sheet: false,
     },
   });
 
@@ -159,6 +162,9 @@ function CreateProjectForm({
         received_at: values.received_at || todayISODate(),
         tracks_obk:
           isBfOrGfProject(values.project_type) && values.tracks_obk,
+        sheet_count: isBfOrGfProject(values.project_type) ? values.sheet_count : null,
+        hp_count: isBfOrGfProject(values.project_type) ? values.hp_count : null,
+        is_single_sheet: values.is_single_sheet,
         created_by: user.id,
         updated_by: user.id,
       });
@@ -279,6 +285,10 @@ function CreateProjectForm({
                 </span>
               </label>
             )}
+
+            {isBfOrGf && <><div className="space-y-2"><Label htmlFor="sheet_count">Pafta Sayısı</Label><Input id="sheet_count" type="number" min="1" {...form.register("sheet_count")}/></div><div className="space-y-2"><Label htmlFor="hp_count">HP Bilgisi</Label><Input id="hp_count" type="number" min="0" {...form.register("hp_count")}/></div></>}
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("is_single_sheet")} onChange={e=>form.setValue("is_single_sheet",e.target.checked)}/><span><span className="block text-sm font-medium">Proje tek paftadan oluşuyor</span><span className="block text-xs text-muted-foreground">Tek pafta otomatik oluşturulur ve alanları proje kartında gösterilir.</span></span></label>
 
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="description">Açıklama</Label>

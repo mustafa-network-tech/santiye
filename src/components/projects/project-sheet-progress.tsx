@@ -1,0 +1,30 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import type { Project, ProjectSheet } from "@/types/project";
+import type { Personnel } from "@/types/work-plan";
+import { createClient } from "@/lib/supabase/client";
+import { formatDate } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const labels = { cable: "Kablo çekimi", joint: "Ek", obk: "OBK", completed: "Tamamlandı" };
+export function ProjectSheetProgress({project,sheets,personnel,readOnly}:{project:Project;sheets:ProjectSheet[];personnel:Personnel[];readOnly:boolean}) {
+ const router=useRouter(), [sheetName,setSheetName]=useState(""), [selected,setSelected]=useState(sheets[0]?.id??""), [fiber,setFiber]=useState("6"), [quantity,setQuantity]=useState("1"), [stage,setStage]=useState<keyof typeof labels>("cable"), [cable,setCable]=useState(""), [leader,setLeader]=useState(""), [date,setDate]=useState(new Date().toISOString().slice(0,10));
+ const sheet=sheets.find(s=>s.id===selected);
+ async function addSheet(){if(!sheetName.trim())return;if(project.sheet_count!==null&&sheets.length>=project.sheet_count)return toast.error(`Bu proje için en fazla ${project.sheet_count} pafta tanımlanabilir`);const s=createClient(),{data:{user}}=await s.auth.getUser();const {error}=await s.from("project_sheets").insert({project_id:project.id,name:sheetName.trim(),tracks_obk:project.tracks_obk,created_by:user?.id});if(error)return toast.error(error.code==="23505"?"Bu pafta zaten var":"Pafta eklenemedi");setSheetName("");toast.success("Pafta eklendi");router.refresh()}
+ async function addCable(){if(!selected)return toast.error("Önce pafta seçin");const {error}=await createClient().from("project_sheet_cables").insert({sheet_id:selected,fiber_count:Number(fiber),quantity:Number(quantity)});if(error)return toast.error("Kablo eklenemedi");toast.success("Kablo eklendi");router.refresh()}
+ async function addProgress(){const p=personnel.find(x=>x.id===leader);if(!sheet||!p||(stage==="cable"&&!cable))return toast.error("Pafta, kablo ve ekip başı bilgilerini tamamlayın");const s=createClient(),{data:{user}}=await s.auth.getUser();const {error}=await s.from("project_sheet_progress").insert({sheet_id:sheet.id,cable_id:stage==="cable"?cable:null,stage,quantity:Number(quantity),team_leader_personnel_id:p.id,team_leader_name:p.full_name,progress_date:date,created_by:user?.id});if(error)return toast.error("İlerleme kaydedilemedi");toast.success("İlerleme kaydedildi");router.refresh()}
+ return <Card><CardHeader><CardTitle className="text-base">Pafta İlerlemesi</CardTitle></CardHeader><CardContent className="space-y-5">
+ {!readOnly&&!project.is_single_sheet&&<div className="flex gap-2"><Input value={sheetName} onChange={e=>setSheetName(e.target.value)} placeholder="Pafta adı / numarası"/><Button onClick={addSheet}>Pafta Ekle</Button></div>}
+ {!sheets.length?<p className="text-sm text-muted-foreground">Henüz pafta yok. Paftalar yalnızca proje içinden oluşturulur.</p>:<><div><Label>Pafta</Label><Select value={selected} onValueChange={setSelected}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{sheets.map(s=><SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></div>{sheet&&<div className="space-y-4 rounded-xl border p-4"><div className="flex gap-3 text-sm"><strong>{sheet.name}</strong><span>{sheet.cables.reduce((n,c)=>n+c.quantity,0)} kablo</span></div>
+ {!readOnly&&<div className="grid gap-3 md:grid-cols-4"><div><Label>Fiber</Label><Select value={fiber} onValueChange={setFiber}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{[6,12,24,48,60,72,96,144].map(n=><SelectItem key={n} value={String(n)}>{n} FO</SelectItem>)}</SelectContent></Select></div><div><Label>Adet</Label><Input type="number" min="1" value={quantity} onChange={e=>setQuantity(e.target.value)}/></div><Button className="self-end" variant="outline" onClick={addCable}>Kablo Ekle</Button></div>}
+ <div className="flex flex-wrap gap-2">{sheet.cables.map(c=><span key={c.id} className="rounded-full bg-muted px-3 py-1 text-xs">{c.quantity} adet · {c.fiber_count} FO</span>)}</div>
+ {!readOnly&&<div className="grid gap-3 border-t pt-4 md:grid-cols-5"><div><Label>Aşama</Label><Select value={stage} onValueChange={v=>setStage(v as keyof typeof labels)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{Object.entries(labels).filter(([k])=>k!=="obk"||sheet.tracks_obk).map(([k,v])=><SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent></Select></div>{stage==="cable"&&<div><Label>Çekilen kablo</Label><Select value={cable} onValueChange={setCable}><SelectTrigger><SelectValue placeholder="Seçin"/></SelectTrigger><SelectContent>{sheet.cables.map(c=><SelectItem key={c.id} value={c.id}>{c.fiber_count} FO ({c.quantity} adet)</SelectItem>)}</SelectContent></Select></div>}<div><Label>Ekip başı</Label><Select value={leader} onValueChange={setLeader}><SelectTrigger><SelectValue placeholder="Seçin"/></SelectTrigger><SelectContent>{personnel.map(p=><SelectItem key={p.id} value={p.id}>{p.full_name}</SelectItem>)}</SelectContent></Select></div><div><Label>Tarih</Label><Input type="date" value={date} onChange={e=>setDate(e.target.value)}/></div><Button className="self-end" onClick={addProgress}>İlerleme Kaydet</Button></div>}
+ <div className="space-y-2">{sheet.progress.slice().sort((a,b)=>b.progress_date.localeCompare(a.progress_date)).map(p=><div key={p.id} className="grid rounded-lg bg-muted/50 p-3 text-sm md:grid-cols-4"><strong>{labels[p.stage]}</strong><span>{p.team_leader_name}</span><span>{formatDate(p.progress_date)}</span><span>{p.quantity} adet</span></div>)}</div></div>}</>}
+ </CardContent></Card>;
+}

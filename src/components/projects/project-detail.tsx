@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArchiveRestore, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
-import type { Project } from "@/types/project";
+import type { Project, ProjectSheet } from "@/types/project";
+import type { Personnel } from "@/types/work-plan";
+import { ProjectSheetProgress } from "@/components/projects/project-sheet-progress";
 import {
   PROJECT_STATUSES,
   formatBooleanChoice,
@@ -23,9 +25,11 @@ type Props = {
   project: Project;
   typeLabel: string;
   readOnly?: boolean;
+  sheets: ProjectSheet[];
+  personnel: Personnel[];
 };
 
-export function ProjectDetail({ project, typeLabel, readOnly = false }: Props) {
+export function ProjectDetail({ project, typeLabel, sheets, personnel, readOnly = false }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const isBfOrGf = isBfOrGfProject(project.project_type);
@@ -58,6 +62,13 @@ export function ProjectDetail({ project, typeLabel, readOnly = false }: Props) {
   }
 
   const fields = [
+    ...(isBfOrGf
+      ? [
+          { label: "Pafta Sayısı", value: project.sheet_count ?? "—" },
+          { label: "HP Bilgisi", value: project.hp_count ?? "—" },
+          { label: "Pafta Yapısı", value: project.is_single_sheet ? "Tek pafta" : "Çoklu pafta" },
+        ]
+      : []),
     { label: "Proje ID", value: project.project_code },
     { label: "Proje Türü", value: typeLabel },
     { label: "Mevki", value: project.location },
@@ -178,6 +189,8 @@ export function ProjectDetail({ project, typeLabel, readOnly = false }: Props) {
           </dl>
         </CardContent>
       </Card>
+
+      <ProjectSheetProgress project={project} sheets={sheets} personnel={personnel} readOnly={readOnly || project.is_archived} />
 
       {(isBfOrGf ||
         isOngoing ||

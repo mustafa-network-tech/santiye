@@ -29,6 +29,9 @@ export const projectCreateSchema = z.object({
     .or(z.literal("")),
   received_at: z.string().min(1, "Alınan tarih zorunlu"),
   tracks_obk: z.boolean(),
+  sheet_count: z.coerce.number().int().positive().optional(),
+  hp_count: z.coerce.number().int().nonnegative().optional(),
+  is_single_sheet: z.boolean(),
 });
 
 export type ProjectCreateValues = z.infer<typeof projectCreateSchema>;
