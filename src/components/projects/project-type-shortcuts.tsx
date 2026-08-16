@@ -21,6 +21,12 @@ const SHORTCUTS = [
     className:
       "bg-emerald-600 text-white shadow-emerald-600/25 hover:bg-emerald-700",
   },
+  {
+    type: "Kurumsal",
+    label: "K",
+    className:
+      "bg-amber-600 text-white shadow-amber-600/25 hover:bg-amber-700",
+  },
 ] as const;
 
 export function ProjectTypeShortcuts({ compact = false }: Props) {
@@ -37,7 +43,7 @@ export function ProjectTypeShortcuts({ compact = false }: Props) {
           )}
           title={`${shortcut.type} projelerine git`}
         >
-          {shortcut.type}
+          {"label" in shortcut ? shortcut.label : shortcut.type}
         </Link>
       ))}
     </div>
