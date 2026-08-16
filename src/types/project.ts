@@ -53,9 +53,13 @@ export type ProjectInsert = {
   received_at?: string | null;
   tracks_obk?: boolean;
   tracks_excavation?: boolean;
+  tracks_cable?: boolean;
+  tracks_joint?: boolean;
   sheet_count?: number | null;
   hp_count?: number | null;
   is_single_sheet?: boolean;
+  cabinet_counts?: Partial<Record<CabinetType, number>>;
+  cabinet_sd_codes?: Partial<Record<CabinetType, string[]>>;
   created_by?: string | null;
   updated_by?: string | null;
 };
@@ -66,7 +70,7 @@ export type ProjectSheet = { id: string; project_id: string; name: string; hp_co
 export type CabinetType = "T7" | "T9" | "T11" | "T21" | "T23";
 export type CabinetStage = "cable" | "excavation_permit_waiting" | "excavation_waiting" | "excavation_done" | "energy_cable" | "energy" | "cabinet_installation" | "joint" | "transfer";
 export type ProjectCabinetProgress = { id:string; cabinet_id:string; stage:CabinetStage; cable_info:string|null; energy_cable_info:string|null; transfer_info:string|null; team_leader_personnel_id:string|null; team_leader_name:string; progress_date:string; notes:string|null; created_at:string };
-export type ProjectCabinet = { id:string; project_id:string; cabinet_type:CabinetType; cabinet_no:number; name:string; location:string|null; coordinates:string|null; tracks_excavation:boolean; created_at:string; progress:ProjectCabinetProgress[] };
+export type ProjectCabinet = { id:string; project_id:string; cabinet_type:CabinetType; cabinet_no:number; name:string; sd_code:string|null; location:string|null; coordinates:string|null; tracks_excavation:boolean; created_at:string; progress:ProjectCabinetProgress[] };
 
 export type ProjectUpdate = {
   project_code?: string;

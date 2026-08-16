@@ -205,6 +205,8 @@ export class ProjectRepository {
       waiting_at: receivedAt,
       tracks_obk: payload.tracks_obk ?? false,
       tracks_excavation: payload.tracks_excavation ?? false,
+      tracks_cable: payload.tracks_cable ?? true,
+      tracks_joint: payload.tracks_joint ?? true,
       sheet_count: payload.sheet_count ?? null,
       hp_count: payload.hp_count ?? null,
       is_single_sheet: payload.is_single_sheet ?? false,
@@ -219,12 +221,36 @@ export class ProjectRepository {
       .single();
 
     if (error) throw error;
-    if (payload.is_single_sheet) {
-      const { error: sheetError } = await this.supabase.from("project_sheets").insert({
-        project_id: data.id, name: "Tek Pafta", hp_count: payload.hp_count ?? null,
-        tracks_obk: payload.tracks_obk ?? false, tracks_excavation: payload.tracks_excavation ?? false, created_by: payload.created_by ?? null,
-      });
+    const sheetCount = payload.project_type === "BGFD" ? 0 :
+      (payload.sheet_count ?? (payload.is_single_sheet ? 1 : 0));
+    if (sheetCount > 0) {
+      const sheets = Array.from({ length: sheetCount }, (_, index) => ({
+        project_id: data.id,
+        name: sheetCount === 1 ? "Tek Pafta" : `Pafta ${index + 1}`,
+        hp_count: payload.hp_count ?? null,
+        tracks_cable: payload.tracks_cable ?? true,
+        tracks_joint: payload.tracks_joint ?? true,
+        tracks_obk: payload.project_type === "BGFD" ? false : payload.tracks_obk ?? false,
+        tracks_excavation: payload.tracks_excavation ?? false,
+        created_by: payload.created_by ?? null,
+      }));
+      const { error: sheetError } = await this.supabase.from("project_sheets").insert(sheets);
       if (sheetError) throw sheetError;
+    }
+    if (payload.project_type === "BGFD" && payload.cabinet_counts) {
+      const cabinetRows: Record<string, unknown>[] = [];
+      for (const [cabinetType, count] of Object.entries(payload.cabinet_counts)) {
+        const sdCodes = payload.cabinet_sd_codes?.[cabinetType as keyof typeof payload.cabinet_sd_codes] ?? [];
+        for (let index = 1; index <= (count ?? 0); index++) cabinetRows.push({
+          project_id: data.id, cabinet_type: cabinetType, cabinet_no: index,
+          name: `${cabinetType} · SD ${sdCodes[index - 1]}`, sd_code: sdCodes[index - 1], tracks_excavation: payload.tracks_excavation ?? false,
+          created_by: payload.created_by ?? null,
+        });
+      }
+      if (cabinetRows.length) {
+        const { error: cabinetError } = await this.supabase.from("project_cabinets").insert(cabinetRows);
+        if (cabinetError) throw cabinetError;
+      }
     }
     return data as Project;
   }
@@ -306,6 +332,19 @@ export class ProjectRepository {
       .single();
 
     if (error) throw error;
+    const sheetTracking: Record<string, boolean> = {};
+    if (payload.tracks_cable !== undefined) sheetTracking.tracks_cable = payload.tracks_cable;
+    if (payload.tracks_joint !== undefined) sheetTracking.tracks_joint = payload.tracks_joint;
+    if (payload.tracks_obk !== undefined) sheetTracking.tracks_obk = payload.project_type === "BGFD" ? false : payload.tracks_obk;
+    if (payload.tracks_excavation !== undefined) sheetTracking.tracks_excavation = payload.tracks_excavation;
+    if (Object.keys(sheetTracking).length) {
+      const { error: sheetTrackingError } = await this.supabase.from("project_sheets").update(sheetTracking).eq("project_id", id);
+      if (sheetTrackingError) throw sheetTrackingError;
+    }
+    if (payload.tracks_excavation !== undefined) {
+      const { error: cabinetTrackingError } = await this.supabase.from("project_cabinets").update({ tracks_excavation: payload.tracks_excavation }).eq("project_id", id);
+      if (cabinetTrackingError) throw cabinetTrackingError;
+    }
     return data as Project;
   }
 

@@ -30,9 +30,34 @@ export const projectCreateSchema = z.object({
   received_at: z.string().min(1, "Alınan tarih zorunlu"),
   tracks_obk: z.boolean(),
   tracks_excavation: z.boolean(),
+  tracks_cable: z.boolean(),
+  tracks_joint: z.boolean(),
   sheet_count: z.coerce.number().int().positive().optional(),
   hp_count: z.coerce.number().int().nonnegative().optional(),
   is_single_sheet: z.boolean(),
+  bgfd_t7: z.coerce.number().int().nonnegative(),
+  bgfd_t9: z.coerce.number().int().nonnegative(),
+  bgfd_t11: z.coerce.number().int().nonnegative(),
+  bgfd_t21: z.coerce.number().int().nonnegative(),
+  bgfd_t23: z.coerce.number().int().nonnegative(),
+  bgfd_t7_sd: z.string(),
+  bgfd_t9_sd: z.string(),
+  bgfd_t11_sd: z.string(),
+  bgfd_t21_sd: z.string(),
+  bgfd_t23_sd: z.string(),
+}).superRefine((data, ctx) => {
+  if (data.project_type === "BGFD" && data.bgfd_t7 + data.bgfd_t9 + data.bgfd_t11 + data.bgfd_t21 + data.bgfd_t23 < 1) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "BGFD için en az bir dolap girilmeli", path: ["bgfd_t7"] });
+  }
+  if (data.project_type === "BGFD") {
+    for (const type of ["t7","t9","t11","t21","t23"] as const) {
+      const count = data[`bgfd_${type}`];
+      const codes = data[`bgfd_${type}_sd`].split(",").map(v => v.trim()).filter(Boolean);
+      if (codes.length !== count || codes.some(code => !/^\d{3}$/.test(code))) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${type.toUpperCase()} için her dolaba ait 3 haneli SD girilmeli`, path: [`bgfd_${type}_sd`] });
+    }
+    const allCodes = [data.bgfd_t7_sd,data.bgfd_t9_sd,data.bgfd_t11_sd,data.bgfd_t21_sd,data.bgfd_t23_sd].join(",").split(",").map(v=>v.trim()).filter(Boolean);
+    if (new Set(allCodes).size !== allCodes.length) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "SD numaraları aynı projede tekrar edemez", path: ["bgfd_t7_sd"] });
+  }
 });
 
 export type ProjectCreateValues = z.infer<typeof projectCreateSchema>;
@@ -73,6 +98,9 @@ export const projectEditSchema = z
     stage_date: z.string().min(1, "Aşama tarihi zorunlu"),
     cable_pulled: triState,
     tracks_obk: z.boolean(),
+    tracks_excavation: z.boolean(),
+    tracks_cable: z.boolean(),
+    tracks_joint: z.boolean(),
     obk_pulled: triState,
     joint_done: triState,
     progress_notes: z

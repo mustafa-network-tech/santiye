@@ -118,9 +118,21 @@ function CreateProjectForm({
       received_at: todayISODate(),
       tracks_obk: false,
       tracks_excavation: false,
+      tracks_cable: true,
+      tracks_joint: true,
       sheet_count: 1,
       hp_count: 0,
       is_single_sheet: false,
+      bgfd_t7: 0,
+      bgfd_t9: 0,
+      bgfd_t11: 0,
+      bgfd_t21: 0,
+      bgfd_t23: 0,
+      bgfd_t7_sd: "",
+      bgfd_t9_sd: "",
+      bgfd_t11_sd: "",
+      bgfd_t21_sd: "",
+      bgfd_t23_sd: "",
     },
   });
 
@@ -164,9 +176,13 @@ function CreateProjectForm({
         tracks_obk:
           isBfOrGfProject(values.project_type) && values.tracks_obk,
         tracks_excavation: values.tracks_excavation,
+        tracks_cable: values.project_type === "BGFD" ? true : values.tracks_cable,
+        tracks_joint: values.project_type === "BGFD" ? true : values.tracks_joint,
         sheet_count: isBfOrGfProject(values.project_type) ? values.sheet_count : null,
         hp_count: isBfOrGfProject(values.project_type) ? values.hp_count : null,
         is_single_sheet: values.is_single_sheet,
+        cabinet_counts: values.project_type === "BGFD" ? { T7: values.bgfd_t7, T9: values.bgfd_t9, T11: values.bgfd_t11, T21: values.bgfd_t21, T23: values.bgfd_t23 } : undefined,
+        cabinet_sd_codes: values.project_type === "BGFD" ? { T7: values.bgfd_t7_sd.split(",").map(v=>v.trim()).filter(Boolean), T9: values.bgfd_t9_sd.split(",").map(v=>v.trim()).filter(Boolean), T11: values.bgfd_t11_sd.split(",").map(v=>v.trim()).filter(Boolean), T21: values.bgfd_t21_sd.split(",").map(v=>v.trim()).filter(Boolean), T23: values.bgfd_t23_sd.split(",").map(v=>v.trim()).filter(Boolean) } : undefined,
         created_by: user.id,
         updated_by: user.id,
       });
@@ -290,9 +306,13 @@ function CreateProjectForm({
 
             <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_excavation")} onChange={e=>form.setValue("tracks_excavation",e.target.checked)}/><span><span className="block text-sm font-medium">Kazı var</span><span className="block text-xs text-muted-foreground">Paftalarda kazı izni ve kazı yapım aşamaları takip edilir.</span></span></label>
 
+            {projectType !== "BGFD" && <div className="grid gap-3 md:col-span-2 md:grid-cols-2"><label className="flex cursor-pointer gap-3 rounded-xl border bg-muted/30 p-4"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_cable")} onChange={e=>form.setValue("tracks_cable",e.target.checked)}/><span className="text-sm font-medium">Kablo takibi var</span></label><label className="flex cursor-pointer gap-3 rounded-xl border bg-muted/30 p-4"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_joint")} onChange={e=>form.setValue("tracks_joint",e.target.checked)}/><span className="text-sm font-medium">Ek takibi var</span></label></div>}
+
+            {projectType === "BGFD" && <div className="space-y-3 rounded-xl border p-4 md:col-span-2"><div><p className="text-sm font-medium">BGFD Dolap Bilgileri</p><p className="text-xs text-muted-foreground">Adedi ve her dolabın üç haneli SD numarasını virgülle ayırarak girin.</p></div><div className="grid gap-3">{(["T7","T9","T11","T21","T23"] as const).map(type=>{const key=type.toLowerCase() as "t7"|"t9"|"t11"|"t21"|"t23";return <div key={type} className="grid gap-2 sm:grid-cols-[140px_1fr]"><div><Label>{type} Adedi</Label><Input type="number" min="0" {...form.register(`bgfd_${key}`)}/></div><div><Label>{type} SD Numaraları</Label><Input placeholder="Örn: 123, 456" {...form.register(`bgfd_${key}_sd`)}/>{form.formState.errors[`bgfd_${key}_sd`]&&<p className="text-xs text-destructive">{form.formState.errors[`bgfd_${key}_sd`]?.message}</p>}</div></div>})}</div>{form.formState.errors.bgfd_t7&&<p className="text-xs text-destructive">{form.formState.errors.bgfd_t7.message}</p>}</div>}
+
             {isBfOrGf && <><div className="space-y-2"><Label htmlFor="sheet_count">Pafta Sayısı</Label><Input id="sheet_count" type="number" min="1" {...form.register("sheet_count")}/></div><div className="space-y-2"><Label htmlFor="hp_count">HP Bilgisi</Label><Input id="hp_count" type="number" min="0" {...form.register("hp_count")}/></div></>}
 
-            <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("is_single_sheet")} onChange={e=>form.setValue("is_single_sheet",e.target.checked)}/><span><span className="block text-sm font-medium">Proje tek paftadan oluşuyor</span><span className="block text-xs text-muted-foreground">Tek pafta otomatik oluşturulur ve alanları proje kartında gösterilir.</span></span></label>
+            {projectType !== "BGFD" && <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("is_single_sheet")} onChange={e=>form.setValue("is_single_sheet",e.target.checked)}/><span><span className="block text-sm font-medium">Proje tek paftadan oluşuyor</span><span className="block text-xs text-muted-foreground">Tek pafta otomatik oluşturulur ve alanları proje kartında gösterilir.</span></span></label>}
 
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="description">Açıklama</Label>
@@ -331,6 +351,9 @@ function EditProjectForm({
       stage_date: readStageDate(project),
       cable_pulled: booleanToTriState(project.cable_pulled),
       tracks_obk: project.tracks_obk ?? false,
+      tracks_excavation: project.tracks_excavation ?? false,
+      tracks_cable: project.tracks_cable ?? true,
+      tracks_joint: project.tracks_joint ?? true,
       obk_pulled: booleanToTriState(project.obk_pulled),
       joint_done: booleanToTriState(project.joint_done),
       progress_notes: project.progress_notes ?? "",
@@ -376,13 +399,14 @@ function EditProjectForm({
         location: values.location,
         description: values.description || null,
         received_at: values.received_at,
-        tracks_cable: true,
+        tracks_cable: projectType === "BGFD" ? true : values.tracks_cable,
         cable_pulled: triStateToBoolean(values.cable_pulled),
         tracks_obk: isBfOrGf && values.tracks_obk,
         obk_pulled: isBfOrGf && values.tracks_obk
           ? triStateToBoolean(values.obk_pulled)
           : null,
-        tracks_joint: true,
+        tracks_joint: projectType === "BGFD" ? true : values.tracks_joint,
+        tracks_excavation: values.tracks_excavation,
         joint_done: triStateToBoolean(values.joint_done),
         progress_notes: values.progress_notes || null,
         updated_by: user.id,
@@ -503,6 +527,10 @@ function EditProjectForm({
                 </span>
               </label>
             )}
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_excavation")} onChange={e=>form.setValue("tracks_excavation",e.target.checked)}/><span><span className="block text-sm font-medium">Kazı takibi var</span><span className="block text-xs text-muted-foreground">Değişiklik yeni pafta ve dolaplara uygulanır.</span></span></label>
+
+            {projectType !== "BGFD" && <div className="grid gap-3 md:col-span-2 md:grid-cols-2"><label className="flex cursor-pointer gap-3 rounded-xl border bg-muted/30 p-4"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_cable")} onChange={e=>form.setValue("tracks_cable",e.target.checked)}/><span className="text-sm font-medium">Kablo takibi var</span></label><label className="flex cursor-pointer gap-3 rounded-xl border bg-muted/30 p-4"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_joint")} onChange={e=>form.setValue("tracks_joint",e.target.checked)}/><span className="text-sm font-medium">Ek takibi var</span></label></div>}
 
             {projectType !== "BGFD" && (
               <div className="md:col-span-2 space-y-4 rounded-2xl border bg-muted/30 p-4">
