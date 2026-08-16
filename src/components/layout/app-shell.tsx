@@ -166,8 +166,8 @@ export function AppShell({
     }
 
     if (profile.role === "accounting") {
-      const module = moduleForPath(item.href);
-      return item.accounting || (module !== null && writableModules.includes(module));
+      const permissionModule = moduleForPath(item.href);
+      return item.accounting || (permissionModule !== null && writableModules.includes(permissionModule));
     }
 
     return true;
