@@ -21,6 +21,7 @@ async function ProjectsContent({ searchParams }: Props) {
   const filters = parseProjectSearchParams(params, {
     archiveScope: "active",
   });
+  if (filters.search?.trim()) filters.archiveScope = "all";
 
   const supabase = await createClient();
   const projectRepo = new ProjectRepository(supabase);

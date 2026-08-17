@@ -125,18 +125,6 @@ export function ProjectsTable({
         id:"progress_percent",header:"İlerleme",cell:({row})=>row.original.project_type==="HP_ODAKLI"?`%${row.original.progress_percent??0}`:"—",
       },
       {
-        id: "matching_team_leaders",
-        header: "Ekip Başı İlerlemesi",
-        cell: ({ row }) =>
-          row.original.matching_team_leaders?.length ? (
-            <div className="max-w-[220px] text-sm font-medium">
-              {row.original.matching_team_leaders.join(", ")}
-            </div>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          ),
-      },
-      {
         accessorKey: "status",
         header: "Durum",
         cell: ({ row }) => <ProjectStatusIndicators project={row.original} />,
@@ -227,7 +215,7 @@ export function ProjectsTable({
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 className="pl-9"
-                placeholder="Proje ID, proje adı veya ekip başı..."
+                placeholder="Proje ID veya proje adı..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => {
@@ -328,7 +316,7 @@ export function ProjectsTable({
             {allowArchiveScopeFilter ? (
               <Select
                 value={
-                  searchParams.get("scope") ??
+                  (searchParams.get("q") ? "all" : searchParams.get("scope")) ??
                   defaultArchiveScope ??
                   "active"
                 }
