@@ -31,6 +31,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProjectTypeShortcuts } from "@/components/projects/project-type-shortcuts";
 import { ProjectStatusIndicators } from "@/components/projects/project-status-indicators";
 import { EditableProjectsGrid } from "@/components/projects/editable-projects-grid";
+import type { Personnel } from "@/types/work-plan";
 
 type Props = {
   title: string;
@@ -42,6 +43,7 @@ type Props = {
   defaultArchiveScope?: "active" | "archived" | "all";
   allowArchiveScopeFilter?: boolean;
   showInlineEdit?: boolean;
+  personnel?: Personnel[];
 };
 
 export function ProjectsTable({
@@ -54,6 +56,7 @@ export function ProjectsTable({
   defaultArchiveScope = "active",
   allowArchiveScopeFilter = true,
   showInlineEdit = false,
+  personnel = [],
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -429,6 +432,7 @@ export function ProjectsTable({
           <EditableProjectsGrid
             projects={result.data}
             typeLabels={typeLabels}
+            personnel={personnel}
             onDirtyChange={setDirtyCount}
           />
         ) : (
