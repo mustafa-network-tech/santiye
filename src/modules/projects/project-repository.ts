@@ -140,7 +140,18 @@ export class ProjectRepository {
 
     if (filters.search?.trim()) {
       const term = filters.search.trim().replace(/[%_]/g, "\\$&");
-      const searchParts = [`project_code.ilike.%${term}%`, `name.ilike.%${term}%`];
+      const { data: matchingSheets, error: matchingSheetsError } = await this.supabase
+        .from("project_sheets")
+        .select("project_id")
+        .or(`sheet_no.ilike.%${term}%,name.ilike.%${term}%,address.ilike.%${term}%`);
+      if (matchingSheetsError) throw matchingSheetsError;
+      const sheetProjectIds = [...new Set((matchingSheets ?? []).map((sheet) => sheet.project_id as string))];
+      const searchParts = [
+        `project_code.ilike.%${term}%`,
+        `name.ilike.%${term}%`,
+        `location.ilike.%${term}%`,
+      ];
+      if (sheetProjectIds.length) searchParts.push(`id.in.(${sheetProjectIds.join(",")})`);
       query = query.or(searchParts.join(","));
     }
 

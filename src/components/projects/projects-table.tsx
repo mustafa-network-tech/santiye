@@ -215,7 +215,7 @@ export function ProjectsTable({
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 className="pl-9"
-                placeholder="Proje ID veya proje adı..."
+                placeholder="Proje ID, proje adı, pafta veya adres..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => {
