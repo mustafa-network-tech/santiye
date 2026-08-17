@@ -33,6 +33,8 @@ export const projectCreateSchema = z.object({
   priority_order: z.coerce.number().int().positive().optional().or(z.literal("")),
   completed_by_personnel_id: z.string().optional().or(z.literal("")),
   completed_by_name: z.string().optional().or(z.literal("")),
+  current_team_leader_personnel_id: z.string().optional().or(z.literal("")),
+  current_team_leader_name: z.string().optional().or(z.literal("")),
   tracks_obk: z.boolean(),
   tracks_excavation: z.boolean(),
   tracks_cable: z.boolean(),
@@ -65,6 +67,9 @@ export const projectCreateSchema = z.object({
   }
   if (data.project_type === "KURUMSAL_TTVPN" && data.status === "completed" && !data.completed_by_personnel_id) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Projeyi bitiren ekip başı seçilmeli", path: ["completed_by_personnel_id"] });
+  }
+  if (data.project_type === "KURUMSAL_TTVPN" && data.status === "in_progress" && !data.current_team_leader_personnel_id) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Devam eden projenin ekip başı seçilmeli", path: ["current_team_leader_personnel_id"] });
   }
 });
 
@@ -108,6 +113,8 @@ export const projectEditSchema = z
     priority_order: z.coerce.number().int().positive().optional().or(z.literal("")),
     completed_by_personnel_id: z.string().optional().or(z.literal("")),
     completed_by_name: z.string().optional().or(z.literal("")),
+    current_team_leader_personnel_id: z.string().optional().or(z.literal("")),
+    current_team_leader_name: z.string().optional().or(z.literal("")),
     cable_pulled: triState,
     tracks_obk: z.boolean(),
     tracks_excavation: z.boolean(),
@@ -128,6 +135,9 @@ export const projectEditSchema = z
 
     if (data.project_type === "KURUMSAL_TTVPN" && data.status === "completed" && !data.completed_by_personnel_id) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Projeyi bitiren ekip başı seçilmeli", path: ["completed_by_personnel_id"] });
+    }
+    if (data.project_type === "KURUMSAL_TTVPN" && data.status === "in_progress" && !data.current_team_leader_personnel_id) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Devam eden projenin ekip başı seçilmeli", path: ["current_team_leader_personnel_id"] });
     }
 
     if (isOngoingProjectStatus(data.status) && !isBfOrGf && data.project_type !== "BGFD") {

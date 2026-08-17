@@ -128,6 +128,8 @@ function CreateProjectForm({
       priority_order: "",
       completed_by_personnel_id: "",
       completed_by_name: "",
+      current_team_leader_personnel_id: "",
+      current_team_leader_name: "",
       tracks_obk: false,
       tracks_excavation: false,
       tracks_cable: true,
@@ -210,6 +212,8 @@ function CreateProjectForm({
         priority_order: isCorporate && values.priority_order !== "" ? Number(values.priority_order) : null,
         completed_by_personnel_id: isCorporate ? values.completed_by_personnel_id || null : null,
         completed_by_name: isCorporate ? values.completed_by_name || null : null,
+        current_team_leader_personnel_id: isCorporate && values.status === "in_progress" ? values.current_team_leader_personnel_id || null : null,
+        current_team_leader_name: isCorporate && values.status === "in_progress" ? values.current_team_leader_name || null : null,
         created_by: user.id,
         updated_by: user.id,
       });
@@ -393,6 +397,8 @@ function EditProjectForm({
       priority_order: project.priority_order ?? "",
       completed_by_personnel_id: project.completed_by_personnel_id ?? "",
       completed_by_name: project.completed_by_name ?? "",
+      current_team_leader_personnel_id: project.current_team_leader_personnel_id ?? "",
+      current_team_leader_name: project.current_team_leader_name ?? "",
     },
   });
 
@@ -452,6 +458,8 @@ function EditProjectForm({
         priority_order: isCorporate && values.priority_order !== "" ? Number(values.priority_order) : null,
         completed_by_personnel_id: isCorporate ? values.completed_by_personnel_id || null : null,
         completed_by_name: isCorporate ? values.completed_by_name || null : null,
+        current_team_leader_personnel_id: isCorporate && values.status === "in_progress" ? values.current_team_leader_personnel_id || null : null,
+        current_team_leader_name: isCorporate && values.status === "in_progress" ? values.current_team_leader_name || null : null,
         completed_at: isCorporate && values.status === "completed" ? (project.completed_at || todayISODate()) : isCorporate ? null : undefined,
         is_archived: isCorporate ? values.status === "completed" : undefined,
         archived_at: isCorporate && values.status === "completed" ? (project.archived_at || new Date().toISOString()) : isCorporate ? null : undefined,
@@ -714,6 +722,7 @@ function useLocationSuggestions(
 function CorporateCreateFields({ form, personnel }: { form: UseFormReturn<ProjectCreateValues>; personnel: Personnel[] }) {
   const status = form.watch("status");
   return <div className="grid gap-4 rounded-xl border p-4 md:col-span-2 md:grid-cols-2">
+    {status==="in_progress"&&<CurrentLeaderCreateField form={form} personnel={personnel}/>}
     <div className="space-y-2"><Label>Durum</Label><Select value={status} onValueChange={value=>form.setValue("status",value as ProjectCreateValues["status"])}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="waiting">Başlamadı</SelectItem><SelectItem value="in_progress">Devam Ediyor</SelectItem><SelectItem value="excavation_permit_waiting">Kazı İzni Bekliyor</SelectItem><SelectItem value="completed">Bitti</SelectItem></SelectContent></Select></div>
     <div className="space-y-2"><Label>Toplam Proje Tarihi</Label><Input type="date" {...form.register("project_date")}/></div>
     <div className="space-y-2"><Label>Öncelik Sırası</Label><Input type="number" min="1" placeholder="Belirtilmesi zorunlu değil" {...form.register("priority_order")}/></div>
@@ -724,11 +733,20 @@ function CorporateCreateFields({ form, personnel }: { form: UseFormReturn<Projec
 function CorporateEditFields({ form, personnel }: { form: UseFormReturn<ProjectEditValues>; personnel: Personnel[] }) {
   const status = form.watch("status");
   return <div className="grid gap-4 rounded-xl border p-4 md:col-span-2 md:grid-cols-2">
+    {status==="in_progress"&&<CurrentLeaderEditField form={form} personnel={personnel}/>}
     <div className="space-y-2"><Label>Durum</Label><Select value={status} onValueChange={value=>form.setValue("status",value as ProjectEditValues["status"])}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="waiting">Başlamadı</SelectItem><SelectItem value="in_progress">Devam Ediyor</SelectItem><SelectItem value="excavation_permit_waiting">Kazı İzni Bekliyor</SelectItem><SelectItem value="completed">Bitti</SelectItem></SelectContent></Select></div>
     <div className="space-y-2"><Label>Toplam Proje Tarihi</Label><Input type="date" {...form.register("project_date")}/></div>
     <div className="space-y-2"><Label>Öncelik Sırası</Label><Input type="number" min="1" placeholder="Belirtilmesi zorunlu değil" {...form.register("priority_order")}/></div>
     {status==="completed"&&<div className="space-y-2"><Label>Bitiren Ekip Başı *</Label><Select value={form.watch("completed_by_personnel_id")||""} onValueChange={id=>{const person=personnel.find(item=>item.id===id);form.setValue("completed_by_personnel_id",id);form.setValue("completed_by_name",person?.full_name??"");}}><SelectTrigger><SelectValue placeholder="Ekip başı seçin"/></SelectTrigger><SelectContent>{personnel.map(person=><SelectItem key={person.id} value={person.id}>{person.full_name}</SelectItem>)}</SelectContent></Select>{form.formState.errors.completed_by_personnel_id&&<p className="text-xs text-destructive">{form.formState.errors.completed_by_personnel_id.message}</p>}</div>}
   </div>;
+}
+
+function CurrentLeaderCreateField({form,personnel}:{form:UseFormReturn<ProjectCreateValues>;personnel:Personnel[]}) {
+  return <div className="space-y-2"><Label>Mevcut Ekip Başı *</Label><Select value={form.watch("current_team_leader_personnel_id")||""} onValueChange={id=>{const person=personnel.find(item=>item.id===id);form.setValue("current_team_leader_personnel_id",id);form.setValue("current_team_leader_name",person?.full_name??"");}}><SelectTrigger><SelectValue placeholder="Ekip başı seçin"/></SelectTrigger><SelectContent>{personnel.map(person=><SelectItem key={person.id} value={person.id}>{person.full_name}</SelectItem>)}</SelectContent></Select>{form.formState.errors.current_team_leader_personnel_id&&<p className="text-xs text-destructive">{form.formState.errors.current_team_leader_personnel_id.message}</p>}</div>;
+}
+
+function CurrentLeaderEditField({form,personnel}:{form:UseFormReturn<ProjectEditValues>;personnel:Personnel[]}) {
+  return <div className="space-y-2"><Label>Mevcut Ekip Başı *</Label><Select value={form.watch("current_team_leader_personnel_id")||""} onValueChange={id=>{const person=personnel.find(item=>item.id===id);form.setValue("current_team_leader_personnel_id",id);form.setValue("current_team_leader_name",person?.full_name??"");}}><SelectTrigger><SelectValue placeholder="Ekip başı seçin"/></SelectTrigger><SelectContent>{personnel.map(person=><SelectItem key={person.id} value={person.id}>{person.full_name}</SelectItem>)}</SelectContent></Select>{form.formState.errors.current_team_leader_personnel_id&&<p className="text-xs text-destructive">{form.formState.errors.current_team_leader_personnel_id.message}</p>}</div>;
 }
 
 function LocationField({

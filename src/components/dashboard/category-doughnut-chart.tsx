@@ -156,6 +156,19 @@ export function CategoryDoughnutChart({
             </Link>
           ))}
         </div>
+        {analysis.category === "BGFD" && Boolean(analysis.subcategories?.length) && (
+          <div className="mt-5 border-t pt-4">
+            <p className="mb-2 text-sm font-semibold">BGFD Dolap Alt Kategorileri</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {analysis.subcategories?.map((item) => (
+                <div key={item.label} className="rounded-lg bg-muted px-3 py-2 text-center">
+                  <p className="text-xs text-muted-foreground">{item.label}</p>
+                  <p className="text-lg font-semibold tabular-nums">{item.count}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

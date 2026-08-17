@@ -222,6 +222,8 @@ export class ProjectRepository {
       priority_order: payload.priority_order ?? null,
       completed_by_personnel_id: payload.completed_by_personnel_id ?? null,
       completed_by_name: emptyToNull(payload.completed_by_name),
+      current_team_leader_personnel_id: payload.current_team_leader_personnel_id ?? null,
+      current_team_leader_name: emptyToNull(payload.current_team_leader_name),
     };
 
     const { data, error } = await this.supabase
@@ -369,6 +371,10 @@ export class ProjectRepository {
       updatePayload.completed_by_personnel_id = payload.completed_by_personnel_id;
     if (payload.completed_by_name !== undefined)
       updatePayload.completed_by_name = emptyToNull(payload.completed_by_name);
+    if (payload.current_team_leader_personnel_id !== undefined)
+      updatePayload.current_team_leader_personnel_id = payload.current_team_leader_personnel_id;
+    if (payload.current_team_leader_name !== undefined)
+      updatePayload.current_team_leader_name = emptyToNull(payload.current_team_leader_name);
 
     const { data, error } = await this.supabase
       .from("projects")

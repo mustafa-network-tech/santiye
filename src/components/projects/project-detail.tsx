@@ -121,6 +121,9 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
         : "Hayır",
     },
     { label: "Bitiren Ekip Başı", value: project.completed_by_name ?? "—" },
+    ...(project.status === "in_progress"
+      ? [{ label: "Mevcut Ekip Başı", value: project.current_team_leader_name ?? "—" }]
+      : []),
   ];
 
   return (

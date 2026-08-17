@@ -48,6 +48,8 @@ export type Project = {
   priority_order: number | null;
   completed_by_personnel_id: string | null;
   completed_by_name: string | null;
+  current_team_leader_personnel_id: string | null;
+  current_team_leader_name: string | null;
 };
 
 export type ProjectInsert = {
@@ -72,6 +74,8 @@ export type ProjectInsert = {
   priority_order?: number | null;
   completed_by_personnel_id?: string | null;
   completed_by_name?: string | null;
+  current_team_leader_personnel_id?: string | null;
+  current_team_leader_name?: string | null;
   created_by?: string | null;
   updated_by?: string | null;
 };
@@ -79,7 +83,7 @@ export type ProjectInsert = {
 export type ProjectSheetCable = { id: string; sheet_id: string; fiber_count: number; quantity: number; created_at: string };
 export type ProjectSheetProgress = { id: string; sheet_id: string; cable_id: string | null; stage: "cable" | "joint" | "obk" | "excavation_permit_waiting" | "excavation_waiting" | "excavation_done" | "completed"; quantity: number; team_leader_personnel_id: string | null; team_leader_name: string; progress_date: string; notes: string | null; created_at: string };
 export type HpSheetStatus="not_started"|"excavation_permit_waiting"|"in_progress"|"completed";
-export type ProjectSheet = { id: string; project_id: string; name: string; sheet_no:string|null; address:string|null; notes:string|null; manual_status:HpSheetStatus; hp_count: number | null; location: string | null; coordinates: string | null; tracks_cable: boolean; tracks_joint: boolean; tracks_obk: boolean; tracks_excavation: boolean; is_completed:boolean; completed_at:string|null; completed_by_personnel_id:string|null; completed_by_name:string|null; created_at: string; updated_at: string; cables: ProjectSheetCable[]; progress: ProjectSheetProgress[] };
+export type ProjectSheet = { id: string; project_id: string; name: string; sheet_no:string|null; address:string|null; notes:string|null; manual_status:HpSheetStatus; hp_count: number | null; location: string | null; coordinates: string | null; tracks_cable: boolean; tracks_joint: boolean; tracks_obk: boolean; tracks_excavation: boolean; is_completed:boolean; completed_at:string|null; completed_by_personnel_id:string|null; completed_by_name:string|null; current_team_leader_personnel_id:string|null; current_team_leader_name:string|null; created_at: string; updated_at: string; cables: ProjectSheetCable[]; progress: ProjectSheetProgress[] };
 export type CabinetType = "T7" | "T9" | "T11" | "T21" | "T23";
 export type CabinetStage = "cable" | "excavation_permit_waiting" | "excavation_waiting" | "excavation_done" | "energy_cable" | "energy" | "cabinet_installation" | "joint" | "transfer";
 export type ProjectCabinetProgress = { id:string; cabinet_id:string; stage:CabinetStage; cable_info:string|null; energy_cable_info:string|null; transfer_info:string|null; team_leader_personnel_id:string|null; team_leader_name:string; progress_date:string; notes:string|null; created_at:string };
@@ -113,6 +117,8 @@ export type ProjectUpdate = {
   priority_order?: number | null;
   completed_by_personnel_id?: string | null;
   completed_by_name?: string | null;
+  current_team_leader_personnel_id?: string | null;
+  current_team_leader_name?: string | null;
   updated_by?: string | null;
 };
 
@@ -141,6 +147,7 @@ export type DashboardCategoryAnalysis = {
   category: string;
   label?: string;
   unit_label?: string;
+  subcategories?: Array<{ label: string; count: number }>;
   total: number;
   not_started: number;
   in_progress: number;

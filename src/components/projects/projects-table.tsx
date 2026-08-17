@@ -139,6 +139,11 @@ export function ProjectsTable({
         cell: ({ row }) => <ProjectStatusIndicators project={row.original} />,
       },
       {
+        accessorKey: "current_team_leader_name",
+        header: "Mevcut Ekip Başı",
+        cell: ({ row }) => row.original.status === "in_progress" ? (row.original.current_team_leader_name || "—") : "—",
+      },
+      {
         id: "stage_date",
         header: "Aşama Tarihi",
         cell: ({ row }) => {
