@@ -52,7 +52,7 @@ export type ProjectStatus = (typeof PROJECT_STATUSES)[number]["value"];
 export type StageDateKey = (typeof PROJECT_STATUSES)[number]["dateKey"];
 
 export const AUTOMATIC_PROJECT_STATUSES = PROJECT_STATUSES.filter((status) =>
-  ["waiting", "in_progress", "delayed", "completed"].includes(status.value)
+  ["waiting", "excavation_permit_waiting", "in_progress", "completed"].includes(status.value)
 );
 
 export const CABLE_OPTIONS = [

@@ -37,7 +37,6 @@ type Props = {
   title: string;
   result: PaginatedResult<Project>;
   typeOptions: { key: string; label: string }[];
-  locations: string[];
   typeLabels: Record<string, string>;
   showCreate?: boolean;
   defaultArchiveScope?: "active" | "archived" | "all";
@@ -50,7 +49,6 @@ export function ProjectsTable({
   title,
   result,
   typeOptions,
-  locations,
   typeLabels,
   showCreate = true,
   defaultArchiveScope = "active",
@@ -120,6 +118,9 @@ export function ProjectsTable({
       },
       {
         id:"sheet_numbers",header:"Paftalar",cell:({row})=>row.original.sheet_numbers?.join(", ")||"—",
+      },
+      {
+        id:"matched_sheet_addresses",header:"Eşleşen Pafta Adresi",cell:({row})=>row.original.matched_sheets?.length?<div className="min-w-[240px] space-y-1">{row.original.matched_sheets.map(sheet=><div key={sheet.id} className="rounded-lg border bg-muted/30 px-2 py-1.5"><p className="text-xs font-semibold">{sheet.sheet_no||"Pafta numarası yok"}</p><p className="text-xs text-muted-foreground">{sheet.address}</p><p className="text-[11px] text-primary">{row.original.project_code} · {row.original.name}</p></div>)}</div>:"—",
       },
       {
         id:"progress_percent",header:"İlerleme",cell:({row})=>row.original.project_type==="HP_ODAKLI"?`%${row.original.progress_percent??0}`:"—",
@@ -215,7 +216,7 @@ export function ProjectsTable({
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 className="pl-9"
-                placeholder="Proje ID, proje adı, pafta veya adres..."
+                placeholder="Proje ID, proje adı veya pafta adresi..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={(e) => {
@@ -236,26 +237,8 @@ export function ProjectsTable({
 
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8">
             <Select
-              value={
-                searchParams.get("stage")
-                  ? `stage:${searchParams.get("stage")}`
-                  : searchParams.get("status") ?? "all"
-              }
-              onValueChange={(value) => {
-                if (value.startsWith("stage:")) {
-                  updateParams({
-                    stage: value.replace("stage:", ""),
-                    status: null,
-                    page: "1",
-                  });
-                } else {
-                  updateParams({
-                    status: value,
-                    stage: null,
-                    page: "1",
-                  });
-                }
-              }}
+              value={searchParams.get("status") ?? "all"}
+              onValueChange={(value) => updateParams({ status: value, stage: null, page: "1" })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Durum" />
@@ -267,15 +250,6 @@ export function ProjectsTable({
                     {s.label}
                   </SelectItem>
                 ))}
-                <SelectItem value="stage:in_progress">
-                  Devam Ediyor (Bekleme Yok)
-                </SelectItem>
-                <SelectItem value="stage:obk_waiting">
-                  OBK Bekliyor
-                </SelectItem>
-                <SelectItem value="stage:cable_waiting">
-                  Kablo Bekliyor
-                </SelectItem>
               </SelectContent>
             </Select>
 
@@ -291,23 +265,6 @@ export function ProjectsTable({
                 {typeOptions.map((t) => (
                   <SelectItem key={t.key} value={t.key}>
                     {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={searchParams.get("location") ?? "all"}
-              onValueChange={(v) => updateParams({ location: v, page: "1" })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Mevki" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tüm Mevkiler</SelectItem>
-                {locations.map((loc) => (
-                  <SelectItem key={loc} value={loc}>
-                    {loc}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -349,68 +306,6 @@ export function ProjectsTable({
               </Select>
             )}
 
-            <Select
-              value={searchParams.get("obk") ?? "all"}
-              onValueChange={(v) => updateParams({ obk: v, page: "1" })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="OBK durumu" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tüm OBK Durumları</SelectItem>
-                <SelectItem value="tracked">OBK Var</SelectItem>
-                <SelectItem value="untracked">OBK Yok</SelectItem>
-                <SelectItem value="true">OBK Çekildi</SelectItem>
-                <SelectItem value="false">OBK Çekilmedi</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={searchParams.get("joint") ?? "all"}
-              onValueChange={(v) => updateParams({ joint: v, page: "1" })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Ek durumu" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tüm Ek Durumları</SelectItem>
-                <SelectItem value="true">Ek Yapıldı</SelectItem>
-                <SelectItem value="false">Ek Yapılmadı</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={searchParams.get("cable") ?? "all"}
-              onValueChange={(v) => updateParams({ cable: v, page: "1" })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Kablo durumu" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tüm Kablo Durumları</SelectItem>
-                <SelectItem value="true">Kablo Çekildi</SelectItem>
-                <SelectItem value="false">Kablo Çekilmedi</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={searchParams.get("excavation") ?? "all"}
-              onValueChange={(v) =>
-                updateParams({ excavation: v, page: "1" })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Kazı durumu" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tüm Kazı Durumları</SelectItem>
-                <SelectItem value="tracked">Kazı Var</SelectItem>
-                <SelectItem value="untracked">Kazı Yok</SelectItem>
-                <SelectItem value="permit_waiting">Kazı Var · İzin Alınmadı</SelectItem>
-                <SelectItem value="excavation_waiting">İzin Alındı · Kazı Yapılmadı</SelectItem>
-                <SelectItem value="done">Kazı Yapıldı</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </CardContent>
       </Card>

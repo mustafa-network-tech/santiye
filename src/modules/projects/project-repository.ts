@@ -36,6 +36,7 @@ export class ProjectRepository {
     const ascending = (filters.sortOrder ?? "desc") === "asc";
 
     let query = this.supabase.from("projects").select("*", { count: "exact" });
+    const matchedSheetsByProject = new Map<string, Array<{ id: string; sheet_no: string | null; address: string | null }>>();
 
     const scope = filters.archiveScope ?? "active";
     if (scope === "active") {
@@ -142,14 +143,18 @@ export class ProjectRepository {
       const term = filters.search.trim().replace(/[%_]/g, "\\$&");
       const { data: matchingSheets, error: matchingSheetsError } = await this.supabase
         .from("project_sheets")
-        .select("project_id")
-        .or(`sheet_no.ilike.%${term}%,name.ilike.%${term}%,address.ilike.%${term}%`);
+        .select("id,project_id,sheet_no,address")
+        .ilike("address", `%${term}%`);
       if (matchingSheetsError) throw matchingSheetsError;
+      for (const sheet of matchingSheets ?? []) {
+        const values = matchedSheetsByProject.get(sheet.project_id as string) ?? [];
+        values.push({ id: sheet.id as string, sheet_no: sheet.sheet_no as string | null, address: sheet.address as string | null });
+        matchedSheetsByProject.set(sheet.project_id as string, values);
+      }
       const sheetProjectIds = [...new Set((matchingSheets ?? []).map((sheet) => sheet.project_id as string))];
       const searchParts = [
         `project_code.ilike.%${term}%`,
         `name.ilike.%${term}%`,
-        `location.ilike.%${term}%`,
       ];
       if (sheetProjectIds.length) searchParts.push(`id.in.(${sheetProjectIds.join(",")})`);
       query = query.or(searchParts.join(","));
@@ -172,6 +177,7 @@ export class ProjectRepository {
       data: projectRows.map((project) => ({
         ...project,
         sheet_numbers: sheetNumbersByProject.get(project.id as string)??[],
+        matched_sheets: matchedSheetsByProject.get(project.id as string) ?? [],
       })) as Project[],
       total,
       page,

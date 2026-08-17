@@ -27,10 +27,9 @@ async function ProjectsContent({ searchParams }: Props) {
   const projectRepo = new ProjectRepository(supabase);
   const settingsRepo = new SettingsRepository(supabase);
 
-  const [result, typeOptions, locations, canWrite, personnel] = await Promise.all([
+  const [result, typeOptions, canWrite, personnel] = await Promise.all([
     projectRepo.list(filters),
     settingsRepo.getAllProjectTypeOptions(),
-    projectRepo.getDistinctLocations(),
     new UserRepository(supabase).canWrite("projects"),
     new PersonnelRepository(supabase).list({ activeOnly: true }),
   ]);
@@ -44,7 +43,6 @@ async function ProjectsContent({ searchParams }: Props) {
       title="Projeler"
       result={result}
       typeOptions={typeOptions}
-      locations={locations}
       typeLabels={typeLabels}
       showCreate={canWrite}
       showInlineEdit={canWrite}
