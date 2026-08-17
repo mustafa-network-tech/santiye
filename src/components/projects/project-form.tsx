@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ import {
   type ProjectEditValues,
 } from "@/lib/validations/project";
 import type { Project } from "@/types/project";
+import type { Personnel } from "@/types/work-plan";
 import {
   CABLE_OPTIONS,
   JOINT_OPTIONS,
@@ -24,6 +25,7 @@ import {
   getStageDateKey,
   getStatusLabel,
   isBfOrGfProject,
+  isHpFocusedProject,
   todayISODate,
 } from "@/lib/constants/project";
 import { Button } from "@/components/ui/button";
@@ -43,6 +45,7 @@ type Props = {
   mode: "create" | "edit";
   project?: Project;
   typeOptions: { key: string; label: string }[];
+  personnel: Personnel[];
 };
 
 function readStageDate(project: Project): string {
@@ -50,7 +53,7 @@ function readStageDate(project: Project): string {
   return project[key] ?? todayISODate();
 }
 
-export function ProjectForm({ mode, project, typeOptions }: Props) {
+export function ProjectForm({ mode, project, typeOptions, personnel }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [locationSuggestions, setLocationSuggestions] = useState<string[]>([]);
@@ -60,6 +63,7 @@ export function ProjectForm({ mode, project, typeOptions }: Props) {
     return (
       <CreateProjectForm
         typeOptions={typeOptions}
+        personnel={personnel}
         loading={loading}
         setLoading={setLoading}
         locationSuggestions={locationSuggestions}
@@ -75,6 +79,7 @@ export function ProjectForm({ mode, project, typeOptions }: Props) {
     <EditProjectForm
       project={project!}
       typeOptions={typeOptions}
+      personnel={personnel}
       loading={loading}
       setLoading={setLoading}
       locationSuggestions={locationSuggestions}
@@ -88,6 +93,7 @@ export function ProjectForm({ mode, project, typeOptions }: Props) {
 
 type SharedProps = {
   typeOptions: { key: string; label: string }[];
+  personnel: Personnel[];
   loading: boolean;
   setLoading: (v: boolean) => void;
   locationSuggestions: string[];
@@ -99,6 +105,7 @@ type SharedProps = {
 
 function CreateProjectForm({
   typeOptions,
+  personnel,
   loading,
   setLoading,
   locationSuggestions,
@@ -112,10 +119,15 @@ function CreateProjectForm({
     defaultValues: {
       project_code: "",
       name: "",
-      project_type: typeOptions[0]?.key ?? "GF",
-      location: "",
+      project_type: typeOptions[0]?.key ?? "HP_ODAKLI",
+      location: ["HP_ODAKLI", "KURUMSAL_TTVPN"].includes(typeOptions[0]?.key ?? "") ? "Adres belirtilmedi" : "",
       description: "",
       received_at: todayISODate(),
+      status: "waiting",
+      project_date: "",
+      priority_order: "",
+      completed_by_personnel_id: "",
+      completed_by_name: "",
       tracks_obk: false,
       tracks_excavation: false,
       tracks_cable: true,
@@ -139,6 +151,12 @@ function CreateProjectForm({
   const locationValue = form.watch("location");
   const projectType = form.watch("project_type");
   const isBfOrGf = isBfOrGfProject(projectType);
+  const isHpFocused = isHpFocusedProject(projectType);
+  const isCorporate = projectType === "KURUMSAL_TTVPN";
+  const hpSheetCount = Math.max(1, form.watch("sheet_count") || 1);
+  const [hpSheets,setHpSheets]=useState([{sheet_no:"",address:"",hp_count:0,notes:""}]);
+
+  useEffect(()=>{if(!isHpFocused)return;setHpSheets(current=>Array.from({length:hpSheetCount},(_,index)=>current[index]??{sheet_no:"",address:"",hp_count:0,notes:""}));},[hpSheetCount,isHpFocused]);
 
   useLocationSuggestions(locationValue, setLocationSuggestions);
 
@@ -166,11 +184,14 @@ function CreateProjectForm({
     }
 
     try {
+      if (values.project_type === "HP_ODAKLI" && hpSheets.some(sheet=>!sheet.sheet_no.trim())) {
+        toast.error("Her pafta için manuel pafta numarası girin"); setLoading(false); return;
+      }
       const created = await new ProjectRepository(supabase).create({
         project_code: values.project_code,
         name: values.name,
         project_type: values.project_type,
-        location: values.location,
+        location: values.project_type === "HP_ODAKLI" ? (hpSheets[0]?.address.trim() || "Adres belirtilmedi") : values.location,
         description: values.description || null,
         received_at: values.received_at || todayISODate(),
         tracks_obk:
@@ -183,6 +204,12 @@ function CreateProjectForm({
         is_single_sheet: values.is_single_sheet,
         cabinet_counts: values.project_type === "BGFD" ? { T7: values.bgfd_t7, T9: values.bgfd_t9, T11: values.bgfd_t11, T21: values.bgfd_t21, T23: values.bgfd_t23 } : undefined,
         cabinet_sd_codes: values.project_type === "BGFD" ? { T7: values.bgfd_t7_sd.split(",").map(v=>v.trim()).filter(Boolean), T9: values.bgfd_t9_sd.split(",").map(v=>v.trim()).filter(Boolean), T11: values.bgfd_t11_sd.split(",").map(v=>v.trim()).filter(Boolean), T21: values.bgfd_t21_sd.split(",").map(v=>v.trim()).filter(Boolean), T23: values.bgfd_t23_sd.split(",").map(v=>v.trim()).filter(Boolean) } : undefined,
+        initial_sheets: values.project_type === "HP_ODAKLI" ? hpSheets.map(sheet=>({sheet_no:sheet.sheet_no.trim(),address:sheet.address.trim()||null,hp_count:Number(sheet.hp_count)||0,notes:sheet.notes.trim()||null})) : undefined,
+        status: isCorporate ? values.status : undefined,
+        project_date: isCorporate ? values.project_date || null : null,
+        priority_order: isCorporate && values.priority_order !== "" ? Number(values.priority_order) : null,
+        completed_by_personnel_id: isCorporate ? values.completed_by_personnel_id || null : null,
+        completed_by_name: isCorporate ? values.completed_by_name || null : null,
         created_by: user.id,
         updated_by: user.id,
       });
@@ -234,7 +261,7 @@ function CreateProjectForm({
               )}
             </div>
 
-            <div className="space-y-2">
+            {!isHpFocused && !isCorporate && <div className="space-y-2">
               <Label htmlFor="received_at">Alınan Tarih</Label>
               <Input
                 id="received_at"
@@ -246,7 +273,7 @@ function CreateProjectForm({
                   {form.formState.errors.received_at.message}
                 </p>
               )}
-            </div>
+            </div>}
 
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="name">Proje Adı</Label>
@@ -262,7 +289,7 @@ function CreateProjectForm({
               <Label>Proje Türü</Label>
               <Select
                 value={form.watch("project_type")}
-                onValueChange={(v) => form.setValue("project_type", v)}
+                onValueChange={(v) => {form.setValue("project_type", v);if(v==="HP_ODAKLI"||v==="KURUMSAL_TTVPN")form.setValue("location","Adres belirtilmedi");else if(form.getValues("location")==="Adres belirtilmedi")form.setValue("location","");}}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Tür seçin" />
@@ -277,12 +304,16 @@ function CreateProjectForm({
               </Select>
             </div>
 
-            <LocationField
+            {!isHpFocused && !isCorporate && <LocationField
               form={form}
               show={showLocationSuggestions}
               setShow={setShowLocationSuggestions}
               suggestions={filteredLocations}
-            />
+            />}
+
+            {isHpFocused&&<div className="space-y-4 rounded-xl border p-4 md:col-span-2"><div className="space-y-2"><Label>Pafta Sayısı</Label><Input type="number" min="1" value={hpSheetCount} onChange={e=>form.setValue("sheet_count",Math.max(1,Number(e.target.value)))}/></div>{hpSheets.map((sheet,index)=><div key={index} className="grid gap-3 rounded-xl bg-muted/30 p-4 md:grid-cols-2"><p className="font-medium md:col-span-2">{hpSheetCount===1?"Pafta Bilgileri":`Pafta ${index+1}`}</p><div><Label>Pafta No *</Label><Input value={sheet.sheet_no} onChange={e=>setHpSheets(v=>v.map((s,i)=>i===index?{...s,sheet_no:e.target.value}:s))}/></div><div><Label>HP Adedi</Label><Input type="number" min="0" value={sheet.hp_count} onChange={e=>setHpSheets(v=>v.map((s,i)=>i===index?{...s,hp_count:Number(e.target.value)}:s))}/></div><div className="md:col-span-2"><Label>Adres Bilgisi</Label><Input value={sheet.address} onChange={e=>setHpSheets(v=>v.map((s,i)=>i===index?{...s,address:e.target.value}:s))}/></div><div className="md:col-span-2"><Label>Not</Label><Textarea value={sheet.notes} onChange={e=>setHpSheets(v=>v.map((s,i)=>i===index?{...s,notes:e.target.value}:s))}/></div></div>)}</div>}
+
+            {isCorporate && <CorporateCreateFields form={form} personnel={personnel} />}
 
             {isBfOrGf && (
               <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2">
@@ -304,18 +335,18 @@ function CreateProjectForm({
               </label>
             )}
 
-            <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_excavation")} onChange={e=>form.setValue("tracks_excavation",e.target.checked)}/><span><span className="block text-sm font-medium">Kazı var</span><span className="block text-xs text-muted-foreground">Paftalarda kazı izni ve kazı yapım aşamaları takip edilir.</span></span></label>
+            {!isHpFocused && !isCorporate&&<label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_excavation")} onChange={e=>form.setValue("tracks_excavation",e.target.checked)}/><span><span className="block text-sm font-medium">Kazı var</span><span className="block text-xs text-muted-foreground">Paftalarda kazı izni ve kazı yapım aşamaları takip edilir.</span></span></label>}
 
-            {projectType !== "BGFD" && <div className="grid gap-3 md:col-span-2 md:grid-cols-2"><label className="flex cursor-pointer gap-3 rounded-xl border bg-muted/30 p-4"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_cable")} onChange={e=>form.setValue("tracks_cable",e.target.checked)}/><span className="text-sm font-medium">Kablo takibi var</span></label><label className="flex cursor-pointer gap-3 rounded-xl border bg-muted/30 p-4"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_joint")} onChange={e=>form.setValue("tracks_joint",e.target.checked)}/><span className="text-sm font-medium">Ek takibi var</span></label></div>}
+            {projectType !== "BGFD" && !isHpFocused && !isCorporate && <div className="grid gap-3 md:col-span-2 md:grid-cols-2"><label className="flex cursor-pointer gap-3 rounded-xl border bg-muted/30 p-4"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_cable")} onChange={e=>form.setValue("tracks_cable",e.target.checked)}/><span className="text-sm font-medium">Kablo takibi var</span></label><label className="flex cursor-pointer gap-3 rounded-xl border bg-muted/30 p-4"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_joint")} onChange={e=>form.setValue("tracks_joint",e.target.checked)}/><span className="text-sm font-medium">Ek takibi var</span></label></div>}
 
             {projectType === "BGFD" && <div className="space-y-3 rounded-xl border p-4 md:col-span-2"><div><p className="text-sm font-medium">BGFD Dolap Bilgileri</p><p className="text-xs text-muted-foreground">Adedi ve her dolabın üç haneli SD numarasını virgülle ayırarak girin.</p></div><div className="grid gap-3">{(["T7","T9","T11","T21","T23"] as const).map(type=>{const key=type.toLowerCase() as "t7"|"t9"|"t11"|"t21"|"t23";return <div key={type} className="grid gap-2 sm:grid-cols-[140px_1fr]"><div><Label>{type} Adedi</Label><Input type="number" min="0" {...form.register(`bgfd_${key}`)}/></div><div><Label>{type} SD Numaraları</Label><Input placeholder="Örn: 123, 456" {...form.register(`bgfd_${key}_sd`)}/>{form.formState.errors[`bgfd_${key}_sd`]&&<p className="text-xs text-destructive">{form.formState.errors[`bgfd_${key}_sd`]?.message}</p>}</div></div>})}</div>{form.formState.errors.bgfd_t7&&<p className="text-xs text-destructive">{form.formState.errors.bgfd_t7.message}</p>}</div>}
 
             {isBfOrGf && <><div className="space-y-2"><Label htmlFor="sheet_count">Pafta Sayısı</Label><Input id="sheet_count" type="number" min="1" {...form.register("sheet_count")}/></div><div className="space-y-2"><Label htmlFor="hp_count">HP Bilgisi</Label><Input id="hp_count" type="number" min="0" {...form.register("hp_count")}/></div></>}
 
-            {projectType !== "BGFD" && <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("is_single_sheet")} onChange={e=>form.setValue("is_single_sheet",e.target.checked)}/><span><span className="block text-sm font-medium">Proje tek paftadan oluşuyor</span><span className="block text-xs text-muted-foreground">Tek pafta otomatik oluşturulur ve alanları proje kartında gösterilir.</span></span></label>}
+            {projectType !== "BGFD" && !isHpFocused && !isCorporate && <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("is_single_sheet")} onChange={e=>form.setValue("is_single_sheet",e.target.checked)}/><span><span className="block text-sm font-medium">Proje tek paftadan oluşuyor</span><span className="block text-xs text-muted-foreground">Tek pafta otomatik oluşturulur ve alanları proje kartında gösterilir.</span></span></label>}
 
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="description">Açıklama</Label>
+              <Label htmlFor="description">{isCorporate ? "Not" : "Açıklama"}</Label>
               <Textarea id="description" {...form.register("description")} />
             </div>
           </div>
@@ -330,6 +361,7 @@ function CreateProjectForm({
 function EditProjectForm({
   project,
   typeOptions,
+  personnel,
   loading,
   setLoading,
   locationSuggestions,
@@ -357,6 +389,10 @@ function EditProjectForm({
       obk_pulled: booleanToTriState(project.obk_pulled),
       joint_done: booleanToTriState(project.joint_done),
       progress_notes: project.progress_notes ?? "",
+      project_date: project.project_date ?? "",
+      priority_order: project.priority_order ?? "",
+      completed_by_personnel_id: project.completed_by_personnel_id ?? "",
+      completed_by_name: project.completed_by_name ?? "",
     },
   });
 
@@ -365,6 +401,8 @@ function EditProjectForm({
   const projectType = form.watch("project_type");
   const isBfOrGf = isBfOrGfProject(projectType);
   const tracksObk = form.watch("tracks_obk");
+  const isHpFocused = isHpFocusedProject(projectType);
+  const isCorporate = projectType === "KURUMSAL_TTVPN";
 
   useLocationSuggestions(locationValue, setLocationSuggestions);
 
@@ -409,6 +447,14 @@ function EditProjectForm({
         tracks_excavation: values.tracks_excavation,
         joint_done: triStateToBoolean(values.joint_done),
         progress_notes: values.progress_notes || null,
+        status: isCorporate ? values.status : undefined,
+        project_date: isCorporate ? values.project_date || null : null,
+        priority_order: isCorporate && values.priority_order !== "" ? Number(values.priority_order) : null,
+        completed_by_personnel_id: isCorporate ? values.completed_by_personnel_id || null : null,
+        completed_by_name: isCorporate ? values.completed_by_name || null : null,
+        completed_at: isCorporate && values.status === "completed" ? (project.completed_at || todayISODate()) : isCorporate ? null : undefined,
+        is_archived: isCorporate ? values.status === "completed" : undefined,
+        archived_at: isCorporate && values.status === "completed" ? (project.archived_at || new Date().toISOString()) : isCorporate ? null : undefined,
         updated_by: user.id,
       });
       toast.success("Proje güncellendi");
@@ -480,15 +526,17 @@ function EditProjectForm({
               </Select>
             </div>
 
-            <div className="space-y-2">
+            {!isCorporate && <div className="space-y-2">
               <Label>Durum</Label>
               <Input value={getStatusLabel(status)} disabled />
               <p className="text-xs text-muted-foreground">
                 Durum, proje aşamalarına göre sistem tarafından otomatik belirlenir.
               </p>
-            </div>
+            </div>}
 
-            <div className="space-y-2">
+            {isCorporate && <CorporateEditFields form={form} personnel={personnel} />}
+
+            {!isHpFocused && !isCorporate && <div className="space-y-2">
               <Label htmlFor="received_at">Alınan Tarih</Label>
               <Input
                 id="received_at"
@@ -500,14 +548,14 @@ function EditProjectForm({
                   {form.formState.errors.received_at.message}
                 </p>
               )}
-            </div>
+            </div>}
 
-            <LocationField
+            {!isHpFocused && !isCorporate && <LocationField
               form={form}
               show={showLocationSuggestions}
               setShow={setShowLocationSuggestions}
               suggestions={filteredLocations}
-            />
+            />}
 
             {isBfOrGf && (
               <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2">
@@ -528,11 +576,11 @@ function EditProjectForm({
               </label>
             )}
 
-            <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_excavation")} onChange={e=>form.setValue("tracks_excavation",e.target.checked)}/><span><span className="block text-sm font-medium">Kazı takibi var</span><span className="block text-xs text-muted-foreground">Değişiklik yeni pafta ve dolaplara uygulanır.</span></span></label>
+            {!isHpFocused && !isCorporate&&<label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_excavation")} onChange={e=>form.setValue("tracks_excavation",e.target.checked)}/><span><span className="block text-sm font-medium">Kazı takibi var</span><span className="block text-xs text-muted-foreground">Değişiklik yeni pafta ve dolaplara uygulanır.</span></span></label>}
 
-            {projectType !== "BGFD" && <div className="grid gap-3 md:col-span-2 md:grid-cols-2"><label className="flex cursor-pointer gap-3 rounded-xl border bg-muted/30 p-4"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_cable")} onChange={e=>form.setValue("tracks_cable",e.target.checked)}/><span className="text-sm font-medium">Kablo takibi var</span></label><label className="flex cursor-pointer gap-3 rounded-xl border bg-muted/30 p-4"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_joint")} onChange={e=>form.setValue("tracks_joint",e.target.checked)}/><span className="text-sm font-medium">Ek takibi var</span></label></div>}
+            {projectType !== "BGFD" && !isHpFocused && !isCorporate && <div className="grid gap-3 md:col-span-2 md:grid-cols-2"><label className="flex cursor-pointer gap-3 rounded-xl border bg-muted/30 p-4"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_cable")} onChange={e=>form.setValue("tracks_cable",e.target.checked)}/><span className="text-sm font-medium">Kablo takibi var</span></label><label className="flex cursor-pointer gap-3 rounded-xl border bg-muted/30 p-4"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_joint")} onChange={e=>form.setValue("tracks_joint",e.target.checked)}/><span className="text-sm font-medium">Ek takibi var</span></label></div>}
 
-            {projectType !== "BGFD" && (
+            {projectType !== "BGFD" && !isHpFocused && !isCorporate && (
               <div className="md:col-span-2 space-y-4 rounded-2xl border bg-muted/30 p-4">
                 <div>
                   <p className="text-sm font-medium">
@@ -632,7 +680,7 @@ function EditProjectForm({
             )}
 
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="description">Genel Açıklama</Label>
+              <Label htmlFor="description">{isCorporate ? "Not" : "Genel Açıklama"}</Label>
               <Textarea id="description" {...form.register("description")} />
             </div>
           </div>
@@ -661,6 +709,26 @@ function useLocationSuggestions(
     }, 200);
     return () => clearTimeout(timer);
   }, [locationValue, setLocationSuggestions]);
+}
+
+function CorporateCreateFields({ form, personnel }: { form: UseFormReturn<ProjectCreateValues>; personnel: Personnel[] }) {
+  const status = form.watch("status");
+  return <div className="grid gap-4 rounded-xl border p-4 md:col-span-2 md:grid-cols-2">
+    <div className="space-y-2"><Label>Durum</Label><Select value={status} onValueChange={value=>form.setValue("status",value as ProjectCreateValues["status"])}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="waiting">Başlamadı</SelectItem><SelectItem value="in_progress">Devam Ediyor</SelectItem><SelectItem value="excavation_permit_waiting">Kazı İzni Bekliyor</SelectItem><SelectItem value="completed">Bitti</SelectItem></SelectContent></Select></div>
+    <div className="space-y-2"><Label>Toplam Proje Tarihi</Label><Input type="date" {...form.register("project_date")}/></div>
+    <div className="space-y-2"><Label>Öncelik Sırası</Label><Input type="number" min="1" placeholder="Belirtilmesi zorunlu değil" {...form.register("priority_order")}/></div>
+    {status==="completed"&&<div className="space-y-2"><Label>Bitiren Ekip Başı *</Label><Select value={form.watch("completed_by_personnel_id")||""} onValueChange={id=>{const person=personnel.find(item=>item.id===id);form.setValue("completed_by_personnel_id",id);form.setValue("completed_by_name",person?.full_name??"");}}><SelectTrigger><SelectValue placeholder="Ekip başı seçin"/></SelectTrigger><SelectContent>{personnel.map(person=><SelectItem key={person.id} value={person.id}>{person.full_name}</SelectItem>)}</SelectContent></Select>{form.formState.errors.completed_by_personnel_id&&<p className="text-xs text-destructive">{form.formState.errors.completed_by_personnel_id.message}</p>}</div>}
+  </div>;
+}
+
+function CorporateEditFields({ form, personnel }: { form: UseFormReturn<ProjectEditValues>; personnel: Personnel[] }) {
+  const status = form.watch("status");
+  return <div className="grid gap-4 rounded-xl border p-4 md:col-span-2 md:grid-cols-2">
+    <div className="space-y-2"><Label>Durum</Label><Select value={status} onValueChange={value=>form.setValue("status",value as ProjectEditValues["status"])}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="waiting">Başlamadı</SelectItem><SelectItem value="in_progress">Devam Ediyor</SelectItem><SelectItem value="excavation_permit_waiting">Kazı İzni Bekliyor</SelectItem><SelectItem value="completed">Bitti</SelectItem></SelectContent></Select></div>
+    <div className="space-y-2"><Label>Toplam Proje Tarihi</Label><Input type="date" {...form.register("project_date")}/></div>
+    <div className="space-y-2"><Label>Öncelik Sırası</Label><Input type="number" min="1" placeholder="Belirtilmesi zorunlu değil" {...form.register("priority_order")}/></div>
+    {status==="completed"&&<div className="space-y-2"><Label>Bitiren Ekip Başı *</Label><Select value={form.watch("completed_by_personnel_id")||""} onValueChange={id=>{const person=personnel.find(item=>item.id===id);form.setValue("completed_by_personnel_id",id);form.setValue("completed_by_name",person?.full_name??"");}}><SelectTrigger><SelectValue placeholder="Ekip başı seçin"/></SelectTrigger><SelectContent>{personnel.map(person=><SelectItem key={person.id} value={person.id}>{person.full_name}</SelectItem>)}</SelectContent></Select>{form.formState.errors.completed_by_personnel_id&&<p className="text-xs text-destructive">{form.formState.errors.completed_by_personnel_id.message}</p>}</div>}
+  </div>;
 }
 
 function LocationField({

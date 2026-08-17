@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ProjectRepository } from "@/modules/projects/project-repository";
 import { SettingsRepository } from "@/modules/settings/settings-repository";
 import { ProjectForm } from "@/components/projects/project-form";
+import { PersonnelRepository } from "@/modules/work-plans/personnel-repository";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -18,9 +19,10 @@ export default async function EditProjectPage({ params }: Props) {
   const projectRepo = new ProjectRepository(supabase);
   const settingsRepo = new SettingsRepository(supabase);
 
-  const [project, typeOptions] = await Promise.all([
+  const [project, typeOptions, personnel] = await Promise.all([
     projectRepo.getById(id),
     settingsRepo.getAllProjectTypeOptions(),
+    new PersonnelRepository(supabase).list({ activeOnly: true }),
   ]);
 
   if (!project) notFound();
@@ -43,7 +45,7 @@ export default async function EditProjectPage({ params }: Props) {
           {project.project_code} · {project.name}
         </p>
       </div>
-      <ProjectForm mode="edit" project={project} typeOptions={typeOptions} />
+      <ProjectForm mode="edit" project={project} typeOptions={typeOptions} personnel={personnel} />
     </div>
   );
 }

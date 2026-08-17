@@ -1,8 +1,7 @@
 export const FIXED_PROJECT_TYPES = [
-  { key: "GF", label: "GF" },
+  { key: "HP_ODAKLI", label: "HP Odaklı" },
+  { key: "KURUMSAL_TTVPN", label: "Kurumsal TTVPN" },
   { key: "BGFD", label: "BGFD" },
-  { key: "BF", label: "BF" },
-  { key: "Kurumsal", label: "Kurumsal" },
 ] as const;
 
 export const CUSTOM_PROJECT_TYPE_KEYS = [
@@ -30,7 +29,7 @@ export const PROJECT_STATUSES = [
   },
   {
     value: "excavation_permit_waiting",
-    label: "Devam Ediyor · Kazı İzni Bekliyor",
+    label: "Kazı İzni Bekliyor",
     dateKey: "excavation_permit_waiting_at" as const,
     color: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
   },
@@ -42,7 +41,7 @@ export const PROJECT_STATUSES = [
   },
   {
     value: "completed",
-    label: "Tamamlandı",
+    label: "Bitti",
     dateKey: "completed_at" as const,
     dateLabel: "Bitiş Tarihi",
     color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
@@ -85,6 +84,7 @@ export const DEFAULT_PAGE_SIZE = 25;
 export function isBfOrGfProject(projectType: string): boolean {
   return projectType === "BF" || projectType === "GF";
 }
+export function isHpFocusedProject(projectType:string):boolean{return projectType==="HP_ODAKLI";}
 
 export function isOngoingProjectStatus(status: string): boolean {
   return status === "in_progress";

@@ -159,17 +159,23 @@ export class ProjectRepository {
     }
 
     const { data, error, count } = await query
+      .order("priority_order", { ascending: true, nullsFirst: false })
       .order(sortBy, { ascending })
       .range(from, to);
 
     if (error) throw error;
 
     const total = count ?? 0;
+    const projectRows = data ?? [];
+    const projectIdsOnPage = projectRows.map((project)=>project.id as string);
+    const sheetNumbersByProject = new Map<string,string[]>();
+    if(projectIdsOnPage.length){const {data:sheetRows,error:sheetRowsError}=await this.supabase.from("project_sheets").select("project_id,sheet_no,name").in("project_id",projectIdsOnPage);if(sheetRowsError)throw sheetRowsError;for(const sheet of sheetRows??[]){const values=sheetNumbersByProject.get(sheet.project_id as string)??[];values.push((sheet.sheet_no||sheet.name) as string);sheetNumbersByProject.set(sheet.project_id as string,values);}}
 
     return {
-      data: (data ?? []).map((project) => ({
+      data: projectRows.map((project) => ({
         ...project,
         matching_team_leaders: [...(matchingLeadersByProject.get(project.id as string) ?? [])],
+        sheet_numbers: sheetNumbersByProject.get(project.id as string)??[],
       })) as Project[],
       total,
       page,
@@ -200,7 +206,7 @@ export class ProjectRepository {
       project_type: payload.project_type,
       location: payload.location.trim(),
       description: emptyToNull(payload.description),
-      status: "waiting",
+      status: payload.project_type === "KURUMSAL_TTVPN" ? (payload.status ?? "waiting") : "waiting",
       received_at: receivedAt,
       waiting_at: receivedAt,
       tracks_obk: payload.tracks_obk ?? false,
@@ -212,6 +218,10 @@ export class ProjectRepository {
       is_single_sheet: payload.is_single_sheet ?? false,
       created_by: payload.created_by ?? null,
       updated_by: payload.updated_by ?? null,
+      project_date: emptyToNull(payload.project_date),
+      priority_order: payload.priority_order ?? null,
+      completed_by_personnel_id: payload.completed_by_personnel_id ?? null,
+      completed_by_name: emptyToNull(payload.completed_by_name),
     };
 
     const { data, error } = await this.supabase
@@ -221,7 +231,15 @@ export class ProjectRepository {
       .single();
 
     if (error) throw error;
-    const sheetCount = payload.project_type === "BGFD" ? 0 :
+    if (payload.project_type === "HP_ODAKLI" && payload.initial_sheets?.length) {
+      const { error: hpSheetError } = await this.supabase.from("project_sheets").insert(payload.initial_sheets.map((sheet)=>({
+        project_id:data.id,name:sheet.sheet_no,sheet_no:sheet.sheet_no,address:sheet.address,hp_count:sheet.hp_count,notes:sheet.notes,
+        manual_status:"not_started",tracks_cable:false,tracks_joint:false,tracks_obk:false,tracks_excavation:false,
+        created_by:payload.created_by??null,
+      })));
+      if (hpSheetError) throw hpSheetError;
+    }
+    const sheetCount = payload.project_type === "BGFD" || payload.project_type === "HP_ODAKLI" ? 0 :
       (payload.sheet_count ?? (payload.is_single_sheet ? 1 : 0));
     if (sheetCount > 0) {
       const sheets = Array.from({ length: sheetCount }, (_, index) => ({
@@ -251,6 +269,26 @@ export class ProjectRepository {
         const { error: cabinetError } = await this.supabase.from("project_cabinets").insert(cabinetRows);
         if (cabinetError) throw cabinetError;
       }
+    }
+    if (payload.project_type === "KURUMSAL_TTVPN") {
+      const status = payload.status ?? "waiting";
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: corporateProject, error: corporateError } = await this.supabase
+        .from("projects")
+        .update({
+          status,
+          waiting_at: status === "waiting" ? today : null,
+          in_progress_at: status === "in_progress" ? today : null,
+          excavation_permit_waiting_at: status === "excavation_permit_waiting" ? today : null,
+          completed_at: status === "completed" ? today : null,
+          is_archived: status === "completed",
+          archived_at: status === "completed" ? new Date().toISOString() : null,
+        })
+        .eq("id", data.id)
+        .select("*")
+        .single();
+      if (corporateError) throw corporateError;
+      return corporateProject as Project;
     }
     return data as Project;
   }
@@ -323,6 +361,14 @@ export class ProjectRepository {
       updatePayload.is_archived = payload.is_archived;
     if (payload.archived_at !== undefined)
       updatePayload.archived_at = payload.archived_at;
+    if (payload.project_date !== undefined)
+      updatePayload.project_date = emptyToNull(payload.project_date);
+    if (payload.priority_order !== undefined)
+      updatePayload.priority_order = payload.priority_order;
+    if (payload.completed_by_personnel_id !== undefined)
+      updatePayload.completed_by_personnel_id = payload.completed_by_personnel_id;
+    if (payload.completed_by_name !== undefined)
+      updatePayload.completed_by_name = emptyToNull(payload.completed_by_name);
 
     const { data, error } = await this.supabase
       .from("projects")

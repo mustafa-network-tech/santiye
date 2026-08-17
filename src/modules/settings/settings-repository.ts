@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  CUSTOM_PROJECT_TYPE_KEYS,
   DEFAULT_CUSTOM_PROJECT_TYPES,
   FIXED_PROJECT_TYPES,
   type CustomProjectTypeKey,
@@ -58,13 +57,7 @@ export class SettingsRepository {
   }
 
   async getAllProjectTypeOptions(): Promise<{ key: string; label: string }[]> {
-    const custom = await this.getCustomProjectTypes();
-    const customOptions = CUSTOM_PROJECT_TYPE_KEYS.map((key) => ({
-      key,
-      label: custom[key as CustomProjectTypeKey],
-    }));
-
-    return [...FIXED_PROJECT_TYPES.map((t) => ({ ...t })), ...customOptions];
+    return FIXED_PROJECT_TYPES.map((t) => ({ ...t }));
   }
 
   resolveTypeLabel(

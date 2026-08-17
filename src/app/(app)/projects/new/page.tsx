@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { SettingsRepository } from "@/modules/settings/settings-repository";
 import { ProjectForm } from "@/components/projects/project-form";
+import { PersonnelRepository } from "@/modules/work-plans/personnel-repository";
 
 export const metadata = {
   title: "Yeni Proje",
@@ -8,9 +9,10 @@ export const metadata = {
 
 export default async function NewProjectPage() {
   const supabase = await createClient();
-  const typeOptions = await new SettingsRepository(
-    supabase
-  ).getAllProjectTypeOptions();
+  const [typeOptions, personnel] = await Promise.all([
+    new SettingsRepository(supabase).getAllProjectTypeOptions(),
+    new PersonnelRepository(supabase).list({ activeOnly: true }),
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -21,7 +23,7 @@ export default async function NewProjectPage() {
           yazılır.
         </p>
       </div>
-      <ProjectForm mode="create" typeOptions={typeOptions} />
+      <ProjectForm mode="create" typeOptions={typeOptions} personnel={personnel} />
     </div>
   );
 }

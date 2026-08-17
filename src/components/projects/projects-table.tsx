@@ -113,6 +113,13 @@ export function ProjectsTable({
       {
         accessorKey: "location",
         header: "Mevki",
+        cell:({row})=>row.original.project_type==="HP_ODAKLI"?"—":row.original.location,
+      },
+      {
+        id:"sheet_numbers",header:"Paftalar",cell:({row})=>row.original.sheet_numbers?.join(", ")||"—",
+      },
+      {
+        id:"progress_percent",header:"İlerleme",cell:({row})=>row.original.project_type==="HP_ODAKLI"?`%${row.original.progress_percent??0}`:"—",
       },
       {
         id: "matching_team_leaders",
@@ -151,6 +158,16 @@ export function ProjectsTable({
         accessorKey: "updated_at",
         header: "Güncelleme",
         cell: ({ row }) => formatDateTime(row.original.updated_at),
+      },
+      {
+        accessorKey: "completed_by_name",
+        header: "Bitiren Ekip Başı",
+        cell: ({ row }) => row.original.completed_by_name || "—",
+      },
+      {
+        accessorKey: "completed_at",
+        header: "Bitiş Tarihi",
+        cell: ({ row }) => formatDate(row.original.completed_at),
       },
     ],
     [typeLabels]
@@ -445,7 +462,7 @@ export function ProjectsTable({
                 table.getRowModel().rows.map((row) => (
                   <tr
                     key={row.id}
-                    className="border-b last:border-0 hover:bg-accent/30"
+                    className={row.original.status === "completed" ? "border-b border-blue-300 bg-blue-50 last:border-0 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40" : "border-b last:border-0 hover:bg-accent/30"}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <td key={cell.id} className="px-4 py-3 align-middle">

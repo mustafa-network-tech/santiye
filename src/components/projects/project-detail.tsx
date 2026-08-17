@@ -9,6 +9,7 @@ import type { Project, ProjectSheet, ProjectCabinet } from "@/types/project";
 import type { Personnel } from "@/types/work-plan";
 import { ProjectSheetProgress } from "@/components/projects/project-sheet-progress";
 import { BgfdCabinetProgress } from "@/components/projects/bgfd-cabinet-progress";
+import { HpFocusedSheetManager } from "@/components/projects/hp-focused-sheet-manager";
 import {
   PROJECT_STATUSES,
   formatBooleanChoice,
@@ -35,6 +36,7 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const isBfOrGf = isBfOrGfProject(project.project_type);
+  const isHpFocused = project.project_type === "HP_ODAKLI";
   const tracksObk = isBfOrGf && project.tracks_obk;
   const isOngoing = isOngoingProjectStatus(project.status);
 
@@ -92,8 +94,18 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
       : []),
     { label: "Proje ID", value: project.project_code },
     { label: "Proje Türü", value: typeLabel },
-    { label: "Mevki", value: project.location },
-    { label: "Alınan Tarih", value: formatDate(project.received_at) },
+    ...(isHpFocused
+      ? [{ label: "Pafta Bazlı İlerleme", value: `%${project.progress_percent ?? 0}` }]
+      : [
+          { label: "Mevki", value: project.location },
+          { label: "Alınan Tarih", value: formatDate(project.received_at) },
+        ]),
+    ...(project.project_type === "KURUMSAL_TTVPN"
+      ? [
+          { label: "Toplam Proje Tarihi", value: formatDate(project.project_date) },
+          { label: "Öncelik Sırası", value: project.priority_order ?? "—" },
+        ]
+      : []),
     {
       label: "Bitiş Tarihi",
       value: project.completed_at
@@ -108,6 +120,7 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
         ? `Evet (${formatDateTime(project.archived_at)})`
         : "Hayır",
     },
+    { label: "Bitiren Ekip Başı", value: project.completed_by_name ?? "—" },
   ];
 
   return (
@@ -187,7 +200,7 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
         </Card>
       </div>
 
-      <Card>
+      {!isHpFocused && <Card>
         <CardHeader>
           <CardTitle className="text-base">Aşama Tarihleri</CardTitle>
         </CardHeader>
@@ -215,11 +228,11 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
             ))}
           </dl>
         </CardContent>
-      </Card>
+      </Card>}
 
-      {project.project_type === "BGFD" ? <BgfdCabinetProgress project={project} cabinets={cabinets} personnel={personnel} readOnly={readOnly || project.is_archived}/> : <ProjectSheetProgress project={project} sheets={sheets} personnel={personnel} readOnly={readOnly || project.is_archived} />}
+      {project.project_type === "BGFD" ? <BgfdCabinetProgress project={project} cabinets={cabinets} personnel={personnel} readOnly={readOnly || project.is_archived}/> : project.project_type === "HP_ODAKLI" ? <HpFocusedSheetManager project={project} sheets={sheets} personnel={personnel} readOnly={readOnly || project.is_archived}/> : project.project_type === "KURUMSAL_TTVPN" ? null : <ProjectSheetProgress project={project} sheets={sheets} personnel={personnel} readOnly={readOnly || project.is_archived} />}
 
-      {project.project_type !== "BGFD" && (isBfOrGf ||
+      {project.project_type !== "BGFD" && project.project_type !== "HP_ODAKLI" && (isBfOrGf ||
         isOngoing ||
         project.cable_pulled !== null ||
         project.obk_pulled !== null ||

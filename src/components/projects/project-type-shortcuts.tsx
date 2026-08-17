@@ -7,12 +7,14 @@ type Props = {
 
 const SHORTCUTS = [
   {
-    type: "BF",
+    type: "HP_ODAKLI",
+    label:"HP",
     className:
       "bg-violet-600 text-white shadow-violet-600/25 hover:bg-violet-700",
   },
   {
-    type: "GF",
+    type: "KURUMSAL_TTVPN",
+    label:"TTVPN",
     className:
       "bg-cyan-600 text-white shadow-cyan-600/25 hover:bg-cyan-700",
   },
@@ -20,12 +22,6 @@ const SHORTCUTS = [
     type: "BGFD",
     className:
       "bg-emerald-600 text-white shadow-emerald-600/25 hover:bg-emerald-700",
-  },
-  {
-    type: "Kurumsal",
-    label: "K",
-    className:
-      "bg-amber-600 text-white shadow-amber-600/25 hover:bg-amber-700",
   },
 ] as const;
 
