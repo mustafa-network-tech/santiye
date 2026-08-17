@@ -36,7 +36,7 @@ export class DashboardRepository {
 
       return {
         stats,
-        categories: ["BF", "GF", "Kurumsal"].map(emptyCategory),
+        categories: ["HP_ODAKLI", "KURUMSAL_TTVPN", "BGFD"].map(emptyCategory),
         critical: {
           delayed: stats.delayed,
           excavation_waiting: stats.excavation_permit_waiting,

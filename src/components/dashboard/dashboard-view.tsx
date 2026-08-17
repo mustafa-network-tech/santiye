@@ -134,7 +134,7 @@ export function DashboardView({
             Kategori Analizi
           </h2>
           <p className="text-sm text-muted-foreground">
-            BF, GF ve Kurumsal projelerin aşama dağılımı
+            HP Odaklı paftalar, Kurumsal TTVPN projeleri ve BGFD dolaplarının durum dağılımı
           </p>
         </div>
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">

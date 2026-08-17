@@ -139,6 +139,8 @@ export type ProjectAnalysisStage =
 
 export type DashboardCategoryAnalysis = {
   category: string;
+  label?: string;
+  unit_label?: string;
   total: number;
   not_started: number;
   in_progress: number;
