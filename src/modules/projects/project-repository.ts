@@ -228,6 +228,14 @@ export class ProjectRepository {
       current_team_leader_name: emptyToNull(payload.current_team_leader_name),
     };
 
+    if (payload.project_type === "HP_ODAKLI") {
+      const { data: hpProject, error: hpProjectError } = await this.supabase
+        .rpc("create_hp_project_with_sheets", { p_project: insertPayload, p_sheets: payload.initial_sheets ?? [] })
+        .single();
+      if (hpProjectError) throw hpProjectError;
+      return hpProject as Project;
+    }
+
     const { data, error } = await this.supabase
       .from("projects")
       .insert(insertPayload)
@@ -235,14 +243,6 @@ export class ProjectRepository {
       .single();
 
     if (error) throw error;
-    if (payload.project_type === "HP_ODAKLI" && payload.initial_sheets?.length) {
-      const { error: hpSheetError } = await this.supabase.from("project_sheets").insert(payload.initial_sheets.map((sheet)=>({
-        project_id:data.id,name:sheet.sheet_no,sheet_no:sheet.sheet_no,address:sheet.address,hp_count:sheet.hp_count,notes:sheet.notes,
-        manual_status:"not_started",tracks_cable:false,tracks_joint:false,tracks_obk:false,tracks_excavation:false,
-        created_by:payload.created_by??null,
-      })));
-      if (hpSheetError) throw hpSheetError;
-    }
     const sheetCount = payload.project_type === "BGFD" || payload.project_type === "HP_ODAKLI" ? 0 :
       (payload.sheet_count ?? (payload.is_single_sheet ? 1 : 0));
     if (sheetCount > 0) {

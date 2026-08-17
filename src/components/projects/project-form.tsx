@@ -189,6 +189,10 @@ function CreateProjectForm({
       if (values.project_type === "HP_ODAKLI" && hpSheets.some(sheet=>!sheet.sheet_no.trim())) {
         toast.error("Her pafta için manuel pafta numarası girin"); setLoading(false); return;
       }
+      if (values.project_type === "HP_ODAKLI") {
+        const normalizedSheetNumbers=hpSheets.map(sheet=>sheet.sheet_no.trim().toLocaleLowerCase("tr-TR"));
+        if(new Set(normalizedSheetNumbers).size!==normalizedSheetNumbers.length){toast.error("Aynı pafta numarası bir projede birden fazla kullanılamaz");setLoading(false);return;}
+      }
       const created = await new ProjectRepository(supabase).create({
         project_code: values.project_code,
         name: values.name,
@@ -224,7 +228,11 @@ function CreateProjectForm({
       router.refresh();
     } catch (error) {
       console.error(error);
+      const errorMessage=error&&typeof error==="object"&&"message" in error?String((error as {message?:string}).message):"";
       const message =
+        errorMessage.toLocaleLowerCase("tr-TR").includes("pafta")
+          ? errorMessage
+          :
         error &&
         typeof error === "object" &&
         "code" in error &&
