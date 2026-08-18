@@ -31,7 +31,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProjectTypeShortcuts } from "@/components/projects/project-type-shortcuts";
 import { ProjectStatusIndicators } from "@/components/projects/project-status-indicators";
 import { EditableProjectsGrid } from "@/components/projects/editable-projects-grid";
-import type { Personnel } from "@/types/work-plan";
 
 type Props = {
   title: string;
@@ -43,7 +42,7 @@ type Props = {
   defaultArchiveScope?: "active" | "archived" | "all";
   allowArchiveScopeFilter?: boolean;
   showInlineEdit?: boolean;
-  personnel?: Personnel[];
+  exportProjects?: Project[];
 };
 
 export function ProjectsTable({
@@ -56,14 +55,14 @@ export function ProjectsTable({
   defaultArchiveScope = "active",
   allowArchiveScopeFilter = true,
   showInlineEdit = false,
-  personnel = [],
+  exportProjects = result.data,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
-  const [dirtyCount, setDirtyCount] = useState(0);
+  const [dirtyCount] = useState(0);
 
   function updateParams(updates: Record<string, string | null>) {
     if (
@@ -323,9 +322,9 @@ export function ProjectsTable({
         {showInlineEdit ? (
           <EditableProjectsGrid
             projects={result.data}
+            exportProjects={exportProjects}
             typeLabels={typeLabels}
-            personnel={personnel}
-            onDirtyChange={setDirtyCount}
+            selectedTypeLabel={searchParams.get("type") && searchParams.get("type") !== "all" ? typeLabels[searchParams.get("type")!] : undefined}
           />
         ) : (
         <div className="overflow-x-auto">

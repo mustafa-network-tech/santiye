@@ -1,28 +1,58 @@
 "use client";
-import { useEffect,useState,type ReactNode } from "react";
+
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Loader2,RotateCcw,Save } from "lucide-react";
-import { toast } from "sonner";
-import type { Project,ProjectStatus } from "@/types/project";
-import type { Personnel } from "@/types/work-plan";
+import { Mail, MessageCircle } from "lucide-react";
+import type { ReactNode } from "react";
+import type { Project } from "@/types/project";
 import { formatDateTime } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
-import { ProjectRepository } from "@/modules/projects/project-repository";
 import { Button } from "@/components/ui/button";
 
-type Props={projects:Project[];typeLabels:Record<string,string>;personnel:Personnel[];onDirtyChange?:(count:number)=>void};
-const STATUSES:{value:ProjectStatus;label:string}[]=[{value:"waiting",label:"Başlamadı"},{value:"excavation_permit_waiting",label:"Kazı İzni Bekliyor"},{value:"in_progress",label:"Devam Ediyor"},{value:"completed",label:"Bitti"}];
+type Props = { projects: Project[]; exportProjects: Project[]; typeLabels: Record<string, string>; selectedTypeLabel?: string };
+const STATUS_LABELS: Record<string, string> = { waiting: "Başlamadı", excavation_permit_waiting: "Kazı İzni Bekliyor", in_progress: "Devam Ediyor", completed: "Bitti", delayed: "Gecikmiş" };
 
-export function EditableProjectsGrid({projects,typeLabels,personnel,onDirtyChange}:Props){
- const router=useRouter(),[rows,setRows]=useState(projects),[dirtyIds,setDirtyIds]=useState<Set<string>>(new Set()),[saving,setSaving]=useState(false);
- useEffect(()=>{setRows(projects);setDirtyIds(new Set());onDirtyChange?.(0)},[projects,onDirtyChange]);
- function mark(id:string,patch:Partial<Project>){setRows(current=>current.map(row=>row.id===id?{...row,...patch}:row));setDirtyIds(current=>{const next=new Set(current).add(id);onDirtyChange?.(next.size);return next})}
- function changeStatus(project:Project,status:ProjectStatus){mark(project.id,{status,current_team_leader_personnel_id:status==="in_progress"?project.current_team_leader_personnel_id:null,current_team_leader_name:status==="in_progress"?project.current_team_leader_name:null})}
- function changeLeader(project:Project,id:string){const person=personnel.find(item=>item.id===id);if(project.status==="completed")mark(project.id,{completed_by_personnel_id:id,completed_by_name:person?.full_name??null});else mark(project.id,{current_team_leader_personnel_id:id,current_team_leader_name:person?.full_name??null})}
- async function save(){const changed=rows.filter(row=>dirtyIds.has(row.id));for(const row of changed){if(row.status==="in_progress"&&!row.current_team_leader_personnel_id)return toast.error(`${row.project_code}: Devam eden proje için ekip başı seçin`);if(row.status==="completed"&&!row.completed_by_personnel_id&&row.project_type==="KURUMSAL_TTVPN")return toast.error(`${row.project_code}: Bitiren ekip başını seçin`)}setSaving(true);try{const repo=new ProjectRepository(createClient());for(const row of changed){const today=new Date().toISOString().slice(0,10);await repo.update(row.id,{status:row.status,current_team_leader_personnel_id:row.status==="in_progress"?row.current_team_leader_personnel_id:null,current_team_leader_name:row.status==="in_progress"?row.current_team_leader_name:null,completed_by_personnel_id:row.status==="completed"?row.completed_by_personnel_id:null,completed_by_name:row.status==="completed"?row.completed_by_name:null,completed_at:row.status==="completed"?row.completed_at||today:null,is_archived:row.status==="completed",archived_at:row.status==="completed"?row.archived_at||new Date().toISOString():null})}toast.success(`${changed.length} proje güncellendi`);setDirtyIds(new Set());onDirtyChange?.(0);router.refresh()}catch(error){console.error(error);toast.error("Projeler kaydedilemedi",{description:"Alt pafta veya dolapların tamamlandığını ve ekipbaşı seçimini kontrol edin."})}finally{setSaving(false)}}
- return <><div className="flex flex-col gap-3 border-b bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-medium">Proje Takip Tablosu</p><p className="text-xs text-muted-foreground">Durumu değiştirin; Devam Ediyor veya Bitti ise ekipbaşını seçin.</p></div><div className="flex gap-2"><Button variant="outline" size="sm" disabled={!dirtyIds.size||saving} onClick={()=>{setRows(projects);setDirtyIds(new Set());onDirtyChange?.(0)}}><RotateCcw className="h-4 w-4"/>Geri Al</Button><Button size="sm" disabled={!dirtyIds.size||saving} onClick={save}>{saving?<Loader2 className="h-4 w-4 animate-spin"/>:<Save className="h-4 w-4"/>}Kaydet {dirtyIds.size?`(${dirtyIds.size})`:""}</Button></div></div><div className="overflow-x-auto"><table className="w-full min-w-[1150px] text-sm"><thead className="border-b bg-muted/40"><tr><Th>Tür</Th><Th>Proje Adı</Th><Th>Proje ID</Th><Th>Lokasyon</Th><Th>Durum</Th><Th>Ekip Başı</Th><Th>Proje Özeti</Th><Th>Son Güncelleme</Th></tr></thead><tbody>{rows.map(row=><tr key={row.id} className={`border-b ${dirtyIds.has(row.id)?"bg-primary/5":""}`}><Td>{typeLabels[row.project_type]??row.project_type}</Td><Td><Link href={`/projects/${row.id}`} className="font-medium text-primary hover:underline">{row.name}</Link></Td><Td>{row.project_code}</Td><Td>{row.project_type==="KURUMSAL_TTVPN"?row.location:"—"}</Td><Td><select className="h-9 w-full min-w-40 rounded-lg border bg-background px-2" value={row.status} onChange={event=>changeStatus(row,event.target.value as ProjectStatus)}>{STATUSES.map(status=><option key={status.value} value={status.value}>{status.label}</option>)}</select></Td><Td>{row.status==="in_progress"||row.status==="completed"?<select className="h-9 w-full min-w-44 rounded-lg border bg-background px-2" value={(row.status==="completed"?row.completed_by_personnel_id:row.current_team_leader_personnel_id)??""} onChange={event=>changeLeader(row,event.target.value)}><option value="">Ekip başı seçin</option>{personnel.map(person=><option key={person.id} value={person.id}>{person.full_name}</option>)}</select>:"—"}</Td><Td>{summary(row)}</Td><Td>{formatDateTime(row.updated_at)}</Td></tr>)}</tbody></table>{!rows.length&&<p className="p-10 text-center text-muted-foreground">Filtrelere uygun proje bulunamadı.</p>}</div></>
+export function EditableProjectsGrid({ projects, exportProjects, typeLabels, selectedTypeLabel }: Props) {
+  const reportTitle = `AZG İLETİŞİM(MERKEZ) PROJE TAKİP${selectedTypeLabel ? ` — ${selectedTypeLabel.toLocaleUpperCase("tr-TR")}` : ""}`;
+  function buildShareText() {
+    const lines = exportProjects.map((project, index) => [
+      `${index + 1}. ${typeLabels[project.project_type] ?? project.project_type} | ${project.name} | ${project.project_code}`,
+      `Lokasyon: ${project.location || "—"}`,
+      `Proje Özeti: ${summary(project)}`,
+      `Not: ${project.progress_notes || project.description || "—"}`,
+      `Son Güncelleme: ${formatDateTime(project.updated_at)}`,
+    ].join("\n"));
+    return `${reportTitle}\n\n${lines.join("\n\n")}`;
+  }
+  function shareWhatsApp() { window.open(`https://wa.me/?text=${encodeURIComponent(buildShareText())}`, "_blank", "noopener,noreferrer"); }
+  function shareEmail() { window.location.href = `mailto:?subject=${encodeURIComponent(reportTitle)}&body=${encodeURIComponent(buildShareText())}`; }
+
+  return <>
+    <div className="flex flex-col gap-3 border-b bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div><p className="text-sm font-medium">{reportTitle}</p><p className="text-xs text-muted-foreground">Filtrelenen {exportProjects.length} projeyi liste halinde paylaşın.</p></div>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" onClick={shareWhatsApp} disabled={!exportProjects.length}><MessageCircle className="h-4 w-4" /> WhatsApp</Button>
+        <Button variant="outline" size="sm" onClick={shareEmail} disabled={!exportProjects.length}><Mail className="h-4 w-4" /> E-posta</Button>
+      </div>
+    </div>
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[1100px] text-sm">
+        <thead className="border-b bg-muted/40"><tr><Th>Tür</Th><Th>Proje Adı</Th><Th>Proje ID</Th><Th>Lokasyon</Th><Th>Proje Özeti</Th><Th>Not</Th><Th>Son Güncelleme</Th></tr></thead>
+        <tbody>{projects.map(project => <tr key={project.id} className={project.status === "completed" ? "border-b border-blue-300 bg-blue-50 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40" : "border-b hover:bg-accent/30"}>
+          <Td>{typeLabels[project.project_type] ?? project.project_type}</Td>
+          <Td><Link href={`/projects/${project.id}`} className="font-medium text-primary hover:underline">{project.name}</Link></Td>
+          <Td>{project.project_code}</Td><Td>{project.location || "—"}</Td><Td>{summary(project)}</Td>
+          <Td><div className="max-w-[280px] whitespace-pre-wrap">{project.progress_notes || project.description || "—"}</div></Td><Td>{formatDateTime(project.updated_at)}</Td>
+        </tr>)}</tbody>
+      </table>
+      {!projects.length && <p className="p-10 text-center text-muted-foreground">Filtrelere uygun proje bulunamadı.</p>}
+    </div>
+  </>;
 }
-function summary(project:Project){if(project.project_type==="HP_ODAKLI")return `${project.sheet_numbers?.length??project.sheet_count??0} pafta · %${project.progress_percent??0}`;if(project.project_type==="BGFD")return "Dolap bazlı takip";return project.priority_order?`Öncelik ${project.priority_order}`:"Proje bazlı takip"}
-function Th({children}:{children:ReactNode}){return <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">{children}</th>}
-function Td({children}:{children:ReactNode}){return <td className="px-4 py-3 align-middle">{children}</td>}
+
+function summary(project: Project) {
+  const status = STATUS_LABELS[project.status] ?? project.status;
+  if (project.project_type === "HP_ODAKLI") return `${status} · ${project.sheet_numbers?.length ?? project.sheet_count ?? 0} pafta · %${project.progress_percent ?? 0}`;
+  if (project.project_type === "BGFD") return `${status} · Dolap bazlı takip`;
+  return `${status}${project.priority_order ? ` · Öncelik ${project.priority_order}` : ""}`;
+}
+function Th({ children }: { children: ReactNode }) { return <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">{children}</th>; }
+function Td({ children }: { children: ReactNode }) { return <td className="px-4 py-3 align-middle">{children}</td>; }
