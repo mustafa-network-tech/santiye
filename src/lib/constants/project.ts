@@ -2,6 +2,7 @@ export const FIXED_PROJECT_TYPES = [
   { key: "HP_ODAKLI", label: "HP Odaklı" },
   { key: "KURUMSAL_TTVPN", label: "Kurumsal TTVPN" },
   { key: "BGFD", label: "BGFD" },
+  { key: "ERISIM_ZORUNLULUK", label: "Erişim Zorunluluk" },
 ] as const;
 
 export const CUSTOM_PROJECT_TYPE_KEYS = [

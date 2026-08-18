@@ -57,7 +57,15 @@ export class SettingsRepository {
   }
 
   async getAllProjectTypeOptions(): Promise<{ key: string; label: string }[]> {
-    return FIXED_PROJECT_TYPES.map((t) => ({ ...t }));
+    const order = new Map([
+      ["HP_ODAKLI", 1],
+      ["ERISIM_ZORUNLULUK", 2],
+      ["KURUMSAL_TTVPN", 3],
+      ["BGFD", 4],
+    ]);
+    return FIXED_PROJECT_TYPES
+      .map((type) => ({ ...type }))
+      .sort((left, right) => (order.get(left.key) ?? 99) - (order.get(right.key) ?? 99));
   }
 
   resolveTypeLabel(
