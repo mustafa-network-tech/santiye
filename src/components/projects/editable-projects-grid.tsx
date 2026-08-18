@@ -20,9 +20,40 @@ export function EditableProjectsGrid({ projects, exportProjects, typeLabels, sel
     if (!reportRef.current) return;
     setSharing("whatsapp");
     try {
-      const { toBlob } = await import("html-to-image");
-      const blob = await toBlob(reportRef.current, { backgroundColor: "#ffffff", pixelRatio: 1.5, cacheBust: true });
-      if (!blob) throw new Error("Tablo görseli oluşturulamadı");
+      const { toPng } = await import("html-to-image");
+      const clone = reportRef.current.cloneNode(true) as HTMLDivElement;
+      const wrapper = document.createElement("div");
+      wrapper.style.position = "fixed";
+      wrapper.style.left = "-10000px";
+      wrapper.style.top = "0";
+      wrapper.style.width = "1400px";
+      wrapper.style.backgroundColor = "#ffffff";
+      wrapper.style.pointerEvents = "none";
+      clone.style.position = "static";
+      clone.style.left = "auto";
+      clone.style.top = "auto";
+      clone.style.width = "1400px";
+      clone.style.height = "auto";
+      clone.style.overflow = "visible";
+      wrapper.appendChild(clone);
+      document.body.appendChild(wrapper);
+      let blob: Blob;
+      try {
+        await document.fonts?.ready;
+        await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        const height = Math.max(clone.scrollHeight, clone.getBoundingClientRect().height);
+        const dataUrl = await toPng(clone, {
+          backgroundColor: "#ffffff",
+          cacheBust: true,
+          width: 1400,
+          height,
+          pixelRatio: height > 7000 ? 1 : 1.5,
+          style: { position: "static", left: "auto", top: "auto", width: "1400px", height: `${height}px`, overflow: "visible" },
+        });
+        blob = await (await fetch(dataUrl)).blob();
+      } finally {
+        wrapper.remove();
+      }
       const file = new File([blob], "azg-proje-takip.png", { type: "image/png" });
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({ title: reportTitle, text: reportTitle, files: [file] });
