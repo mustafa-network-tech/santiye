@@ -15,6 +15,7 @@ import {
   formatBooleanChoice,
   isBfOrGfProject,
   isOngoingProjectStatus,
+  isCorporateStyleProject,
 } from "@/lib/constants/project";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
@@ -100,7 +101,7 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
           { label: "Mevki", value: project.location },
           { label: "Alınan Tarih", value: formatDate(project.received_at) },
         ]),
-    ...(project.project_type === "KURUMSAL_TTVPN"
+    ...(isCorporateStyleProject(project.project_type)
       ? [
           { label: "Toplam Proje Tarihi", value: formatDate(project.project_date) },
           { label: "Öncelik Sırası", value: project.priority_order ?? "—" },
@@ -233,7 +234,7 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
         </CardContent>
       </Card>}
 
-      {project.project_type === "BGFD" ? <BgfdCabinetProgress project={project} cabinets={cabinets} personnel={personnel} readOnly={readOnly || project.is_archived}/> : project.project_type === "HP_ODAKLI" ? <HpFocusedSheetManager project={project} sheets={sheets} personnel={personnel} readOnly={readOnly || project.is_archived}/> : project.project_type === "KURUMSAL_TTVPN" ? null : <ProjectSheetProgress project={project} sheets={sheets} personnel={personnel} readOnly={readOnly || project.is_archived} />}
+      {project.project_type === "BGFD" ? <BgfdCabinetProgress project={project} cabinets={cabinets} personnel={personnel} readOnly={readOnly || project.is_archived}/> : project.project_type === "HP_ODAKLI" ? <HpFocusedSheetManager project={project} sheets={sheets} personnel={personnel} readOnly={readOnly || project.is_archived}/> : isCorporateStyleProject(project.project_type) ? null : <ProjectSheetProgress project={project} sheets={sheets} personnel={personnel} readOnly={readOnly || project.is_archived} />}
 
       {project.project_type !== "BGFD" && project.project_type !== "HP_ODAKLI" && (isBfOrGf ||
         isOngoing ||

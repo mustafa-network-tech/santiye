@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isOngoingProjectStatus } from "@/lib/constants/project";
+import { isCorporateStyleProject, isOngoingProjectStatus } from "@/lib/constants/project";
 
 const triState = z.enum(["unset", "true", "false"]);
 
@@ -65,10 +65,10 @@ export const projectCreateSchema = z.object({
     const allCodes = [data.bgfd_t7_sd,data.bgfd_t9_sd,data.bgfd_t11_sd,data.bgfd_t21_sd,data.bgfd_t23_sd].join(",").split(",").map(v=>v.trim()).filter(Boolean);
     if (new Set(allCodes).size !== allCodes.length) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "SD numaraları aynı projede tekrar edemez", path: ["bgfd_t7_sd"] });
   }
-  if (data.project_type === "KURUMSAL_TTVPN" && data.status === "completed" && !data.completed_by_personnel_id) {
+  if (isCorporateStyleProject(data.project_type) && data.status === "completed" && !data.completed_by_personnel_id) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Projeyi bitiren ekip başı seçilmeli", path: ["completed_by_personnel_id"] });
   }
-  if (data.project_type === "KURUMSAL_TTVPN" && data.status === "in_progress" && !data.current_team_leader_personnel_id) {
+  if (isCorporateStyleProject(data.project_type) && data.status === "in_progress" && !data.current_team_leader_personnel_id) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Devam eden projenin ekip başı seçilmeli", path: ["current_team_leader_personnel_id"] });
   }
 });
@@ -133,10 +133,10 @@ export const projectEditSchema = z
     const isBfOrGf =
       data.project_type === "BF" || data.project_type === "GF";
 
-    if (data.project_type === "KURUMSAL_TTVPN" && data.status === "completed" && !data.completed_by_personnel_id) {
+    if (isCorporateStyleProject(data.project_type) && data.status === "completed" && !data.completed_by_personnel_id) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Projeyi bitiren ekip başı seçilmeli", path: ["completed_by_personnel_id"] });
     }
-    if (data.project_type === "KURUMSAL_TTVPN" && data.status === "in_progress" && !data.current_team_leader_personnel_id) {
+    if (isCorporateStyleProject(data.project_type) && data.status === "in_progress" && !data.current_team_leader_personnel_id) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Devam eden projenin ekip başı seçilmeli", path: ["current_team_leader_personnel_id"] });
     }
 

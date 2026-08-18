@@ -86,6 +86,9 @@ export function isBfOrGfProject(projectType: string): boolean {
   return projectType === "BF" || projectType === "GF";
 }
 export function isHpFocusedProject(projectType:string):boolean{return projectType==="HP_ODAKLI";}
+export function isCorporateStyleProject(projectType: string): boolean {
+  return projectType === "KURUMSAL_TTVPN" || projectType === "ERISIM_ZORUNLULUK";
+}
 
 export function isOngoingProjectStatus(status: string): boolean {
   return status === "in_progress";

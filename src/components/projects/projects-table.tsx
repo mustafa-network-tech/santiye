@@ -256,7 +256,7 @@ export function ProjectsTable({
 
             <Select
               value={searchParams.get("type") ?? "all"}
-              onValueChange={(v) => updateParams({ type: v, location: v === "KURUMSAL_TTVPN" ? searchParams.get("location") : null, page: "1" })}
+              onValueChange={(v) => updateParams({ type: v, location: v === "KURUMSAL_TTVPN" || v === "ERISIM_ZORUNLULUK" ? searchParams.get("location") : null, page: "1" })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Tür" />
@@ -271,7 +271,7 @@ export function ProjectsTable({
               </SelectContent>
             </Select>
 
-            {searchParams.get("type") === "KURUMSAL_TTVPN" && (
+            {(searchParams.get("type") === "KURUMSAL_TTVPN" || searchParams.get("type") === "ERISIM_ZORUNLULUK") && (
               <Select value={searchParams.get("location") ?? "all"} onValueChange={(v) => updateParams({ location: v, page: "1" })}>
                 <SelectTrigger><SelectValue placeholder="Lokasyon" /></SelectTrigger>
                 <SelectContent><SelectItem value="all">Tüm Lokasyonlar</SelectItem>{locations.map(location=><SelectItem key={location} value={location}>{location}</SelectItem>)}</SelectContent>

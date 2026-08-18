@@ -27,7 +27,7 @@ async function SearchContent({ searchParams }: Props) {
   const [result, typeOptions, locations] = await Promise.all([
     projectRepo.list({ ...filters, archiveScope: filters.archiveScope ?? "all" }),
     settingsRepo.getAllProjectTypeOptions(),
-    projectRepo.getDistinctLocations("KURUMSAL_TTVPN"),
+    projectRepo.getDistinctLocations(["KURUMSAL_TTVPN", "ERISIM_ZORUNLULUK"]),
   ]);
 
   const typeLabels = Object.fromEntries(

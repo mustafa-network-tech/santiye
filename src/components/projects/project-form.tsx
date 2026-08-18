@@ -26,6 +26,7 @@ import {
   getStatusLabel,
   isBfOrGfProject,
   isHpFocusedProject,
+  isCorporateStyleProject,
   todayISODate,
 } from "@/lib/constants/project";
 import { Button } from "@/components/ui/button";
@@ -154,7 +155,7 @@ function CreateProjectForm({
   const projectType = form.watch("project_type");
   const isBfOrGf = isBfOrGfProject(projectType);
   const isHpFocused = isHpFocusedProject(projectType);
-  const isCorporate = projectType === "KURUMSAL_TTVPN";
+  const isCorporate = isCorporateStyleProject(projectType);
   const hpSheetCount = Math.max(1, form.watch("sheet_count") || 1);
   const [hpSheets,setHpSheets]=useState([{sheet_no:"",address:"",hp_count:0,notes:""}]);
 
@@ -417,7 +418,7 @@ function EditProjectForm({
   const isBfOrGf = isBfOrGfProject(projectType);
   const tracksObk = form.watch("tracks_obk");
   const isHpFocused = isHpFocusedProject(projectType);
-  const isCorporate = projectType === "KURUMSAL_TTVPN";
+  const isCorporate = isCorporateStyleProject(projectType);
 
   useLocationSuggestions(locationValue, setLocationSuggestions);
 

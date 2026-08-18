@@ -30,7 +30,7 @@ async function ProjectsContent({ searchParams }: Props) {
     projectRepo.list(filters),
     projectRepo.list({ ...filters, page: 1, pageSize: 5000 }),
     settingsRepo.getAllProjectTypeOptions(),
-    projectRepo.getDistinctLocations("KURUMSAL_TTVPN"),
+    projectRepo.getDistinctLocations(["KURUMSAL_TTVPN", "ERISIM_ZORUNLULUK"]),
     new UserRepository(supabase).canWrite("projects"),
   ]);
 

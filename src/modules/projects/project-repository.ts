@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   DEFAULT_PAGE_SIZE,
   getStageDateKey,
+  isCorporateStyleProject,
 } from "@/lib/constants/project";
 import type {
   PaginatedResult,
@@ -91,7 +92,7 @@ export class ProjectRepository {
       query = query.eq("project_type", filters.projectType);
     }
 
-    if (filters.projectType === "KURUMSAL_TTVPN" && filters.location && filters.location !== "all") {
+    if (filters.projectType && isCorporateStyleProject(filters.projectType) && filters.location && filters.location !== "all") {
       query = query.eq("location", filters.location);
     }
 
@@ -180,7 +181,7 @@ export class ProjectRepository {
     } else {
       query = query.order("priority_order", { ascending: true, nullsFirst: false });
     }
-    if (!usesDefaultProjectListOrder && filters.projectType === "KURUMSAL_TTVPN") {
+    if (!usesDefaultProjectListOrder && filters.projectType && isCorporateStyleProject(filters.projectType)) {
       query = query.order("status_sort_order", { ascending: true });
     }
     const { data, error, count } = await query.order(sortBy, { ascending }).range(from, to);
@@ -228,7 +229,7 @@ export class ProjectRepository {
       project_type: payload.project_type,
       location: payload.location.trim(),
       description: emptyToNull(payload.description),
-      status: payload.project_type === "KURUMSAL_TTVPN" ? (payload.status ?? "waiting") : "waiting",
+      status: isCorporateStyleProject(payload.project_type) ? (payload.status ?? "waiting") : "waiting",
       received_at: receivedAt,
       waiting_at: receivedAt,
       tracks_obk: payload.tracks_obk ?? false,
@@ -294,7 +295,7 @@ export class ProjectRepository {
         if (cabinetError) throw cabinetError;
       }
     }
-    if (payload.project_type === "KURUMSAL_TTVPN") {
+    if (isCorporateStyleProject(payload.project_type)) {
       const status = payload.status ?? "waiting";
       const today = new Date().toISOString().slice(0, 10);
       const { data: corporateProject, error: corporateError } = await this.supabase
@@ -481,12 +482,13 @@ export class ProjectRepository {
     return ((data as { value: string }[] | null) ?? []).map((r) => r.value);
   }
 
-  async getDistinctLocations(projectType?: string): Promise<string[]> {
+  async getDistinctLocations(projectType?: string | string[]): Promise<string[]> {
     let query = this.supabase
       .from("projects")
       .select("location")
       .order("location");
-    if (projectType) query = query.eq("project_type", projectType);
+    if (Array.isArray(projectType)) query = query.in("project_type", projectType);
+    else if (projectType) query = query.eq("project_type", projectType);
     const { data, error } = await query;
 
     if (error) throw error;
