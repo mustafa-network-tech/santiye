@@ -91,7 +91,7 @@ export class ProjectRepository {
       query = query.eq("project_type", filters.projectType);
     }
 
-    if (filters.location && filters.location !== "all") {
+    if (filters.projectType === "KURUMSAL_TTVPN" && filters.location && filters.location !== "all") {
       query = query.eq("location", filters.location);
     }
 
@@ -461,11 +461,13 @@ export class ProjectRepository {
     return ((data as { value: string }[] | null) ?? []).map((r) => r.value);
   }
 
-  async getDistinctLocations(): Promise<string[]> {
-    const { data, error } = await this.supabase
+  async getDistinctLocations(projectType?: string): Promise<string[]> {
+    let query = this.supabase
       .from("projects")
       .select("location")
       .order("location");
+    if (projectType) query = query.eq("project_type", projectType);
+    const { data, error } = await query;
 
     if (error) throw error;
     return [...new Set((data ?? []).map((r) => r.location as string))];

@@ -24,9 +24,10 @@ async function SearchContent({ searchParams }: Props) {
   const projectRepo = new ProjectRepository(supabase);
   const settingsRepo = new SettingsRepository(supabase);
 
-  const [result, typeOptions] = await Promise.all([
+  const [result, typeOptions, locations] = await Promise.all([
     projectRepo.list({ ...filters, archiveScope: filters.archiveScope ?? "all" }),
     settingsRepo.getAllProjectTypeOptions(),
+    projectRepo.getDistinctLocations("KURUMSAL_TTVPN"),
   ]);
 
   const typeLabels = Object.fromEntries(
@@ -38,6 +39,7 @@ async function SearchContent({ searchParams }: Props) {
       title="Arama"
       result={result}
       typeOptions={typeOptions}
+      locations={locations}
       typeLabels={typeLabels}
       showCreate={false}
       defaultArchiveScope="all"

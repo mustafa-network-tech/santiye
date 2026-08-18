@@ -37,6 +37,7 @@ type Props = {
   title: string;
   result: PaginatedResult<Project>;
   typeOptions: { key: string; label: string }[];
+  locations: string[];
   typeLabels: Record<string, string>;
   showCreate?: boolean;
   defaultArchiveScope?: "active" | "archived" | "all";
@@ -49,6 +50,7 @@ export function ProjectsTable({
   title,
   result,
   typeOptions,
+  locations,
   typeLabels,
   showCreate = true,
   defaultArchiveScope = "active",
@@ -113,7 +115,7 @@ export function ProjectsTable({
       },
       {
         accessorKey: "location",
-        header: "Mevki",
+        header: "Lokasyon",
         cell:({row})=>row.original.project_type==="HP_ODAKLI"?"—":row.original.location,
       },
       {
@@ -255,7 +257,7 @@ export function ProjectsTable({
 
             <Select
               value={searchParams.get("type") ?? "all"}
-              onValueChange={(v) => updateParams({ type: v, page: "1" })}
+              onValueChange={(v) => updateParams({ type: v, location: v === "KURUMSAL_TTVPN" ? searchParams.get("location") : null, page: "1" })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Tür" />
@@ -269,6 +271,13 @@ export function ProjectsTable({
                 ))}
               </SelectContent>
             </Select>
+
+            {searchParams.get("type") === "KURUMSAL_TTVPN" && (
+              <Select value={searchParams.get("location") ?? "all"} onValueChange={(v) => updateParams({ location: v, page: "1" })}>
+                <SelectTrigger><SelectValue placeholder="Lokasyon" /></SelectTrigger>
+                <SelectContent><SelectItem value="all">Tüm Lokasyonlar</SelectItem>{locations.map(location=><SelectItem key={location} value={location}>{location}</SelectItem>)}</SelectContent>
+              </Select>
+            )}
 
             {allowArchiveScopeFilter ? (
               <Select

@@ -120,7 +120,7 @@ function CreateProjectForm({
       project_code: "",
       name: "",
       project_type: typeOptions[0]?.key ?? "HP_ODAKLI",
-      location: ["HP_ODAKLI", "KURUMSAL_TTVPN"].includes(typeOptions[0]?.key ?? "") ? "Adres belirtilmedi" : "",
+      location: typeOptions[0]?.key === "HP_ODAKLI" ? "Adres belirtilmedi" : "",
       description: "",
       received_at: todayISODate(),
       status: "waiting",
@@ -301,7 +301,7 @@ function CreateProjectForm({
               <Label>Proje Türü</Label>
               <Select
                 value={form.watch("project_type")}
-                onValueChange={(v) => {form.setValue("project_type", v);if(v==="HP_ODAKLI"||v==="KURUMSAL_TTVPN")form.setValue("location","Adres belirtilmedi");else if(form.getValues("location")==="Adres belirtilmedi")form.setValue("location","");}}
+                onValueChange={(v) => {form.setValue("project_type", v);if(v==="HP_ODAKLI")form.setValue("location","Adres belirtilmedi");else if(form.getValues("location")==="Adres belirtilmedi")form.setValue("location","");}}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Tür seçin" />
@@ -316,7 +316,8 @@ function CreateProjectForm({
               </Select>
             </div>
 
-            {!isHpFocused && !isCorporate && <LocationField
+            {!isHpFocused && <LocationField
+              label={isCorporate ? "Lokasyon" : "Mevki"}
               form={form}
               show={showLocationSuggestions}
               setShow={setShowLocationSuggestions}
@@ -566,7 +567,8 @@ function EditProjectForm({
               )}
             </div>}
 
-            {!isHpFocused && !isCorporate && <LocationField
+            {!isHpFocused && <LocationField
+              label={isCorporate ? "Lokasyon" : "Mevki"}
               form={form}
               show={showLocationSuggestions}
               setShow={setShowLocationSuggestions}
@@ -758,11 +760,13 @@ function CurrentLeaderEditField({form,personnel}:{form:UseFormReturn<ProjectEdit
 }
 
 function LocationField({
+  label,
   form,
   show,
   setShow,
   suggestions,
 }: {
+  label: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   form: any;
   show: boolean;
@@ -771,7 +775,7 @@ function LocationField({
 }) {
   return (
     <div className="relative space-y-2">
-      <Label htmlFor="location">Mevki</Label>
+      <Label htmlFor="location">{label}</Label>
       <Input
         id="location"
         autoComplete="off"
