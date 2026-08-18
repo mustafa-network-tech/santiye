@@ -4,6 +4,7 @@ import { WorkPlanRepository } from "@/modules/work-plans/work-plan-repository";
 import { PersonnelRepository } from "@/modules/work-plans/personnel-repository";
 import { VehicleRepository } from "@/modules/vehicles/vehicle-repository";
 import { WorkPlanEditor } from "@/components/work-plans/work-plan-editor";
+import { todayISODate } from "@/lib/constants/project";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -22,7 +23,7 @@ export default async function EditWorkPlanPage({ params }: Props) {
     new VehicleRepository(supabase).list(),
   ]);
 
-  if (!plan) notFound();
+  if (!plan || plan.plan_date < todayISODate()) notFound();
 
   return (
     <WorkPlanEditor

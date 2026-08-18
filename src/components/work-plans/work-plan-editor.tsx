@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type {
+  DailyWorkPlanWithTeams,
   Personnel,
   WorkPlanAbsenceSnapshot,
   WorkPlanAbsenceStatus,
@@ -54,6 +55,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { WhatsAppPreview } from "@/components/work-plans/whatsapp-preview";
 
 type TeamDraft = {
   client_id: string;
@@ -142,6 +144,7 @@ export function WorkPlanEditor({
     return [emptyTeam()];
   });
   const [loading, setLoading] = useState(false);
+  const [previewPlan, setPreviewPlan] = useState<DailyWorkPlanWithTeams | null>(null);
   const [loadingLatest, setLoadingLatest] = useState(false);
   const [typeSuggestions, setTypeSuggestions] = useState<string[]>([]);
   const [absenceDialogOpen, setAbsenceDialogOpen] = useState(false);
@@ -544,6 +547,22 @@ export function WorkPlanEditor({
       assignedVehicles.add(normalizedPlate);
     }
 
+    if (!existingPlanId) {
+      const now = new Date().toISOString();
+      setPreviewPlan({
+        id: draftId ?? "draft-preview",
+        plan_date: planDate,
+        notes: notes.trim() || null,
+        created_by: null,
+        updated_by: null,
+        created_at: now,
+        updated_at: now,
+        teams: planTeams(),
+        absences,
+      });
+      return;
+    }
+
     setLoading(true);
     const supabase = createClient();
     const {
@@ -566,8 +585,7 @@ export function WorkPlanEditor({
       });
 
       toast.success("İş planı mevcut kurallara göre kaydedildi");
-      const draftQuery = draftId ? `&draft=${draftId}` : "";
-      router.push(`/work-plans/${saved.id}${existingPlanId ? "" : `?whatsapp=1${draftQuery}`}`);
+      router.push(`/work-plans/${saved.id}`);
       router.refresh();
     } catch (error) {
       console.error(error);
@@ -585,6 +603,34 @@ export function WorkPlanEditor({
           ? "Bu tarihte zaten bir iş planı var"
           : errorMessage ?? "İş planı kaydedilemedi");
       toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveAfterWhatsAppShare() {
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Oturum bulunamadı");
+      const repo = new WorkPlanRepository(supabase);
+      const saved = await repo.upsertFullPlan({
+        planDate,
+        notes,
+        userId: user.id,
+        absences,
+        teams: planTeams(),
+      });
+      if (draftId) await repo.deleteDraft(draftId);
+      toast.success("WhatsApp paylaşımı tamamlandı; iş planı kaydedildi ve taslak kaldırıldı");
+      setPreviewPlan(null);
+      router.push(`/work-plans/${saved.id}`);
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "İş planı kaydedilemedi");
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -997,6 +1043,16 @@ export function WorkPlanEditor({
           </Button>
         </DialogContent>
       </Dialog>
+
+      {previewPlan && (
+        <WhatsAppPreview
+          plan={previewPlan}
+          open
+          onClose={() => setPreviewPlan(null)}
+          onEdit={() => setPreviewPlan(null)}
+          onShared={saveAfterWhatsAppShare}
+        />
+      )}
     </div>
   );
 }

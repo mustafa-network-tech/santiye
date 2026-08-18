@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Plus, Search } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CalendarDays, Loader2, Plus, Search, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import type {
   DailyWorkPlan,
   DailyWorkPlanWithTeams,
@@ -29,6 +31,8 @@ export function WorkPlansHome({ todayPlan, pastPlans, drafts, readOnly = false }
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<WorkPlanSearchHit[] | null>(null);
   const [searching, setSearching] = useState(false);
+  const [deletingMonth, setDeletingMonth] = useState<string | null>(null);
+  const router = useRouter();
 
   const today = todayISODate();
 
@@ -36,6 +40,32 @@ export function WorkPlansHome({ todayPlan, pastPlans, drafts, readOnly = false }
     () => pastPlans.filter((p) => p.plan_date !== today),
     [pastPlans, today]
   );
+
+  const completedMonths = useMemo(() => {
+    const currentMonth = today.slice(0, 7);
+    return [...new Set(pastPlans
+      .map((plan) => plan.plan_date.slice(0, 7))
+      .filter((month) => month < currentMonth))];
+  }, [pastPlans, today]);
+
+  async function deleteMonth(month: string) {
+    const label = new Intl.DateTimeFormat("tr-TR", {
+      month: "long",
+      year: "numeric",
+      timeZone: "Europe/Istanbul",
+    }).format(new Date(`${month}-01T12:00:00+03:00`));
+    if (!window.confirm(`${label} ayındaki tüm iş planları kalıcı olarak silinsin mi?`)) return;
+    setDeletingMonth(month);
+    try {
+      await new WorkPlanRepository(createClient()).deletePlansByMonth(month);
+      toast.success(`${label} ayına ait iş planları silindi`);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Aylık iş planları silinemedi");
+    } finally {
+      setDeletingMonth(null);
+    }
+  }
 
   async function handleSearch() {
     const q = query.trim();
@@ -193,6 +223,33 @@ export function WorkPlansHome({ todayPlan, pastPlans, drafts, readOnly = false }
           </Card>
         )}
       </section>
+
+      {!readOnly && completedMonths.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold tracking-tight">Aylık Kayıt Temizleme</h2>
+          <Card>
+            <CardContent className="space-y-3 p-5">
+              <p className="text-sm text-muted-foreground">
+                Geçmiş planlar tek tek silinemez. Yalnızca tamamlanmış bir aya ait planların tamamı silinebilir.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {completedMonths.map((month) => (
+                  <Button
+                    key={month}
+                    type="button"
+                    variant="destructive"
+                    disabled={deletingMonth !== null}
+                    onClick={() => deleteMonth(month)}
+                  >
+                    {deletingMonth === month ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    {new Intl.DateTimeFormat("tr-TR", { month: "long", year: "numeric", timeZone: "Europe/Istanbul" }).format(new Date(`${month}-01T12:00:00+03:00`))}
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">

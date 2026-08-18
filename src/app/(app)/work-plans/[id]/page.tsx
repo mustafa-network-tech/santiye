@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { WorkPlanRepository } from "@/modules/work-plans/work-plan-repository";
 import { WorkPlanDetailView } from "@/components/work-plans/work-plan-detail-view";
 import { UserRepository } from "@/modules/users/user-repository";
+import { todayISODate } from "@/lib/constants/project";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -30,7 +31,7 @@ export default async function WorkPlanDetailPage({ params, searchParams }: Props
   return (
     <WorkPlanDetailView
       plan={plan}
-      readOnly={!canWrite}
+      readOnly={!canWrite || plan.plan_date < todayISODate()}
       initialPreviewOpen={query.whatsapp === "1"}
       sourceDraftId={query.draft}
     />

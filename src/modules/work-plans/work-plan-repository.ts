@@ -7,6 +7,7 @@ import type {
   WorkPlanTeamSnapshot,
   WorkPlanDraft,
 } from "@/types/work-plan";
+import { todayISODate } from "@/lib/constants/project";
 
 type TeamRow = {
   id: string;
@@ -232,12 +233,40 @@ export class WorkPlanRepository {
   }
 
   async deletePlan(id: string): Promise<void> {
+    const plan = await this.getById(id);
+    if (plan && plan.plan_date < todayISODate()) {
+      throw new Error("Geçmiş iş planları tek tek silinemez");
+    }
     const { error } = await this.supabase
       .from("daily_work_plans")
       .delete()
       .eq("id", id);
 
     if (error) throw error;
+  }
+
+  async deletePlansByMonth(month: string): Promise<void> {
+    if (!/^\d{4}-\d{2}$/.test(month)) {
+      throw new Error("Geçerli bir ay seçin");
+    }
+    const currentMonth = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Istanbul",
+      year: "numeric",
+      month: "2-digit",
+    }).format(new Date());
+    if (month >= currentMonth) {
+      throw new Error("Yalnızca tamamlanmış geçmiş aylar silinebilir");
+    }
+    const [year, monthNumber] = month.split("-").map(Number);
+    const nextMonth = monthNumber === 12
+      ? `${year + 1}-01-01`
+      : `${year}-${String(monthNumber + 1).padStart(2, "0")}-01`;
+    const { error } = await this.supabase
+      .from("daily_work_plans")
+      .delete()
+      .gte("plan_date", `${month}-01`)
+      .lt("plan_date", nextMonth);
+    if (error) throw persistenceError("Aylık iş planları silinemedi", error);
   }
 
   async getLatestBefore(planDate: string): Promise<DailyWorkPlanWithTeams | null> {
