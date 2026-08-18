@@ -82,6 +82,7 @@ type Props = {
   initialTeams?: WorkPlanTeamSnapshot[];
   initialAbsences?: WorkPlanAbsenceSnapshot[];
   initialNotes?: string | null;
+  draftId?: string;
 };
 
 function newClientId() {
@@ -112,6 +113,7 @@ export function WorkPlanEditor({
   initialTeams,
   initialAbsences,
   initialNotes,
+  draftId,
 }: Props) {
   const router = useRouter();
   const [planDate, setPlanDate] = useState(initialDate || tomorrowISODate());
@@ -441,6 +443,52 @@ export function WorkPlanEditor({
     }
   }
 
+  function planTeams() {
+    return teams.map((team, index) => ({
+      sort_order: index,
+      project_code: team.project_code,
+      project_name: team.project_name,
+      team_type: team.team_type,
+      vehicle_plate: team.vehicle_plate,
+      chief_personnel_id: team.chief_personnel_id || null,
+      chief_name: team.chief_name,
+      chief_phone: team.chief_phone,
+      members: ensureChiefFirst(team.members.map((member) =>
+        member.is_chief
+          ? { ...member, phone: team.chief_phone }
+          : { ...member, phone: null }
+      )),
+    }));
+  }
+
+  async function handleDraftSave() {
+    if (!planDate) {
+      toast.error("Plan tarihi seçin");
+      return;
+    }
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Oturum bulunamadı");
+      const saved = await new WorkPlanRepository(supabase).saveDraft({
+        id: draftId,
+        planDate,
+        notes,
+        userId: user.id,
+        teams: planTeams(),
+        absences,
+      });
+      toast.success("İş planı taslak olarak kaydedildi");
+      router.push(`/work-plans/drafts/${saved.id}/edit`);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Taslak kaydedilemedi");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleSave() {
     if (!planDate) {
       toast.error("Plan tarihi seçin");
@@ -514,27 +562,12 @@ export function WorkPlanEditor({
         userId: user.id,
         existingPlanId,
         absences,
-        teams: teams.map((team, index) => ({
-          sort_order: index,
-          project_code: team.project_code,
-          project_name: team.project_name,
-          team_type: team.team_type,
-          vehicle_plate: team.vehicle_plate,
-          chief_personnel_id: team.chief_personnel_id || null,
-          chief_name: team.chief_name,
-          chief_phone: team.chief_phone,
-          members: ensureChiefFirst(
-            team.members.map((m) =>
-              m.is_chief
-                ? { ...m, phone: team.chief_phone }
-                : { ...m, phone: null }
-            )
-          ),
-        })),
+        teams: planTeams(),
       });
 
-      toast.success("İş planı kaydedildi");
-      router.push(`/work-plans/${saved.id}`);
+      toast.success("İş planı mevcut kurallara göre kaydedildi");
+      const draftQuery = draftId ? `&draft=${draftId}` : "";
+      router.push(`/work-plans/${saved.id}${existingPlanId ? "" : `?whatsapp=1${draftQuery}`}`);
       router.refresh();
     } catch (error) {
       console.error(error);
@@ -562,7 +595,7 @@ export function WorkPlanEditor({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">
-            {existingPlanId ? "İş Planını Düzenle" : "Yeni İş Planı"}
+            {draftId ? "Taslağı Düzenle" : existingPlanId ? "İş Planını Düzenle" : "Yeni İş Planı"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Ekipler ve personeller o güne özel snapshot olarak saklanır.
@@ -580,9 +613,15 @@ export function WorkPlanEditor({
               Son Listeyi Getir
             </Button>
           )}
+          {!existingPlanId && (
+            <Button type="button" variant="outline" onClick={handleDraftSave} disabled={loading || loadingLatest}>
+              {loading && <Loader2 className="animate-spin" />}
+              Taslak Olarak Kaydet
+            </Button>
+          )}
           <Button onClick={handleSave} disabled={loading || loadingLatest}>
             {loading && <Loader2 className="animate-spin" />}
-            Planı Kaydet
+            {existingPlanId ? "Değişiklikleri Kaydet" : "WhatsApp’a Gönder ve Kaydet"}
           </Button>
         </div>
       </div>

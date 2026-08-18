@@ -6,6 +6,7 @@ import { UserRepository } from "@/modules/users/user-repository";
 
 type Props = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ whatsapp?: string; draft?: string }>;
 };
 
 export async function generateMetadata({ params }: Props) {
@@ -17,8 +18,9 @@ export async function generateMetadata({ params }: Props) {
   };
 }
 
-export default async function WorkPlanDetailPage({ params }: Props) {
+export default async function WorkPlanDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
+  const query = await searchParams;
   const supabase = await createClient();
   const [plan, canWrite] = await Promise.all([
     new WorkPlanRepository(supabase).getById(id),
@@ -29,6 +31,8 @@ export default async function WorkPlanDetailPage({ params }: Props) {
     <WorkPlanDetailView
       plan={plan}
       readOnly={!canWrite}
+      initialPreviewOpen={query.whatsapp === "1"}
+      sourceDraftId={query.draft}
     />
   );
 }

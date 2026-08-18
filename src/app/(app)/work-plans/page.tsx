@@ -13,9 +13,10 @@ export default async function WorkPlansPage() {
   const repo = new WorkPlanRepository(supabase);
   const today = todayISODate();
 
-  const [todayPlan, pastPlans, canWrite] = await Promise.all([
+  const [todayPlan, pastPlans, drafts, canWrite] = await Promise.all([
     repo.getByDate(today),
     repo.listPlans(90),
+    repo.listDrafts(),
     new UserRepository(supabase).canWrite("work_plans"),
   ]);
 
@@ -23,6 +24,7 @@ export default async function WorkPlansPage() {
     <WorkPlansHome
       todayPlan={todayPlan}
       pastPlans={pastPlans}
+      drafts={drafts}
       readOnly={!canWrite}
     />
   );

@@ -17,9 +17,10 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onEdit: () => void;
+  onShared?: () => void | Promise<void>;
 };
 
-export function WhatsAppPreview({ plan, open, onClose, onEdit }: Props) {
+export function WhatsAppPreview({ plan, open, onClose, onEdit, onShared }: Props) {
   const posterRef = useRef<HTMLDivElement>(null);
   const [sharing, setSharing] = useState(false);
 
@@ -168,7 +169,7 @@ export function WhatsAppPreview({ plan, open, onClose, onEdit }: Props) {
           title: "AZG İletişim Merkez Günlük İş Planı",
           text: `AZG iletişim Merkez Günlük İş Planı — ${plan.plan_date}`,
         });
-
+        await onShared?.();
         return;
       }
 
@@ -177,7 +178,7 @@ export function WhatsAppPreview({ plan, open, onClose, onEdit }: Props) {
           title: "AZG İletişim Merkez Günlük İş Planı",
           text,
         });
-
+        await onShared?.();
         return;
       }
 

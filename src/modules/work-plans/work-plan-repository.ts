@@ -5,6 +5,7 @@ import type {
   WorkPlanAbsenceSnapshot,
   WorkPlanSearchHit,
   WorkPlanTeamSnapshot,
+  WorkPlanDraft,
 } from "@/types/work-plan";
 
 type TeamRow = {
@@ -106,6 +107,56 @@ export class WorkPlanRepository {
 
     if (error) throw error;
     return (data ?? []) as DailyWorkPlan[];
+  }
+
+  async listDrafts(): Promise<WorkPlanDraft[]> {
+    const { data, error } = await this.supabase
+      .from("daily_work_plan_drafts")
+      .select("*")
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as WorkPlanDraft[];
+  }
+
+  async getDraft(id: string): Promise<WorkPlanDraft | null> {
+    const { data, error } = await this.supabase
+      .from("daily_work_plan_drafts")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    return data as WorkPlanDraft | null;
+  }
+
+  async saveDraft(input: {
+    id?: string;
+    planDate: string;
+    notes?: string | null;
+    userId: string;
+    teams: WorkPlanTeamSnapshot[];
+    absences: WorkPlanAbsenceSnapshot[];
+  }): Promise<WorkPlanDraft> {
+    const payload = {
+      plan_date: input.planDate,
+      notes: input.notes?.trim() || null,
+      teams: input.teams,
+      absences: input.absences,
+      created_by: input.userId,
+    };
+    const query = input.id
+      ? this.supabase.from("daily_work_plan_drafts").update(payload).eq("id", input.id)
+      : this.supabase.from("daily_work_plan_drafts").insert(payload);
+    const { data, error } = await query.select("*").single();
+    if (error) throw persistenceError("Taslak kaydedilemedi", error);
+    return data as WorkPlanDraft;
+  }
+
+  async deleteDraft(id: string): Promise<void> {
+    const { error } = await this.supabase
+      .from("daily_work_plan_drafts")
+      .delete()
+      .eq("id", id);
+    if (error) throw persistenceError("Taslak silinemedi", error);
   }
 
   async getByDate(planDate: string): Promise<DailyWorkPlanWithTeams | null> {

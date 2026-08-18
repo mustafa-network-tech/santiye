@@ -78,6 +78,17 @@ export type DailyWorkPlanWithTeams = DailyWorkPlan & {
   absences: WorkPlanAbsenceSnapshot[];
 };
 
+export type WorkPlanDraft = {
+  id: string;
+  plan_date: string;
+  notes: string | null;
+  teams: WorkPlanTeamSnapshot[];
+  absences: WorkPlanAbsenceSnapshot[];
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type WorkPlanSearchHit = {
   plan_id: string;
   plan_date: string;

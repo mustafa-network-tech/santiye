@@ -17,11 +17,13 @@ import { useRouter } from "next/navigation";
 type Props = {
   plan: DailyWorkPlanWithTeams;
   readOnly?: boolean;
+  initialPreviewOpen?: boolean;
+  sourceDraftId?: string;
 };
 
-export function WorkPlanDetailView({ plan, readOnly = false }: Props) {
+export function WorkPlanDetailView({ plan, readOnly = false, initialPreviewOpen = false, sourceDraftId }: Props) {
   const router = useRouter();
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(initialPreviewOpen);
   const [currentPlan, setCurrentPlan] = useState(plan);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -146,6 +148,12 @@ export function WorkPlanDetailView({ plan, readOnly = false }: Props) {
           setPreviewOpen(false);
           router.push(`/work-plans/${currentPlan.id}/edit`);
         }}
+        onShared={sourceDraftId ? async () => {
+          await new WorkPlanRepository(createClient()).deleteDraft(sourceDraftId);
+          toast.success("WhatsApp paylaşımı tamamlandı; taslak kaldırıldı");
+          router.replace(`/work-plans/${currentPlan.id}`);
+          router.refresh();
+        } : undefined}
       />
     </div>
   );

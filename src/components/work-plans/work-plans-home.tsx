@@ -7,6 +7,7 @@ import type {
   DailyWorkPlan,
   DailyWorkPlanWithTeams,
   WorkPlanSearchHit,
+  WorkPlanDraft,
 } from "@/types/work-plan";
 import { formatDate } from "@/lib/utils";
 import { todayISODate } from "@/lib/constants/project";
@@ -20,10 +21,11 @@ import { Badge } from "@/components/ui/badge";
 type Props = {
   todayPlan: DailyWorkPlanWithTeams | null;
   pastPlans: DailyWorkPlan[];
+  drafts: WorkPlanDraft[];
   readOnly?: boolean;
 };
 
-export function WorkPlansHome({ todayPlan, pastPlans, readOnly = false }: Props) {
+export function WorkPlansHome({ todayPlan, pastPlans, drafts, readOnly = false }: Props) {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<WorkPlanSearchHit[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -126,6 +128,27 @@ export function WorkPlansHome({ todayPlan, pastPlans, readOnly = false }: Props)
           )}
         </CardContent>
       </Card>
+
+      {!readOnly && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold tracking-tight">Taslaklar</h2>
+          {drafts.length === 0 ? (
+            <Card><CardContent className="p-5 text-sm text-muted-foreground">Kaydedilmiş taslak bulunmuyor.</CardContent></Card>
+          ) : drafts.map((draft) => (
+            <Link key={draft.id} href={`/work-plans/drafts/${draft.id}/edit`}>
+              <Card className="mb-2 transition-colors hover:bg-accent/30">
+                <CardContent className="flex items-center justify-between p-4">
+                  <div>
+                    <p className="font-medium">{formatDate(draft.plan_date)}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{draft.teams.length} ekip · Düzenlemeye devam et</p>
+                  </div>
+                  <Badge className="border border-amber-300 bg-amber-50 text-amber-700">Taslak</Badge>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </section>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">
