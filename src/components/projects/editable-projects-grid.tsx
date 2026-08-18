@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Mail, MessageCircle } from "lucide-react";
+import { FileSpreadsheet, MessageCircle } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import type { Project } from "@/types/project";
@@ -13,12 +13,12 @@ const STATUS_LABELS: Record<string, string> = { waiting: "Başlamadı", excavati
 
 export function EditableProjectsGrid({ projects, exportProjects, typeLabels, selectedTypeLabel }: Props) {
   const reportRef = useRef<HTMLDivElement>(null);
-  const [sharing, setSharing] = useState<"whatsapp" | "email" | null>(null);
+  const [sharing, setSharing] = useState<"whatsapp" | "excel" | null>(null);
   const reportTitle = `AZG İLETİŞİM(MERKEZ) PROJE TAKİP${selectedTypeLabel ? ` — ${selectedTypeLabel.toLocaleUpperCase("tr-TR")}` : ""}`;
 
-  async function shareReport(channel: "whatsapp" | "email") {
+  async function shareReport() {
     if (!reportRef.current) return;
-    setSharing(channel);
+    setSharing("whatsapp");
     try {
       const { toBlob } = await import("html-to-image");
       const blob = await toBlob(reportRef.current, { backgroundColor: "#ffffff", pixelRatio: 1.5, cacheBust: true });
@@ -35,8 +35,7 @@ export function EditableProjectsGrid({ projects, exportProjects, typeLabels, sel
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       toast.info("Tablo görseli indirildi", { description: "Tarayıcı dosya eklemeyi desteklemediği için indirilen PNG dosyasını mesaja ekleyin." });
-      if (channel === "whatsapp") window.open(`https://wa.me/?text=${encodeURIComponent(reportTitle)}`, "_blank", "noopener,noreferrer");
-      else window.location.href = `mailto:?subject=${encodeURIComponent(reportTitle)}&body=${encodeURIComponent("Proje takip tablosu ektedir.")}`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(reportTitle)}`, "_blank", "noopener,noreferrer");
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       console.error(error);
@@ -44,12 +43,51 @@ export function EditableProjectsGrid({ projects, exportProjects, typeLabels, sel
     } finally { setSharing(null); }
   }
 
+  async function downloadExcel() {
+    setSharing("excel");
+    try {
+      const { Workbook } = await import("exceljs");
+      const workbook = new Workbook();
+      const worksheet = workbook.addWorksheet("Proje Takip");
+      worksheet.mergeCells("A1:G1");
+      worksheet.getCell("A1").value = reportTitle;
+      worksheet.getCell("A1").font = { bold: true, size: 16 };
+      worksheet.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
+      worksheet.getRow(1).height = 28;
+      worksheet.addRow(["Tür", "Proje Adı", "Proje ID", "Lokasyon", "Proje Özeti", "Not", "Son Güncelleme"]);
+      exportProjects.forEach(project => {
+        const row = worksheet.addRow([typeLabels[project.project_type] ?? project.project_type, project.name, project.project_code, project.location || "—", summary(project), project.progress_notes || project.description || "—", formatDateTime(project.updated_at)]);
+        if (project.status === "completed") row.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDDEBFF" } };
+      });
+      worksheet.columns = [{ width: 22 }, { width: 32 }, { width: 20 }, { width: 24 }, { width: 32 }, { width: 42 }, { width: 22 }];
+      worksheet.getRow(2).font = { bold: true, color: { argb: "FFFFFFFF" } };
+      worksheet.getRow(2).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A5F" } };
+      worksheet.eachRow((row, rowNumber) => row.eachCell(cell => {
+        cell.border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        cell.alignment = { vertical: "middle", wrapText: true, horizontal: rowNumber === 1 ? "center" : "left" };
+      }));
+      worksheet.views = [{ state: "frozen", ySplit: 2 }];
+      worksheet.autoFilter = { from: "A2", to: "G2" };
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([new Uint8Array(buffer)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "azg-proje-takip.xlsx";
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+      toast.error("Excel dosyası oluşturulamadı");
+    } finally { setSharing(null); }
+  }
+
   return <>
     <div className="flex flex-col gap-3 border-b bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div><p className="text-sm font-medium">{reportTitle}</p><p className="text-xs text-muted-foreground">Filtrelenen {exportProjects.length} projeyi tablo olarak paylaşın.</p></div>
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" onClick={() => shareReport("whatsapp")} disabled={!exportProjects.length || sharing !== null}><MessageCircle className="h-4 w-4" /> {sharing === "whatsapp" ? "Hazırlanıyor..." : "WhatsApp"}</Button>
-        <Button variant="outline" size="sm" onClick={() => shareReport("email")} disabled={!exportProjects.length || sharing !== null}><Mail className="h-4 w-4" /> {sharing === "email" ? "Hazırlanıyor..." : "E-posta"}</Button>
+        <Button variant="outline" size="sm" onClick={shareReport} disabled={!exportProjects.length || sharing !== null}><MessageCircle className="h-4 w-4" /> {sharing === "whatsapp" ? "Hazırlanıyor..." : "WhatsApp PNG"}</Button>
+        <Button variant="outline" size="sm" onClick={downloadExcel} disabled={!exportProjects.length || sharing !== null}><FileSpreadsheet className="h-4 w-4" /> {sharing === "excel" ? "Hazırlanıyor..." : "Excel İndir"}</Button>
       </div>
     </div>
     <div className="overflow-x-auto">
