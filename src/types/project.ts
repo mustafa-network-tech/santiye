@@ -47,6 +47,9 @@ export type Project = {
   progress_percent: number;
   project_date: string | null;
   priority_order: number | null;
+  status_sort_order: number;
+  project_type_sort_order: number;
+  default_status_sort_order: number;
   completed_by_personnel_id: string | null;
   completed_by_name: string | null;
   current_team_leader_personnel_id: string | null;

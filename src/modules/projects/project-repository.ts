@@ -160,10 +160,30 @@ export class ProjectRepository {
       query = query.or(searchParts.join(","));
     }
 
-    const { data, error, count } = await query
-      .order("priority_order", { ascending: true, nullsFirst: false })
-      .order(sortBy, { ascending })
-      .range(from, to);
+    const usesDefaultProjectListOrder =
+      (!filters.search || !filters.search.trim()) &&
+      (!filters.status || filters.status === "all") &&
+      (!filters.projectType || filters.projectType === "all") &&
+      (!filters.location || filters.location === "all") &&
+      (!filters.analysisStage) &&
+      (!filters.obkStatus || filters.obkStatus === "all") &&
+      (!filters.jointStatus || filters.jointStatus === "all") &&
+      (!filters.cableStatus || filters.cableStatus === "all") &&
+      (!filters.excavationStatus || filters.excavationStatus === "all") &&
+      (filters.archiveScope ?? "active") === "active";
+
+    if (usesDefaultProjectListOrder) {
+      query = query
+        .order("project_type_sort_order", { ascending: true })
+        .order("priority_order", { ascending: true, nullsFirst: false })
+        .order("default_status_sort_order", { ascending: true });
+    } else {
+      query = query.order("priority_order", { ascending: true, nullsFirst: false });
+    }
+    if (!usesDefaultProjectListOrder && filters.projectType === "KURUMSAL_TTVPN") {
+      query = query.order("status_sort_order", { ascending: true });
+    }
+    const { data, error, count } = await query.order(sortBy, { ascending }).range(from, to);
 
     if (error) throw error;
 
