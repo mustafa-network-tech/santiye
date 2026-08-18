@@ -54,6 +54,24 @@ export class AttendanceRepository {
     return data as { saved: number; deleted: number };
   }
 
+  async getMonthNotes(year: number, month: number): Promise<string> {
+    const { data, error } = await this.supabase
+      .from("attendance_month_notes")
+      .select("notes")
+      .eq("year", year)
+      .eq("month", month)
+      .maybeSingle();
+    if (error) throw error;
+    return (data?.notes as string | undefined) ?? "";
+  }
+
+  async saveMonthNotes(year: number, month: number, notes: string): Promise<void> {
+    const { error } = await this.supabase
+      .from("attendance_month_notes")
+      .upsert({ year, month, notes: notes.trim() }, { onConflict: "year,month" });
+    if (error) throw error;
+  }
+
   async getPersonnelSummary(
     personnelId: string,
     year: number,

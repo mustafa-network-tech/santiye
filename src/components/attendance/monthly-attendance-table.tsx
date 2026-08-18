@@ -45,6 +45,7 @@ import { downloadMonthlyAttendanceWord } from "@/lib/attendance-word";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -62,6 +63,7 @@ import {
 type Props = {
   initialData: MonthlyAttendanceData;
   exportPersonnel: MonthlyAttendancePersonnel[];
+  initialMonthNotes: string;
   initialSearch: string;
   initialActivityFilter: PersonnelActivityFilter;
   initialStatusFilter: AttendanceStatus | "all";
@@ -118,6 +120,7 @@ function cellKey(personnelId: string, date: string) {
 export function MonthlyAttendanceTable({
   initialData,
   exportPersonnel,
+  initialMonthNotes,
   initialSearch,
   initialActivityFilter,
   initialStatusFilter,
@@ -144,9 +147,12 @@ export function MonthlyAttendanceTable({
       : 1;
   });
   const [saving, setSaving] = useState(false);
+  const [monthNotes, setMonthNotes] = useState(initialMonthNotes);
   const [editingEnabled, setEditingEnabled] = useState(
     !historyMode && !readOnly
   );
+  const notesDirty = monthNotes.trim() !== initialMonthNotes.trim();
+  const hasUnsavedChanges = dirty.size > 0 || notesDirty;
 
   const days = useMemo(
     () => getMonthDays(initialData.year, initialData.month),
@@ -165,6 +171,7 @@ export function MonthlyAttendanceTable({
 
   useEffect(() => {
     setDirty(new Map());
+    setMonthNotes(initialMonthNotes);
     setSelectedPersonnel(new Set());
     setSearch(initialSearch);
     setEditingEnabled(!historyMode && !readOnly);
@@ -175,15 +182,15 @@ export function MonthlyAttendanceTable({
         ? today.getDate()
         : 1
     );
-  }, [historyMode, initialData, initialSearch, readOnly]);
+  }, [historyMode, initialData, initialMonthNotes, initialSearch, readOnly]);
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (dirty.size === 0) return;
+      if (!hasUnsavedChanges) return;
       event.preventDefault();
     };
     const handleLinkClick = (event: MouseEvent) => {
-      if (dirty.size === 0) return;
+      if (!hasUnsavedChanges) return;
       const target = event.target as HTMLElement;
       const anchor = target.closest("a");
       if (!anchor || anchor.target === "_blank") return;
@@ -203,11 +210,11 @@ export function MonthlyAttendanceTable({
       window.removeEventListener("beforeunload", handleBeforeUnload);
       document.removeEventListener("click", handleLinkClick, true);
     };
-  }, [dirty.size]);
+  }, [hasUnsavedChanges]);
 
   function confirmDiscard() {
     return (
-      dirty.size === 0 ||
+      !hasUnsavedChanges ||
       window.confirm(
         "Kaydedilmemiş puantaj değişiklikleri var. Sayfadan ayrılmak istiyor musunuz?"
       )
@@ -295,11 +302,13 @@ export function MonthlyAttendanceTable({
         };
       }
     );
-    if (changes.length === 0) return;
+    if (changes.length === 0 && !notesDirty) return;
 
     setSaving(true);
     try {
-      await new AttendanceRepository(createClient()).saveChanges(changes);
+      const repository = new AttendanceRepository(createClient());
+      if (changes.length > 0) await repository.saveChanges(changes);
+      if (notesDirty) await repository.saveMonthNotes(initialData.year, initialData.month, monthNotes);
       toast.success("Puantaj başarıyla kaydedildi.");
       setDirty(new Map());
       router.refresh();
@@ -356,6 +365,7 @@ export function MonthlyAttendanceTable({
         fileName: `puantaj-${initialData.year}-${String(
           initialData.month
         ).padStart(2, "0")}.xlsx`,
+        notes: monthNotes,
       });
     } catch (error) {
       console.error(error);
@@ -373,6 +383,7 @@ export function MonthlyAttendanceTable({
         })),
         year: initialData.year,
         month: initialData.month,
+        notes: monthNotes,
       });
     } catch (error) {
       console.error(error);
@@ -468,7 +479,7 @@ export function MonthlyAttendanceTable({
                 <Button
                   variant={editingEnabled ? "secondary" : "outline"}
                   onClick={() => {
-                    if (editingEnabled && dirty.size > 0) {
+                    if (editingEnabled && hasUnsavedChanges) {
                       if (!confirmDiscard()) return;
                       setDirty(new Map());
                     }
@@ -489,7 +500,7 @@ export function MonthlyAttendanceTable({
           {editingEnabled && (
             <Button
               onClick={saveChanges}
-              disabled={dirty.size === 0 || saving || isPending}
+              disabled={!hasUnsavedChanges || saving || isPending}
               className="min-w-32"
             >
               {saving ? (
@@ -497,11 +508,27 @@ export function MonthlyAttendanceTable({
               ) : (
                 <Save className="h-4 w-4" />
               )}
-              Kaydet {dirty.size > 0 ? `(${dirty.size})` : ""}
+              Kaydet {hasUnsavedChanges ? `(${dirty.size + (notesDirty ? 1 : 0)})` : ""}
             </Button>
           )}
         </div>
       </div>
+
+      <Card>
+        <CardContent className="space-y-2 pt-6">
+          <label htmlFor="attendance-month-notes" className="text-sm font-medium">Açıklama</label>
+          <Textarea
+            id="attendance-month-notes"
+            value={monthNotes}
+            onChange={(event) => setMonthNotes(event.target.value)}
+            disabled={!editingEnabled}
+            maxLength={4000}
+            rows={3}
+            placeholder="Bu aya ait puantaj açıklamasını yazın..."
+          />
+          <p className="text-xs text-muted-foreground">Bu açıklama Word ve Excel puantaj çıktılarında gösterilir.</p>
+        </CardContent>
+      </Card>
 
       {historyMode && archives.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

@@ -60,7 +60,7 @@ export default async function AttendancePage({ searchParams }: Props) {
   } catch {
     // Yetkisiz kullanıcılar puantajı salt okunur görüntülemeye devam edebilir.
   }
-  const [data, exportData, canWrite] = await Promise.all([
+  const [data, exportData, monthNotes, canWrite] = await Promise.all([
     attendanceRepository.getMonth({
       year,
       month,
@@ -75,6 +75,7 @@ export default async function AttendancePage({ searchParams }: Props) {
       search: "",
       statusFilter: "all",
     }),
+    attendanceRepository.getMonthNotes(year, month),
     new UserRepository(supabase).canWrite("attendance"),
   ]);
 
@@ -82,6 +83,7 @@ export default async function AttendancePage({ searchParams }: Props) {
     <MonthlyAttendanceTable
       initialData={data}
       exportPersonnel={exportData.personnel}
+      initialMonthNotes={monthNotes}
       initialSearch={search}
       initialActivityFilter={activeFilter}
       initialStatusFilter={statusFilter}

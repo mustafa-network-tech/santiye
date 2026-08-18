@@ -52,6 +52,7 @@ export async function downloadMonthlyAttendanceWord(options: {
   personnel: AttendanceWordPerson[];
   year: number;
   month: number;
+  notes?: string;
 }) {
   const {
     AlignmentType,
@@ -171,6 +172,9 @@ export async function downloadMonthlyAttendanceWord(options: {
           new Paragraph({ children: [new TextRun({ text: `Dönem: ${getPeriod(options.year, options.month)}`, bold: true })] }),
           new Paragraph({ children: [new TextRun({ text: `Rapor Tarihi: ${formatReportDate()}` })] }),
           new Paragraph({ spacing: { after: 220 }, children: [new TextRun({ text: `Toplam Personel: ${options.personnel.length}` })] }),
+          ...(options.notes?.trim()
+            ? [new Paragraph({ spacing: { after: 220 }, children: [new TextRun({ text: `Açıklama: ${options.notes.trim()}`, bold: true })] })]
+            : []),
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             layout: TableLayoutType.FIXED,

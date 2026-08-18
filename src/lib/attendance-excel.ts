@@ -51,6 +51,7 @@ export async function downloadAttendanceSummaryExcel(options: {
   year: number;
   month: number;
   fileName: string;
+  notes?: string;
 }) {
   const { Workbook } = await import("exceljs");
   const workbook = new Workbook();
@@ -108,6 +109,15 @@ export async function downloadAttendanceSummaryExcel(options: {
     from: "A1",
     to: `${worksheet.getColumn(worksheet.columnCount).letter}1`,
   };
+
+  if (options.notes?.trim()) {
+    const noteRow = worksheet.addRow([]);
+    noteRow.getCell(1).value = `Açıklama: ${options.notes.trim()}`;
+    worksheet.mergeCells(noteRow.number, 1, noteRow.number, worksheet.columnCount);
+    noteRow.getCell(1).alignment = { vertical: "top", horizontal: "left", wrapText: true };
+    noteRow.getCell(1).font = { italic: true };
+    noteRow.height = 36;
+  }
 
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([new Uint8Array(buffer)], {
