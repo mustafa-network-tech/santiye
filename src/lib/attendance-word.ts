@@ -1,9 +1,12 @@
 import type { AttendanceRecord } from "@/types/attendance";
-import { getAttendanceMeta, MONTH_NAMES } from "@/lib/constants/attendance";
+import {
+  getAttendanceMeta,
+  getMonthDays,
+  MONTH_NAMES,
+} from "@/lib/constants/attendance";
 import {
   countAttendanceRecords,
   countPayableDays,
-  maskTcIdentityNumber,
   toFileSlug,
 } from "@/lib/attendance-excel";
 
@@ -79,16 +82,13 @@ export async function downloadMonthlyAttendanceWord(options: {
     insideHorizontal: { style: BorderStyle.SINGLE, size: 4, color: "B7B7B7" },
     insideVertical: { style: BorderStyle.SINGLE, size: 4, color: "B7B7B7" },
   };
+  const days = getMonthDays(options.year, options.month);
   const headers = [
-    "Sıra No",
+    "Sıra",
     "Ad Soyad",
     "TC Kimlik No",
-    "Çalıştığı Gün",
-    "İzinli Gün",
-    "Raporlu Gün",
-    "Hafta Tatili",
-    "Mazeretsiz Gelmedi",
-    "Toplam Hak Edilen Gün",
+    ...days.map((day) => `${pad(day.day)}\n${day.dayName}`),
+    "Hak Edilen\nGün",
   ];
   const cell = (
     text: string | number,
@@ -98,11 +98,11 @@ export async function downloadMonthlyAttendanceWord(options: {
   ) =>
     new TableCell({
       verticalAlign: VerticalAlign.CENTER,
-      margins: { top: 90, bottom: 90, left: 80, right: 80 },
+      margins: { top: 35, bottom: 35, left: 25, right: 25 },
       children: [
         new Paragraph({
           alignment: align,
-          children: [new TextRun({ text: String(text), bold, size: 16 })],
+          children: [new TextRun({ text: String(text), bold, size: 11 })],
         }),
       ],
     });
@@ -114,29 +114,30 @@ export async function downloadMonthlyAttendanceWord(options: {
         new TableCell({
           shading: { type: ShadingType.CLEAR, fill: "D9E2F3" },
           verticalAlign: VerticalAlign.CENTER,
-          margins: { top: 110, bottom: 110, left: 70, right: 70 },
+          margins: { top: 45, bottom: 45, left: 20, right: 20 },
           children: [
             new Paragraph({
               alignment: AlignmentType.CENTER,
-              children: [new TextRun({ text: header, bold: true, size: 16 })],
+              children: [new TextRun({ text: header, bold: true, size: 10 })],
             }),
           ],
         })
     ),
   });
   const rows = options.personnel.map((person, index) => {
-    const totals = countAttendanceRecords(person.records);
+    const recordsByDate = new Map(
+      person.records.map((record) => [record.date, record.status])
+    );
     return new TableRow({
       cantSplit: true,
       children: [
         cell(index + 1),
         cell(person.fullName, AlignmentType.LEFT),
-        cell(maskTcIdentityNumber(person.tcIdentityNumber)),
-        cell(totals.worked),
-        cell(totals.leave),
-        cell(totals.medical_report),
-        cell(totals.weekly_rest),
-        cell(totals.unexcused_absence),
+        cell(person.tcIdentityNumber || "—"),
+        ...days.map((day) => {
+          const status = recordsByDate.get(day.isoDate);
+          return cell(status ? getAttendanceMeta(status).symbol : "");
+        }),
         cell(countPayableDays(person.records), AlignmentType.CENTER, true),
       ],
     });
@@ -148,8 +149,12 @@ export async function downloadMonthlyAttendanceWord(options: {
       {
         properties: {
           page: {
-            size: { orientation: PageOrientation.LANDSCAPE },
-            margin: { top: 850, right: 650, bottom: 850, left: 650 },
+            size: {
+              orientation: PageOrientation.LANDSCAPE,
+              width: 23811,
+              height: 16838,
+            },
+            margin: { top: 500, right: 350, bottom: 500, left: 350 },
           },
         },
         children: [
@@ -173,7 +178,7 @@ export async function downloadMonthlyAttendanceWord(options: {
           new Paragraph({ children: [new TextRun({ text: `Rapor Tarihi: ${formatReportDate()}` })] }),
           new Paragraph({ spacing: { after: 220 }, children: [new TextRun({ text: `Toplam Personel: ${options.personnel.length}` })] }),
           ...(options.notes?.trim()
-            ? [new Paragraph({ spacing: { after: 220 }, children: [new TextRun({ text: `Açıklama: ${options.notes.trim()}`, bold: true })] })]
+            ? [new Paragraph({ spacing: { after: 220 }, children: [new TextRun({ text: `Not: ${options.notes.trim()}`, bold: true })] })]
             : []),
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
@@ -196,6 +201,7 @@ export async function downloadPersonnelAttendanceWord(options: {
   person: AttendanceWordPerson;
   year: number;
   month: number;
+  notes?: string;
 }) {
   const {
     AlignmentType,
@@ -267,9 +273,12 @@ export async function downloadPersonnelAttendanceWord(options: {
           new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [new TextRun({ text: "AZG İLETİŞİM MERKEZ", bold: true, size: 30 })] }),
           new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 280 }, children: [new TextRun({ text: "PERSONEL PUANTAJ RAPORU", bold: true, size: 24 })] }),
           new Paragraph({ children: [new TextRun({ text: `Ad Soyad: ${options.person.fullName}`, bold: true })] }),
-          new Paragraph({ children: [new TextRun({ text: `TC Kimlik No: ${maskTcIdentityNumber(options.person.tcIdentityNumber)}` })] }),
+          new Paragraph({ children: [new TextRun({ text: `TC Kimlik No: ${options.person.tcIdentityNumber || "—"}` })] }),
           new Paragraph({ children: [new TextRun({ text: `Dönem: ${MONTH_NAMES[options.month - 1]} ${options.year}` })] }),
           new Paragraph({ spacing: { after: 220 }, children: [new TextRun({ text: `Rapor Tarihi: ${formatReportDate()}` })] }),
+          ...(options.notes?.trim()
+            ? [new Paragraph({ spacing: { after: 220 }, children: [new TextRun({ text: `Not: ${options.notes.trim()}`, bold: true })] })]
+            : []),
           new Table({
             width: { size: 65, type: WidthType.PERCENTAGE },
             borders: { top: border, bottom: border, left: border, right: border, insideHorizontal: border, insideVertical: border },

@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+  FileSpreadsheet,
+  FileText,
   Loader2,
   Pencil,
   Plus,
@@ -22,6 +24,10 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { PersonnelRepository } from "@/modules/work-plans/personnel-repository";
 import { InventoryRepository } from "@/modules/inventory/inventory-repository";
+import {
+  downloadPersonnelExcel,
+  downloadPersonnelWord,
+} from "@/lib/personnel-export";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -228,6 +234,30 @@ export function PersonnelManager({
     printWindow.print();
   }
 
+  async function exportPersonnelExcel() {
+    try {
+      await downloadPersonnelExcel(
+        filtered,
+        `personel-listesi-${showPassive ? "pasif" : "aktif"}.xlsx`
+      );
+    } catch (error) {
+      console.error(error);
+      toast.error("Personel Excel dosyası oluşturulamadı");
+    }
+  }
+
+  async function exportPersonnelWord() {
+    try {
+      await downloadPersonnelWord(
+        filtered,
+        `personel-listesi-${showPassive ? "pasif" : "aktif"}.docx`
+      );
+    } catch (error) {
+      console.error(error);
+      toast.error("Personel Word dosyası oluşturulamadı");
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -255,6 +285,22 @@ export function PersonnelManager({
           <Button variant="outline" onClick={printPersonnelList}>
             <Printer className="h-4 w-4" />
             Listeyi Yazdır
+          </Button>
+          <Button
+            variant="outline"
+            onClick={exportPersonnelExcel}
+            disabled={filtered.length === 0}
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            Excel İndir
+          </Button>
+          <Button
+            variant="outline"
+            onClick={exportPersonnelWord}
+            disabled={filtered.length === 0}
+          >
+            <FileText className="h-4 w-4" />
+            Word İndir
           </Button>
           {!readOnly && (
             <Button onClick={openCreate}>

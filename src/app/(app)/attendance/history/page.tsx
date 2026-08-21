@@ -57,20 +57,13 @@ export default async function AttendanceHistoryPage({ searchParams }: Props) {
 
   const supabase = await createClient();
   const repository = new AttendanceRepository(supabase);
-  const [data, exportData, monthNotes, archives, canWrite] = await Promise.all([
+  const [data, monthNotes, archives, canWrite] = await Promise.all([
     repository.getMonth({
       year,
       month,
       activeFilter,
       search,
       statusFilter,
-    }),
-    repository.getMonth({
-      year,
-      month,
-      activeFilter: "all",
-      search: "",
-      statusFilter: "all",
     }),
     repository.getMonthNotes(year, month),
     repository.getMonthArchives(),
@@ -80,7 +73,6 @@ export default async function AttendanceHistoryPage({ searchParams }: Props) {
   return (
     <MonthlyAttendanceTable
       initialData={data}
-      exportPersonnel={exportData.personnel}
       initialMonthNotes={monthNotes}
       initialSearch={search}
       initialActivityFilter={activeFilter}

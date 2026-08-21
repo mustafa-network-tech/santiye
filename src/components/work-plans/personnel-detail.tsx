@@ -70,6 +70,7 @@ type Props = {
   canWriteAdvances: boolean;
   assignedVehiclePlate?: string | null;
   custodyBalances?: InventoryCustodyBalance[];
+  monthNotes?: string;
 };
 
 export function PersonnelDetail({
@@ -82,6 +83,7 @@ export function PersonnelDetail({
   canWriteAdvances,
   assignedVehiclePlate = null,
   custodyBalances = [],
+  monthNotes = "",
 }: Props) {
   const router = useRouter();
   const [advanceOpen, setAdvanceOpen] = useState(false);
@@ -209,6 +211,7 @@ export function PersonnelDetail({
         fileName: `${toFileSlug(personnel.full_name)}-puantaj-${year}-${String(
           month
         ).padStart(2, "0")}.xlsx`,
+        notes: monthNotes,
       });
     } catch (error) {
       console.error(error);
@@ -226,6 +229,7 @@ export function PersonnelDetail({
         },
         year,
         month,
+        notes: monthNotes,
       });
     } catch (error) {
       console.error(error);

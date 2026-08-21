@@ -62,7 +62,6 @@ import {
 
 type Props = {
   initialData: MonthlyAttendanceData;
-  exportPersonnel: MonthlyAttendancePersonnel[];
   initialMonthNotes: string;
   initialSearch: string;
   initialActivityFilter: PersonnelActivityFilter;
@@ -119,7 +118,6 @@ function cellKey(personnelId: string, date: string) {
 
 export function MonthlyAttendanceTable({
   initialData,
-  exportPersonnel,
   initialMonthNotes,
   initialSearch,
   initialActivityFilter,
@@ -329,6 +327,7 @@ export function MonthlyAttendanceTable({
     return initialData.personnel.map((personnel) => {
       const row: Record<string, string | number> = {
         Personel: personnel.full_name,
+        "TC Kimlik No": personnel.tc_identity_number ?? "",
       };
       const totals = { ...EMPTY_TOTALS, ...personnel.totals };
       let sundayWorked = 0;
@@ -355,7 +354,7 @@ export function MonthlyAttendanceTable({
   async function exportExcel() {
     try {
       await downloadAttendanceSummaryExcel({
-        personnel: exportPersonnel.map((personnel) => ({
+        personnel: initialData.personnel.map((personnel) => ({
           fullName: personnel.full_name,
           tcIdentityNumber: personnel.tc_identity_number,
           records: personnel.records,
@@ -376,7 +375,7 @@ export function MonthlyAttendanceTable({
   async function exportWord() {
     try {
       await downloadMonthlyAttendanceWord({
-        personnel: exportPersonnel.map((personnel) => ({
+        personnel: initialData.personnel.map((personnel) => ({
           fullName: personnel.full_name,
           tcIdentityNumber: personnel.tc_identity_number,
           records: personnel.records,
@@ -402,6 +401,7 @@ export function MonthlyAttendanceTable({
         ? Object.keys(rows[0])
         : [
             "Personel",
+            "TC Kimlik No",
             ...days.map(
               (day) => `${String(day.day).padStart(2, "0")} ${day.dayName}`
             ),
@@ -419,10 +419,16 @@ export function MonthlyAttendanceTable({
       14,
       12
     );
+    const hasNote = Boolean(monthNotes.trim());
+    if (hasNote) {
+      document.setFontSize(9);
+      const noteLines = document.splitTextToSize(`Not: ${monthNotes.trim()}`, 380);
+      document.text(noteLines, 14, 18);
+    }
     autoTable(document, {
       head: [headers],
       body,
-      startY: 17,
+      startY: hasNote ? 25 : 17,
       styles: { fontSize: 6, cellPadding: 1 },
       headStyles: { fillColor: [30, 64, 175] },
     });
@@ -516,7 +522,7 @@ export function MonthlyAttendanceTable({
 
       <Card>
         <CardContent className="space-y-2 pt-6">
-          <label htmlFor="attendance-month-notes" className="text-sm font-medium">Açıklama</label>
+          <label htmlFor="attendance-month-notes" className="text-sm font-medium">Puantaj Notu</label>
           <Textarea
             id="attendance-month-notes"
             value={monthNotes}
