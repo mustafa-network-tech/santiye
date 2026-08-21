@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { InventoryRepository } from "@/modules/inventory/inventory-repository";
 import { VehicleRepository } from "@/modules/vehicles/vehicle-repository";
-import { PersonnelRepository } from "@/modules/work-plans/personnel-repository";
 import { UserRepository } from "@/modules/users/user-repository";
 import { CustodyManager } from "@/components/inventory/custody-manager";
 
@@ -17,14 +16,12 @@ export default async function CustodyPage() {
     balances,
     movements,
     vehicles,
-    personnel,
     canWrite,
   ] = await Promise.all([
     inventoryRepository.listMaterials("equipment"),
     inventoryRepository.listCustodyBalances(),
     inventoryRepository.listCustodyMovements(),
     new VehicleRepository(supabase).list(),
-    new PersonnelRepository(supabase).list({ activeOnly: true }),
     new UserRepository(supabase).canWrite("custody"),
   ]);
 
@@ -34,7 +31,6 @@ export default async function CustodyPage() {
       initialBalances={balances}
       initialMovements={movements}
       vehicles={vehicles}
-      personnel={personnel}
       readOnly={!canWrite}
     />
   );

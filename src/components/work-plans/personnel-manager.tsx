@@ -6,8 +6,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  FileSpreadsheet,
-  FileText,
+  CalendarDays,
   Loader2,
   Pencil,
   Plus,
@@ -17,6 +16,11 @@ import {
 import { toast } from "sonner";
 import type { Personnel } from "@/types/work-plan";
 import type { Vehicle } from "@/types/vehicle";
+import type { PersonnelAttendanceSummary } from "@/types/attendance";
+import type { PersonnelListSummary } from "@/types/attendance";
+import { MONTH_NAMES } from "@/lib/constants/attendance";
+import { formatEmploymentDuration } from "@/lib/personnel";
+import { formatDate } from "@/lib/utils";
 import {
   personnelSchema,
   type PersonnelFormValues,
@@ -24,10 +28,6 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { PersonnelRepository } from "@/modules/work-plans/personnel-repository";
 import { InventoryRepository } from "@/modules/inventory/inventory-repository";
-import {
-  downloadPersonnelExcel,
-  downloadPersonnelWord,
-} from "@/lib/personnel-export";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -56,13 +56,21 @@ import {
 
 type Props = {
   initialPersonnel: Personnel[];
+  attendanceSummary?: PersonnelAttendanceSummary | null;
+  personnelSummaries?: PersonnelListSummary[];
   assignedVehicles?: Vehicle[];
+  summaryYear?: number;
+  summaryMonth?: number;
   readOnly?: boolean;
 };
 
 export function PersonnelManager({
   initialPersonnel,
+  attendanceSummary,
+  personnelSummaries = [],
   assignedVehicles = [],
+  summaryYear = new Date().getFullYear(),
+  summaryMonth = new Date().getMonth() + 1,
   readOnly = false,
 }: Props) {
   const router = useRouter();
@@ -209,16 +217,19 @@ export function PersonnelManager({
       (p.notes ?? "").toLowerCase().includes(q)
     );
   });
+  const summaryByPersonnel = new Map(
+    personnelSummaries.map((summary) => [summary.personnel_id, summary])
+  );
 
   function printPersonnelList() {
     const rows = filtered
       .map(
         (person) =>
           `<tr><td>${escapeHtml(person.full_name)}</td><td>${escapeHtml(
-            person.tc_identity_number || "—"
-          )}</td><td>${escapeHtml(person.job_title || "—")}</td><td>${escapeHtml(
             person.phone || "—"
-          )}</td></tr>`
+          )}</td><td>${person.is_active ? "Aktif" : "Pasif"}</td><td>${escapeHtml(
+            person.employment_start_date || "—"
+          )}</td><td>${escapeHtml(person.employment_end_date || "—")}</td></tr>`
       )
       .join("");
     const printWindow = window.open("", "_blank", "noopener,noreferrer");
@@ -227,35 +238,11 @@ export function PersonnelManager({
       return;
     }
     printWindow.document.write(
-      `<!doctype html><html><head><title>Personel Listesi</title><style>body{font-family:Arial,sans-serif;padding:24px}h1{font-size:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:8px;text-align:left}th{background:#eee}</style></head><body><h1>AZG İLETİŞİM ŞANTİYE — Personel Listesi</h1><table><thead><tr><th>Ad Soyad</th><th>TC Kimlik No</th><th>Görev</th><th>Telefon</th></tr></thead><tbody>${rows}</tbody></table></body></html>`
+      `<!doctype html><html><head><title>Personel Listesi</title><style>body{font-family:Arial,sans-serif;padding:24px}h1{font-size:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:8px;text-align:left}th{background:#eee}</style></head><body><h1>AZG İLETİŞİM ŞANTİYE — Personel Listesi</h1><table><thead><tr><th>Ad Soyad</th><th>Telefon</th><th>Durum</th><th>İşe Giriş</th><th>İşten Ayrılış</th></tr></thead><tbody>${rows}</tbody></table></body></html>`
     );
     printWindow.document.close();
     printWindow.focus();
     printWindow.print();
-  }
-
-  async function exportPersonnelExcel() {
-    try {
-      await downloadPersonnelExcel(
-        filtered,
-        `personel-listesi-${showPassive ? "pasif" : "aktif"}.xlsx`
-      );
-    } catch (error) {
-      console.error(error);
-      toast.error("Personel Excel dosyası oluşturulamadı");
-    }
-  }
-
-  async function exportPersonnelWord() {
-    try {
-      await downloadPersonnelWord(
-        filtered,
-        `personel-listesi-${showPassive ? "pasif" : "aktif"}.docx`
-      );
-    } catch (error) {
-      console.error(error);
-      toast.error("Personel Word dosyası oluşturulamadı");
-    }
   }
 
   return (
@@ -286,22 +273,6 @@ export function PersonnelManager({
             <Printer className="h-4 w-4" />
             Listeyi Yazdır
           </Button>
-          <Button
-            variant="outline"
-            onClick={exportPersonnelExcel}
-            disabled={filtered.length === 0}
-          >
-            <FileSpreadsheet className="h-4 w-4" />
-            Excel İndir
-          </Button>
-          <Button
-            variant="outline"
-            onClick={exportPersonnelWord}
-            disabled={filtered.length === 0}
-          >
-            <FileText className="h-4 w-4" />
-            Word İndir
-          </Button>
           {!readOnly && (
             <Button onClick={openCreate}>
               <Plus className="h-4 w-4" />
@@ -310,6 +281,36 @@ export function PersonnelManager({
           )}
         </div>
       </div>
+
+      {attendanceSummary && (
+        <Card className="border-blue-200 bg-blue-50/60 dark:border-blue-900 dark:bg-blue-950/25">
+          <CardHeader className="pb-3">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-blue-100 p-2 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                <CalendarDays className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base">
+                  {attendanceSummary.full_name} · Puantaj Notu
+                </CardTitle>
+                <CardDescription>
+                  {MONTH_NAMES[attendanceSummary.month - 1]}{" "}
+                  {attendanceSummary.year}
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm font-medium leading-6">
+              {attendanceSummary.worked} gün çalıştı,{" "}
+              {attendanceSummary.absent} gün çalışmadı,{" "}
+              {attendanceSummary.leave} gün izinli,{" "}
+              {attendanceSummary.medical_report} gün raporlu ve{" "}
+              {attendanceSummary.weekly_rest} gün hafta tatili.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="pb-3">
@@ -336,13 +337,18 @@ export function PersonnelManager({
               </p>
             ) : (
               filtered.map((person) => {
+                const summary = summaryByPersonnel.get(person.id);
                 const assignedVehicle = assignedVehicles.find(
                   (vehicle) => vehicle.assigned_personnel_id === person.id
                 );
                 return (
                 <div
                   key={person.id}
-                  className="flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  className={`flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
+                    attendanceSummary?.personnel_id === person.id
+                      ? "border-blue-400 bg-blue-50 ring-1 ring-blue-300 dark:border-blue-800 dark:bg-blue-950/30"
+                      : ""
+                  }`}
                 >
                   <div className="flex min-w-0 items-start gap-3">
                     <div className="mt-0.5 rounded-xl bg-muted p-2">
@@ -371,12 +377,38 @@ export function PersonnelManager({
                           </Badge>
                         )}
                       </div>
+                      {person.job_title && (
+                        <p className="text-sm text-muted-foreground">
+                          {person.job_title}
+                        </p>
+                      )}
                       <p className="text-sm text-muted-foreground">
-                        {person.job_title?.trim() || "Görev girilmemiş"}
+                        {person.phone || "Telefon yok"}
+                        {person.notes ? ` · ${person.notes}` : ""}
                       </p>
-                      <p className="text-sm text-muted-foreground">
-                        TC: {person.tc_identity_number || "—"} · {person.phone || "Telefon yok"}
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        TC Kimlik No: {maskTcIdentityNumber(person.tc_identity_number)}
                       </p>
+                      <div className="mt-2 grid gap-x-5 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
+                        <span>
+                          İşe Giriş: {formatDate(person.employment_start_date)}
+                        </span>
+                        <span>
+                          Çalışma Süresi:{" "}
+                          {formatEmploymentDuration(
+                            person.employment_start_date,
+                            person.employment_end_date
+                          )}
+                        </span>
+                        <span>
+                          {MONTH_NAMES[summaryMonth - 1]} Çalıştı:{" "}
+                          <strong>{summary?.month_worked ?? 0} gün</strong>
+                        </span>
+                        <span>
+                          {summaryYear} İzin:{" "}
+                          <strong>{summary?.year_leave ?? 0} gün</strong>
+                        </span>
+                      </div>
                     </div>
                   </div>
                   {!readOnly && (
@@ -546,3 +578,7 @@ function sortByCreatedAtDesc(personnel: Personnel[]) {
   );
 }
 
+function maskTcIdentityNumber(value: string | null) {
+  if (!value) return "Girilmemiş";
+  return `${value.slice(0, 3)}******${value.slice(-2)}`;
+}

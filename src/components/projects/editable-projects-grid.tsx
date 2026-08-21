@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { FileSpreadsheet, FileText, MessageCircle } from "lucide-react";
+import { FileSpreadsheet, MessageCircle } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import type { Project } from "@/types/project";
 import { formatDateTime } from "@/lib/utils";
-import { downloadProjectsWord } from "@/lib/projects-word";
 import { Button } from "@/components/ui/button";
 
 type Props = { projects: Project[]; exportProjects: Project[]; typeLabels: Record<string, string>; selectedTypeLabel?: string };
@@ -14,7 +13,7 @@ const STATUS_LABELS: Record<string, string> = { waiting: "Başlamadı", excavati
 
 export function EditableProjectsGrid({ projects, exportProjects, typeLabels, selectedTypeLabel }: Props) {
   const reportRef = useRef<HTMLDivElement>(null);
-  const [sharing, setSharing] = useState<"whatsapp" | "excel" | "word" | null>(null);
+  const [sharing, setSharing] = useState<"whatsapp" | "excel" | null>(null);
   const reportTitle = `AZG İLETİŞİM(MERKEZ) PROJE TAKİP${selectedTypeLabel ? ` — ${selectedTypeLabel.toLocaleUpperCase("tr-TR")}` : ""}`;
 
   async function shareReport() {
@@ -114,29 +113,12 @@ export function EditableProjectsGrid({ projects, exportProjects, typeLabels, sel
     } finally { setSharing(null); }
   }
 
-  async function downloadWord() {
-    setSharing("word");
-    try {
-      await downloadProjectsWord({
-        projects: exportProjects,
-        typeLabels,
-        title: reportTitle,
-      });
-    } catch (error) {
-      console.error(error);
-      toast.error("Word dosyası oluşturulamadı");
-    } finally {
-      setSharing(null);
-    }
-  }
-
   return <>
     <div className="flex flex-col gap-3 border-b bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div><p className="text-sm font-medium">{reportTitle}</p><p className="text-xs text-muted-foreground">Filtrelenen {exportProjects.length} projeyi tablo olarak paylaşın.</p></div>
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="sm" onClick={shareReport} disabled={!exportProjects.length || sharing !== null}><MessageCircle className="h-4 w-4" /> {sharing === "whatsapp" ? "Hazırlanıyor..." : "WhatsApp PNG"}</Button>
         <Button variant="outline" size="sm" onClick={downloadExcel} disabled={!exportProjects.length || sharing !== null}><FileSpreadsheet className="h-4 w-4" /> {sharing === "excel" ? "Hazırlanıyor..." : "Excel İndir"}</Button>
-        <Button variant="outline" size="sm" onClick={downloadWord} disabled={!exportProjects.length || sharing !== null}><FileText className="h-4 w-4" /> {sharing === "word" ? "Hazırlanıyor..." : "Word İndir"}</Button>
       </div>
     </div>
     <div className="overflow-x-auto">

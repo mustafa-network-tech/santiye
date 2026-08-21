@@ -46,7 +46,7 @@ async function ProjectsContent({ searchParams }: Props) {
       locations={locations}
       typeLabels={typeLabels}
       showCreate={canWrite}
-      showInlineEdit
+      showInlineEdit={canWrite}
       exportProjects={exportResult.data}
       defaultArchiveScope="active"
       allowArchiveScopeFilter

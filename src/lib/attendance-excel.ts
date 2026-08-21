@@ -112,7 +112,7 @@ export async function downloadAttendanceSummaryExcel(options: {
 
   if (options.notes?.trim()) {
     const noteRow = worksheet.addRow([]);
-    noteRow.getCell(1).value = `Not: ${options.notes.trim()}`;
+    noteRow.getCell(1).value = `Açıklama: ${options.notes.trim()}`;
     worksheet.mergeCells(noteRow.number, 1, noteRow.number, worksheet.columnCount);
     noteRow.getCell(1).alignment = { vertical: "top", horizontal: "left", wrapText: true };
     noteRow.getCell(1).font = { italic: true };

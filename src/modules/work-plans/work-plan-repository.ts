@@ -96,43 +96,6 @@ function mapTeam(row: TeamRow): WorkPlanTeamSnapshot {
   };
 }
 
-const PLAN_WITH_TEAMS_SELECT = `
-  *,
-  daily_work_plan_teams (
-    *,
-    daily_work_plan_team_members (*)
-  ),
-  daily_work_plan_absences (*)
-`;
-
-function mapPlan(data: {
-  id: string;
-  plan_date: string;
-  notes: string | null;
-  created_by: string | null;
-  updated_by: string | null;
-  created_at: string;
-  updated_at: string;
-  daily_work_plan_teams?: TeamRow[] | null;
-  daily_work_plan_absences?: AbsenceRow[] | null;
-}): DailyWorkPlanWithTeams {
-  const teams = [...(data.daily_work_plan_teams ?? [])]
-    .sort((a, b) => a.sort_order - b.sort_order)
-    .map(mapTeam);
-
-  return {
-    id: data.id,
-    plan_date: data.plan_date,
-    notes: data.notes ?? null,
-    created_by: data.created_by ?? null,
-    updated_by: data.updated_by ?? null,
-    created_at: data.created_at,
-    updated_at: data.updated_at,
-    teams,
-    absences: mapAbsences(data.daily_work_plan_absences),
-  };
-}
-
 export class WorkPlanRepository {
   constructor(private readonly supabase: SupabaseClient) {}
 
@@ -200,40 +163,73 @@ export class WorkPlanRepository {
   async getByDate(planDate: string): Promise<DailyWorkPlanWithTeams | null> {
     const { data, error } = await this.supabase
       .from("daily_work_plans")
-      .select(PLAN_WITH_TEAMS_SELECT)
+      .select(
+        `
+        *,
+        daily_work_plan_teams (
+          *,
+          daily_work_plan_team_members (*)
+        ),
+        daily_work_plan_absences (*)
+      `
+      )
       .eq("plan_date", planDate)
       .maybeSingle();
 
     if (error) throw error;
     if (!data) return null;
-    return mapPlan(data as Parameters<typeof mapPlan>[0]);
-  }
 
-  async listWithTeamsInRange(
-    startDate: string,
-    endDate: string
-  ): Promise<DailyWorkPlanWithTeams[]> {
-    const { data, error } = await this.supabase
-      .from("daily_work_plans")
-      .select(PLAN_WITH_TEAMS_SELECT)
-      .gte("plan_date", startDate)
-      .lte("plan_date", endDate)
-      .order("plan_date", { ascending: true });
+    const teams = [...((data.daily_work_plan_teams as TeamRow[]) ?? [])]
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map(mapTeam);
 
-    if (error) throw error;
-    return ((data ?? []) as Parameters<typeof mapPlan>[0][]).map(mapPlan);
+    return {
+      id: data.id as string,
+      plan_date: data.plan_date as string,
+      notes: (data.notes as string | null) ?? null,
+      created_by: (data.created_by as string | null) ?? null,
+      updated_by: (data.updated_by as string | null) ?? null,
+      created_at: data.created_at as string,
+      updated_at: data.updated_at as string,
+      teams,
+      absences: mapAbsences(data.daily_work_plan_absences as AbsenceRow[]),
+    };
   }
 
   async getById(id: string): Promise<DailyWorkPlanWithTeams | null> {
     const { data, error } = await this.supabase
       .from("daily_work_plans")
-      .select(PLAN_WITH_TEAMS_SELECT)
+      .select(
+        `
+        *,
+        daily_work_plan_teams (
+          *,
+          daily_work_plan_team_members (*)
+        ),
+        daily_work_plan_absences (*)
+      `
+      )
       .eq("id", id)
       .maybeSingle();
 
     if (error) throw error;
     if (!data) return null;
-    return mapPlan(data as Parameters<typeof mapPlan>[0]);
+
+    const teams = [...((data.daily_work_plan_teams as TeamRow[]) ?? [])]
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map(mapTeam);
+
+    return {
+      id: data.id as string,
+      plan_date: data.plan_date as string,
+      notes: (data.notes as string | null) ?? null,
+      created_by: (data.created_by as string | null) ?? null,
+      updated_by: (data.updated_by as string | null) ?? null,
+      created_at: data.created_at as string,
+      updated_at: data.updated_at as string,
+      teams,
+      absences: mapAbsences(data.daily_work_plan_absences as AbsenceRow[]),
+    };
   }
 
   async deletePlan(id: string): Promise<void> {

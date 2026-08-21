@@ -5,7 +5,6 @@ import { AttendanceRepository } from "@/modules/attendance/attendance-repository
 import { PersonnelDetail } from "@/components/work-plans/personnel-detail";
 import type { PayrollRow, PersonnelAdvance } from "@/types/attendance";
 import { UserRepository } from "@/modules/users/user-repository";
-import { InventoryRepository } from "@/modules/inventory/inventory-repository";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -55,7 +54,7 @@ export default async function PersonnelDetailPage({
   const monthEnd = `${year}-${String(month).padStart(2, "0")}-${String(
     new Date(year, month, 0).getDate()
   ).padStart(2, "0")}`;
-  const [personnel, summary, payrollResult, advancesResult, assignedVehicleResult, custodyBalances, monthNotes, canWriteAdvances] = await Promise.all([
+  const [personnel, summary, payrollResult, advancesResult, assignedVehicleResult, canWriteAdvances] = await Promise.all([
     personnelRepository.getById(id),
     attendanceRepository.getPersonnelDetail(id, year, month),
     supabase.rpc("get_monthly_payroll", { p_year: year, p_month: month }),
@@ -71,8 +70,6 @@ export default async function PersonnelDetailPage({
       .select("plate")
       .eq("assigned_personnel_id", id)
       .maybeSingle(),
-    new InventoryRepository(supabase).listPersonnelCustodyBalances(id),
-    attendanceRepository.getMonthNotes(year, month),
     new UserRepository(supabase).canWrite("attendance"),
   ]);
 
@@ -90,8 +87,6 @@ export default async function PersonnelDetailPage({
       payroll={payroll}
       advances={(advancesResult.data ?? []) as PersonnelAdvance[]}
       assignedVehiclePlate={assignedVehicleResult.data?.plate ?? null}
-      custodyBalances={custodyBalances}
-      monthNotes={monthNotes}
       canWriteAdvances={canWriteAdvances}
     />
   );

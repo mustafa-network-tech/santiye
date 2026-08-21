@@ -57,40 +57,6 @@ export class InventoryRepository {
     return (data ?? []) as InventoryMovement[];
   }
 
-  async listMovementsInRange(
-    startDate: string,
-    endDate: string
-  ): Promise<InventoryMovement[]> {
-    const { data, error } = await this.supabase
-      .from("inventory_movements")
-      .select(
-        "*, material:inventory_materials!inner(material_name, material_code, unit, material_category)"
-      )
-      .eq("material.material_category", "stock")
-      .gte("created_at", `${startDate}T00:00:00+03:00`)
-      .lte("created_at", `${endDate}T23:59:59+03:00`)
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as InventoryMovement[];
-  }
-
-  async listCustodyMovementsInRange(
-    startDate: string,
-    endDate: string
-  ): Promise<InventoryCustodyMovement[]> {
-    const { data, error } = await this.supabase
-      .from("inventory_custody_movements")
-      .select(
-        "*, material:inventory_materials!inner(material_name, material_code, unit, material_category)"
-      )
-      .eq("material.material_category", "equipment")
-      .gte("created_at", `${startDate}T00:00:00+03:00`)
-      .lte("created_at", `${endDate}T23:59:59+03:00`)
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as InventoryCustodyMovement[];
-  }
-
   async createMaterial(payload: {
     material_name: string;
     material_code?: string;

@@ -16,7 +16,6 @@ import {
   ShieldCheck,
   Umbrella,
   UserRound,
-  Wrench,
 } from "lucide-react";
 import type { Personnel } from "@/types/work-plan";
 import type {
@@ -24,8 +23,6 @@ import type {
   PersonnelAdvance,
   PersonnelAttendanceDetail,
 } from "@/types/attendance";
-import type { InventoryCustodyBalance } from "@/types/inventory";
-import { formatInventoryQuantity } from "@/lib/constants/inventory";
 import {
   MONTH_NAMES,
   getAttendanceMeta,
@@ -69,8 +66,6 @@ type Props = {
   advances: PersonnelAdvance[];
   canWriteAdvances: boolean;
   assignedVehiclePlate?: string | null;
-  custodyBalances?: InventoryCustodyBalance[];
-  monthNotes?: string;
 };
 
 export function PersonnelDetail({
@@ -82,8 +77,6 @@ export function PersonnelDetail({
   advances,
   canWriteAdvances,
   assignedVehiclePlate = null,
-  custodyBalances = [],
-  monthNotes = "",
 }: Props) {
   const router = useRouter();
   const [advanceOpen, setAdvanceOpen] = useState(false);
@@ -211,7 +204,6 @@ export function PersonnelDetail({
         fileName: `${toFileSlug(personnel.full_name)}-puantaj-${year}-${String(
           month
         ).padStart(2, "0")}.xlsx`,
-        notes: monthNotes,
       });
     } catch (error) {
       console.error(error);
@@ -229,7 +221,6 @@ export function PersonnelDetail({
         },
         year,
         month,
-        notes: monthNotes,
       });
     } catch (error) {
       console.error(error);
@@ -595,46 +586,6 @@ export function PersonnelDetail({
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Wrench className="h-4 w-4" />
-            Aktif Zimmetler
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {custodyBalances.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Bu personelin üzerinde aktif zimmet bulunmuyor.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {custodyBalances.map((balance) => (
-                <div
-                  key={balance.id}
-                  className="flex items-center justify-between rounded-xl border px-4 py-3"
-                >
-                  <div>
-                    <p className="text-sm font-medium">
-                      {balance.material?.material_name || "Ekipman"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {balance.material?.material_code || "Kod yok"}
-                    </p>
-                  </div>
-                  <strong>
-                    {formatInventoryQuantity(
-                      Number(balance.quantity),
-                      balance.material?.unit ?? "piece"
-                    )}
-                  </strong>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
