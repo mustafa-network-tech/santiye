@@ -7,10 +7,13 @@ import {
   CalendarClock,
   CarFront,
   CheckCircle2,
+  ClipboardList,
   FolderKanban,
   HardHat,
+  Package,
   PauseCircle,
   TriangleAlert,
+  Users,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type {
@@ -65,6 +68,13 @@ const STAT_CARDS = [
   },
 ];
 
+type OperationalStats = {
+  activePersonnel: number;
+  todayTeams: number;
+  vehicleCount: number;
+  emptyStock: number;
+};
+
 type Props = {
   stats: DashboardStats;
   categoryAnalysis: DashboardCategoryAnalysis[];
@@ -73,6 +83,7 @@ type Props = {
   recentlyCreated: Project[];
   typeLabels: Record<string, string>;
   vehicleAlerts: VehicleDeadlineAlert[];
+  operationalStats: OperationalStats;
 };
 
 export function DashboardView({
@@ -83,6 +94,7 @@ export function DashboardView({
   recentlyCreated,
   typeLabels,
   vehicleAlerts,
+  operationalStats,
 }: Props) {
   return (
     <div className="space-y-8">
@@ -122,6 +134,54 @@ export function DashboardView({
                 </Card>
               </Link>
             </motion.div>
+          );
+        })}
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          {
+            label: "Aktif Personel",
+            value: operationalStats.activePersonnel,
+            href: "/personnel",
+            icon: Users,
+          },
+          {
+            label: "Bugünkü Ekipler",
+            value: operationalStats.todayTeams,
+            href: "/work-plans",
+            icon: ClipboardList,
+          },
+          {
+            label: "Araçlar",
+            value: operationalStats.vehicleCount,
+            href: "/vehicles",
+            icon: CarFront,
+          },
+          {
+            label: "Sıfır Stok",
+            value: operationalStats.emptyStock,
+            href: "/inventory",
+            icon: Package,
+          },
+        ].map((card) => {
+          const Icon = card.icon;
+          return (
+            <Link key={card.label} href={card.href}>
+              <Card className="h-full transition-all hover:-translate-y-0.5 hover:shadow-md">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {card.label}
+                  </CardTitle>
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-semibold tracking-tight">
+                    {card.value}
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           );
         })}
       </div>

@@ -21,6 +21,7 @@ import {
   X,
   ChevronDown,
   Hammer,
+  BarChart3,
 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -60,6 +61,13 @@ const NAV_ITEMS = [
     href: "/imalatlar",
     label: "İmalatlar",
     icon: Hammer,
+    accounting: false,
+    group: "OPERASYON",
+  },
+  {
+    href: "/reports",
+    label: "Raporlar",
+    icon: BarChart3,
     accounting: false,
     group: "OPERASYON",
   },
