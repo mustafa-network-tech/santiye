@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isCorporateStyleProject, isOngoingProjectStatus } from "@/lib/constants/project";
+import { isCorporateStyleProject } from "@/lib/constants/project";
 
 const triState = z.enum(["unset", "true", "false"]);
 
@@ -37,8 +37,6 @@ export const projectCreateSchema = z.object({
   current_team_leader_name: z.string().optional().or(z.literal("")),
   tracks_obk: z.boolean(),
   tracks_excavation: z.boolean(),
-  tracks_cable: z.boolean(),
-  tracks_joint: z.boolean(),
   sheet_count: z.coerce.number().int().positive().optional(),
   hp_count: z.coerce.number().int().nonnegative().optional(),
   is_single_sheet: z.boolean(),
@@ -89,18 +87,14 @@ export const projectEditSchema = z
       .min(2, "Proje adı en az 2 karakter olmalı")
       .max(200, "Proje adı en fazla 200 karakter olabilir"),
     project_type: z.string().min(1, "Proje türü seçilmeli"),
-    location: z
-      .string()
-      .trim()
-      .min(2, "Mevki en az 2 karakter olmalı")
-      .max(200, "Mevki en fazla 200 karakter olabilir"),
+    location: z.string().trim().max(200, "Mevki en fazla 200 karakter olabilir"),
     description: z
       .string()
       .trim()
       .max(5000, "Açıklama en fazla 5000 karakter olabilir")
       .optional()
       .or(z.literal("")),
-    received_at: z.string().min(1, "Alınan tarih zorunlu"),
+    received_at: z.string(),
     status: z.enum([
       "waiting",
       "in_progress",
@@ -108,20 +102,15 @@ export const projectEditSchema = z
       "delayed",
       "completed",
     ]),
-    stage_date: z.string().min(1, "Aşama tarihi zorunlu"),
     project_date: z.string().optional().or(z.literal("")),
     priority_order: z.coerce.number().int().positive().optional().or(z.literal("")),
     completed_by_personnel_id: z.string().optional().or(z.literal("")),
     completed_by_name: z.string().optional().or(z.literal("")),
     current_team_leader_personnel_id: z.string().optional().or(z.literal("")),
     current_team_leader_name: z.string().optional().or(z.literal("")),
-    cable_pulled: triState,
     tracks_obk: z.boolean(),
     tracks_excavation: z.boolean(),
-    tracks_cable: z.boolean(),
-    tracks_joint: z.boolean(),
     obk_pulled: triState,
-    joint_done: triState,
     progress_notes: z
       .string()
       .trim()
@@ -130,9 +119,24 @@ export const projectEditSchema = z
       .or(z.literal("")),
   })
   .superRefine((data, ctx) => {
-    const isBfOrGf =
-      data.project_type === "BF" || data.project_type === "GF";
+    const hidesLocation = data.project_type === "HP_ODAKLI";
+    const hidesReceivedAt =
+      hidesLocation || isCorporateStyleProject(data.project_type);
 
+    if (!hidesLocation && data.location.length < 2) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Mevki en az 2 karakter olmalı",
+        path: ["location"],
+      });
+    }
+    if (!hidesReceivedAt && !data.received_at) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Alınan tarih zorunlu",
+        path: ["received_at"],
+      });
+    }
     if (isCorporateStyleProject(data.project_type) && data.status === "completed" && !data.completed_by_personnel_id) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Projeyi bitiren ekip başı seçilmeli", path: ["completed_by_personnel_id"] });
     }
@@ -140,22 +144,6 @@ export const projectEditSchema = z
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Devam eden projenin ekip başı seçilmeli", path: ["current_team_leader_personnel_id"] });
     }
 
-    if (isOngoingProjectStatus(data.status) && !isBfOrGf && data.project_type !== "BGFD") {
-      if (data.cable_pulled === "unset") {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Kablo durumu seçilmeli",
-          path: ["cable_pulled"],
-        });
-      }
-      if (data.joint_done === "unset") {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Ek durumu seçilmeli",
-          path: ["joint_done"],
-        });
-      }
-    }
   });
 
 export type ProjectEditValues = z.infer<typeof projectEditSchema>;

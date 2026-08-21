@@ -19,10 +19,7 @@ import {
 import type { Project } from "@/types/project";
 import type { Personnel } from "@/types/work-plan";
 import {
-  CABLE_OPTIONS,
-  JOINT_OPTIONS,
   OBK_OPTIONS,
-  getStageDateKey,
   getStatusLabel,
   isBfOrGfProject,
   isHpFocusedProject,
@@ -48,11 +45,6 @@ type Props = {
   typeOptions: { key: string; label: string }[];
   personnel: Personnel[];
 };
-
-function readStageDate(project: Project): string {
-  const key = getStageDateKey(project.status);
-  return project[key] ?? todayISODate();
-}
 
 export function ProjectForm({ mode, project, typeOptions, personnel }: Props) {
   const router = useRouter();
@@ -133,8 +125,6 @@ function CreateProjectForm({
       current_team_leader_name: "",
       tracks_obk: false,
       tracks_excavation: false,
-      tracks_cable: true,
-      tracks_joint: true,
       sheet_count: 1,
       hp_count: 0,
       is_single_sheet: false,
@@ -204,8 +194,8 @@ function CreateProjectForm({
         tracks_obk:
           isBfOrGfProject(values.project_type) && values.tracks_obk,
         tracks_excavation: values.tracks_excavation,
-        tracks_cable: values.project_type === "BGFD" ? true : values.tracks_cable,
-        tracks_joint: values.project_type === "BGFD" ? true : values.tracks_joint,
+        tracks_cable: false,
+        tracks_joint: false,
         sheet_count: isBfOrGfProject(values.project_type) ? values.sheet_count : null,
         hp_count: isBfOrGfProject(values.project_type) ? values.hp_count : null,
         is_single_sheet: values.is_single_sheet,
@@ -252,7 +242,14 @@ function CreateProjectForm({
         <CardTitle>Yeni Proje</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+        <form
+          onSubmit={form.handleSubmit(onSubmit, () =>
+            toast.error("Kaydedilemedi", {
+              description: "Lütfen eksik veya hatalı alanları kontrol edin.",
+            })
+          )}
+          className="space-y-5"
+        >
           <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
             Yeni projeler <strong>Başlamadı</strong> durumunda kaydedilir. Girişte
             yalnız <strong>Alınan Tarih</strong> işlenir. Bitiş tarihi arşive
@@ -351,7 +348,6 @@ function CreateProjectForm({
 
             {!isHpFocused && !isCorporate&&<label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_excavation")} onChange={e=>form.setValue("tracks_excavation",e.target.checked)}/><span><span className="block text-sm font-medium">Kazı var</span><span className="block text-xs text-muted-foreground">Paftalarda kazı izni ve kazı yapım aşamaları takip edilir.</span></span></label>}
 
-            {projectType !== "BGFD" && !isHpFocused && !isCorporate && <div className="grid gap-3 md:col-span-2 md:grid-cols-2"><label className="flex cursor-pointer gap-3 rounded-xl border bg-muted/30 p-4"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_cable")} onChange={e=>form.setValue("tracks_cable",e.target.checked)}/><span className="text-sm font-medium">Kablo takibi var</span></label><label className="flex cursor-pointer gap-3 rounded-xl border bg-muted/30 p-4"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_joint")} onChange={e=>form.setValue("tracks_joint",e.target.checked)}/><span className="text-sm font-medium">Ek takibi var</span></label></div>}
 
             {projectType === "BGFD" && <div className="space-y-3 rounded-xl border p-4 md:col-span-2"><div><p className="text-sm font-medium">BGFD Dolap Bilgileri</p><p className="text-xs text-muted-foreground">Adedi ve her dolabın üç haneli SD numarasını virgülle ayırarak girin.</p></div><div className="grid gap-3">{(["T7","T9","T11","T21","T23"] as const).map(type=>{const key=type.toLowerCase() as "t7"|"t9"|"t11"|"t21"|"t23";return <div key={type} className="grid gap-2 sm:grid-cols-[140px_1fr]"><div><Label>{type} Adedi</Label><Input type="number" min="0" {...form.register(`bgfd_${key}`)}/></div><div><Label>{type} SD Numaraları</Label><Input placeholder="Örn: 123, 456" {...form.register(`bgfd_${key}_sd`)}/>{form.formState.errors[`bgfd_${key}_sd`]&&<p className="text-xs text-destructive">{form.formState.errors[`bgfd_${key}_sd`]?.message}</p>}</div></div>})}</div>{form.formState.errors.bgfd_t7&&<p className="text-xs text-destructive">{form.formState.errors.bgfd_t7.message}</p>}</div>}
 
@@ -390,18 +386,13 @@ function EditProjectForm({
       project_code: project.project_code,
       name: project.name,
       project_type: project.project_type,
-      location: project.location,
+      location: project.location ?? "",
       description: project.description ?? "",
-      received_at: project.received_at ?? todayISODate(),
+      received_at: project.received_at ?? "",
       status: project.status,
-      stage_date: readStageDate(project),
-      cable_pulled: booleanToTriState(project.cable_pulled),
       tracks_obk: project.tracks_obk ?? false,
       tracks_excavation: project.tracks_excavation ?? false,
-      tracks_cable: project.tracks_cable ?? true,
-      tracks_joint: project.tracks_joint ?? true,
       obk_pulled: booleanToTriState(project.obk_pulled),
-      joint_done: booleanToTriState(project.joint_done),
       progress_notes: project.progress_notes ?? "",
       project_date: project.project_date ?? "",
       priority_order: project.priority_order ?? "",
@@ -453,15 +444,15 @@ function EditProjectForm({
         location: values.location,
         description: values.description || null,
         received_at: values.received_at,
-        tracks_cable: projectType === "BGFD" ? true : values.tracks_cable,
-        cable_pulled: triStateToBoolean(values.cable_pulled),
+        tracks_cable: false,
+        cable_pulled: null,
         tracks_obk: isBfOrGf && values.tracks_obk,
         obk_pulled: isBfOrGf && values.tracks_obk
           ? triStateToBoolean(values.obk_pulled)
           : null,
-        tracks_joint: projectType === "BGFD" ? true : values.tracks_joint,
+        tracks_joint: false,
         tracks_excavation: values.tracks_excavation,
-        joint_done: triStateToBoolean(values.joint_done),
+        joint_done: null,
         progress_notes: values.progress_notes || null,
         status: isCorporate ? values.status : undefined,
         project_date: isCorporate ? values.project_date || null : null,
@@ -499,7 +490,14 @@ function EditProjectForm({
         <CardTitle>Projeyi Düzenle</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+        <form
+          onSubmit={form.handleSubmit(onSubmit, (errors) =>
+            toast.error("Kaydedilemedi", {
+              description: getFirstFormError(errors),
+            })
+          )}
+          className="space-y-5"
+        >
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="project_code">Proje ID</Label>
@@ -597,35 +595,24 @@ function EditProjectForm({
 
             {!isHpFocused && !isCorporate&&<label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_excavation")} onChange={e=>form.setValue("tracks_excavation",e.target.checked)}/><span><span className="block text-sm font-medium">Kazı takibi var</span><span className="block text-xs text-muted-foreground">Değişiklik yeni pafta ve dolaplara uygulanır.</span></span></label>}
 
-            {projectType !== "BGFD" && !isHpFocused && !isCorporate && <div className="grid gap-3 md:col-span-2 md:grid-cols-2"><label className="flex cursor-pointer gap-3 rounded-xl border bg-muted/30 p-4"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_cable")} onChange={e=>form.setValue("tracks_cable",e.target.checked)}/><span className="text-sm font-medium">Kablo takibi var</span></label><label className="flex cursor-pointer gap-3 rounded-xl border bg-muted/30 p-4"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("tracks_joint")} onChange={e=>form.setValue("tracks_joint",e.target.checked)}/><span className="text-sm font-medium">Ek takibi var</span></label></div>}
 
-            {projectType !== "BGFD" && !isHpFocused && !isCorporate && (
+            {isBfOrGf && !isHpFocused && !isCorporate && (
               <div className="md:col-span-2 space-y-4 rounded-2xl border bg-muted/30 p-4">
                 <div>
-                  <p className="text-sm font-medium">
-                    {isBfOrGf ? `${projectType} Proje Takibi` : "Devam Eden İş Adımları"}
-                  </p>
+                  <p className="text-sm font-medium">{projectType} Proje Takibi</p>
                   <p className="text-xs text-muted-foreground">
-                    {isBfOrGf
-                      ? tracksObk
-                        ? "OBK ve ek durumunu işaretleyin; gerekirse açıklama ekleyin."
-                        : "Ek durumunu işaretleyin; gerekirse açıklama ekleyin."
-                      : "Kablo ve ek durumunu işaretleyin; gerekirse açıklama ekleyin."}
+                    OBK durumunu işaretleyin; gerekirse açıklama ekleyin.
                   </p>
                 </div>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {(!isBfOrGf || tracksObk) && (
+                <div className="grid gap-4">
+                  {tracksObk && (
                   <div className="space-y-2">
-                    <Label>{isBfOrGf ? "OBK" : "Kablo"}</Label>
+                    <Label>OBK</Label>
                     <Select
-                      value={
-                        isBfOrGf
-                          ? form.watch("obk_pulled")
-                          : form.watch("cable_pulled")
-                      }
+                      value={form.watch("obk_pulled")}
                       onValueChange={(v) =>
                         form.setValue(
-                          isBfOrGf ? "obk_pulled" : "cable_pulled",
+                          "obk_pulled",
                           v as ProjectEditValues["obk_pulled"]
                         )
                       }
@@ -634,63 +621,25 @@ function EditProjectForm({
                         <SelectValue placeholder="Seçin" />
                       </SelectTrigger>
                       <SelectContent>
-                        {(isBfOrGf ? OBK_OPTIONS : CABLE_OPTIONS).map((opt) => (
+                        {OBK_OPTIONS.map((opt) => (
                           <SelectItem key={opt.value} value={opt.value}>
                             {opt.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    {(isBfOrGf
-                      ? form.formState.errors.obk_pulled
-                      : form.formState.errors.cable_pulled) && (
+                    {form.formState.errors.obk_pulled && (
                       <p className="text-xs text-destructive">
-                        {isBfOrGf
-                          ? form.formState.errors.obk_pulled?.message
-                          : form.formState.errors.cable_pulled?.message}
+                        {form.formState.errors.obk_pulled.message}
                       </p>
                     )}
                   </div>
                   )}
-
                   <div className="space-y-2">
-                    <Label>Ek</Label>
-                    <Select
-                      value={form.watch("joint_done")}
-                      onValueChange={(v) =>
-                        form.setValue(
-                          "joint_done",
-                          v as ProjectEditValues["joint_done"]
-                        )
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seçin" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {JOINT_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {form.formState.errors.joint_done && (
-                      <p className="text-xs text-destructive">
-                        {form.formState.errors.joint_done.message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="progress_notes">İş Adımı Açıklaması</Label>
                     <Textarea
                       id="progress_notes"
-                      placeholder={
-                        isBfOrGf
-                          ? "OBK / ek ile ilgili notlar..."
-                          : "Kablo / ek ile ilgili notlar..."
-                      }
+                      placeholder="OBK ile ilgili notlar..."
                       {...form.register("progress_notes")}
                     />
                   </div>
@@ -728,6 +677,13 @@ function useLocationSuggestions(
     }, 200);
     return () => clearTimeout(timer);
   }, [locationValue, setLocationSuggestions]);
+}
+
+function getFirstFormError(errors: Record<string, { message?: unknown } | undefined>) {
+  const firstError = Object.values(errors).find((error) => error?.message);
+  return firstError?.message
+    ? String(firstError.message)
+    : "Lütfen eksik veya hatalı alanları kontrol edin.";
 }
 
 function CorporateCreateFields({ form, personnel }: { form: UseFormReturn<ProjectCreateValues>; personnel: Personnel[] }) {
