@@ -8,20 +8,20 @@ const CONTENT_HEIGHT_MM = PAGE_HEIGHT_MM - MARGIN_MM * 2;
 const RENDER_WIDTH_PX = 760;
 
 export async function downloadDailyProductionPdf(entries: ProductionEntry[], date: string) {
-  const files = await createProductionFiles(entries, formatPdfDate(date), date, false);
+  const files = await createProductionFiles(entries, formatPdfDate(date), date);
   downloadFile(files.pdf);
 }
 
 export async function downloadProductionHistoryPdf(entries: ProductionEntry[], from: string, to: string) {
   const label = from === to ? formatPdfDate(from) : `${formatPdfDate(from)} - ${formatPdfDate(to)}`;
   const suffix = from === to ? from : `${from}-${to}`;
-  const files = await createProductionFiles(entries, label, suffix, false);
+  const files = await createProductionFiles(entries, label, suffix);
   downloadFile(files.pdf);
 }
 
 export async function saveAndShareDailyProduction(entries: ProductionEntry[], date: string) {
-  const files = await createProductionFiles(entries, formatPdfDate(date), date, true);
-  const shareFiles = files.png ? [files.pdf, files.png] : [files.pdf];
+  const files = await createProductionFiles(entries, formatPdfDate(date), date);
+  const shareFiles = [files.pdf];
   if (navigator.share && (!navigator.canShare || navigator.canShare({ files: shareFiles }))) {
     await navigator.share({
       title: `AZG Günlük İmalat ${formatPdfDate(date)}`,
@@ -32,16 +32,15 @@ export async function saveAndShareDailyProduction(entries: ProductionEntry[], da
   }
 
   downloadFile(files.pdf);
-  if (files.png) downloadFile(files.png);
   window.open(
-    `https://wa.me/?text=${encodeURIComponent(`${formatPdfDate(date)} tarihli AZG günlük imalat raporu PDF ve PNG olarak indirildi.`)}`,
+    `https://wa.me/?text=${encodeURIComponent(`${formatPdfDate(date)} tarihli AZG günlük imalat raporu PDF olarak indirildi.`)}`,
     "_blank",
     "noopener,noreferrer"
   );
   return false;
 }
 
-async function createProductionFiles(entries: ProductionEntry[], dateLabel: string, fileSuffix: string, includePng: boolean) {
+async function createProductionFiles(entries: ProductionEntry[], dateLabel: string, fileSuffix: string) {
   if (!entries.length) throw new Error("Rapor oluşturmak için imalat kaydı bulunamadı");
 
   const [{ default: jsPDF }, { toPng }] = await Promise.all([
@@ -105,51 +104,10 @@ async function createProductionFiles(entries: ProductionEntry[], dateLabel: stri
     }
 
     const pdfFile = new File([pdf.output("blob")], `AZG-Gunluk-Imalat-${fileSuffix}.pdf`, { type: "application/pdf" });
-    let pngFile: File | null = null;
-    if (includePng) {
-      const pngBlob = await composeReportPng(headerImage, teamImages);
-      pngFile = new File([pngBlob], `AZG-Gunluk-Imalat-${fileSuffix}.png`, { type: "image/png" });
-    }
-    return { pdf: pdfFile, png: pngFile };
+    return { pdf: pdfFile };
   } finally {
     root.remove();
   }
-}
-
-async function composeReportPng(header: CapturedImage, teams: CapturedImage[]) {
-  const gap = 32;
-  const sourceWidth = Math.max(header.width, ...teams.map((team) => team.width));
-  const sourceHeight = header.height + teams.reduce((total, team) => total + gap + team.height, 0);
-  const maxCanvasPixels = 16_000_000;
-  const scale = Math.min(
-    1,
-    16_000 / sourceHeight,
-    Math.sqrt(maxCanvasPixels / (sourceWidth * sourceHeight))
-  );
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(sourceWidth * scale));
-  canvas.height = Math.max(1, Math.round(sourceHeight * scale));
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("PNG çizim alanı oluşturulamadı");
-  context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, canvas.width, canvas.height);
-
-  let y = 0;
-  for (const captured of [header, ...teams]) {
-    if (y > 0) y += gap;
-    const image = await loadImage(captured.url);
-    const width = captured.width * scale;
-    const height = captured.height * scale;
-    context.drawImage(image, 0, y * scale, width, height);
-    y += captured.height;
-  }
-
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => blob ? resolve(blob) : reject(new Error("PNG dosyası oluşturulamadı")),
-      "image/png"
-    );
-  });
 }
 
 function downloadFile(file: File) {

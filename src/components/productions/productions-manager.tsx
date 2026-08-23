@@ -73,6 +73,7 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
   const personnelById = useMemo(() => new Map(personnel.map((person) => [person.id, person])), [personnel]);
   const filteredReport = reportEntries.filter((entry) => personnelFilter === "all" || entry.team_leader_personnel_id === personnelFilter);
   const reportPersonnel = [...new Map(reportEntries.map((entry) => [entry.team_leader_personnel_id, entry.team_leader_name_snapshot])).entries()];
+  const historyDates = [...new Set(reportEntries.map((entry) => entry.work_date))].sort((a, b) => b.localeCompare(a));
 
   async function changeDate(nextDate: string) {
     setDate(nextDate);
@@ -153,10 +154,10 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
       if (finalize) try {
         setPdfLoading(true);
         const shared = await saveAndShareDailyProduction(entries, date);
-        toast.success(shared ? "PDF ve PNG paylaşım için hazırlandı" : "PDF ve PNG indirildi; WhatsApp açıldı");
+        toast.success(shared ? "PDF paylaşım için hazırlandı" : "PDF indirildi; WhatsApp açıldı");
       } catch (shareError) {
         if ((shareError as Error).name === "AbortError") {
-          toast.info("PDF ve PNG indirildi; paylaşım iptal edildi");
+          toast.info("PDF paylaşımı iptal edildi");
         } else {
           console.error(shareError);
           toast.error("Kayıt tamamlandı, dosyalar oluşturulamadı", { description: (shareError as Error).message });
@@ -172,11 +173,17 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
     }
   }
 
-  async function loadReport() {
+  async function loadReport(nextFrom = from, nextTo = to) {
     setLoading(true);
-    try { setReportEntries(await new ProductionRepository(createClient()).listEntries(from, to)); }
+    try { setReportEntries(await new ProductionRepository(createClient()).listEntries(nextFrom, nextTo)); }
     catch { toast.error("Geçmiş kayıtlar yüklenemedi"); }
     finally { setLoading(false); }
+  }
+
+  function selectHistoryDate(selectedDate: string) {
+    setFrom(selectedDate);
+    setTo(selectedDate);
+    void loadReport(selectedDate, selectedDate);
   }
 
   async function shareCurrentDay() {
@@ -184,9 +191,9 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
     setPdfLoading(true);
     try {
       const shared = await saveAndShareDailyProduction(dailyEntries, date);
-      toast.success(shared ? "PDF ve PNG paylaşım için hazırlandı" : "PDF ve PNG indirildi; WhatsApp açıldı");
+      toast.success(shared ? "PDF paylaşım için hazırlandı" : "PDF indirildi; WhatsApp açıldı");
     } catch (error) {
-      if ((error as Error).name === "AbortError") toast.info("PDF ve PNG indirildi; paylaşım iptal edildi");
+      if ((error as Error).name === "AbortError") toast.info("PDF paylaşımı iptal edildi");
       else {
         console.error(error);
         toast.error("Dosyalar oluşturulamadı", { description: (error as Error).message });
@@ -238,6 +245,7 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
     <Card className="screen-only"><CardHeader><CardTitle className="text-base">Geçmiş Kayıtlar ve A4 Çıktı</CardTitle></CardHeader><CardContent className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><Field label="Başlangıç"><Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></Field><Field label="Bitiş"><Input type="date" value={to} onChange={(event) => setTo(event.target.value)} /></Field><Field label="Ekip"><Select value={personnelFilter} onValueChange={setPersonnelFilter}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Tüm Ekipler</SelectItem>{reportPersonnel.map(([id, name]) => <SelectItem key={id} value={id}>{name}</SelectItem>)}</SelectContent></Select></Field></div>
       <div className="flex flex-wrap gap-2"><Button onClick={() => void loadReport()}>Kayıtları Getir</Button><Button variant="outline" disabled={!filteredReport.length || pdfLoading} onClick={() => void downloadHistoryPdf()}>{pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}Seçimi PDF Kaydet</Button></div>
+      <div className="border-t pt-4"><p className="mb-3 text-sm font-medium">Kayıtlı Tarihler</p><div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{historyDates.map((historyDate) => <button type="button" key={historyDate} onClick={() => selectHistoryDate(historyDate)} className={`border px-4 py-3 text-left text-sm font-semibold transition-colors hover:bg-muted/50 ${from === historyDate && to === historyDate ? "border-primary bg-primary/5 text-primary" : "bg-background"}`}>{formatDate(historyDate)}</button>)}</div>{!historyDates.length && <p className="text-sm text-muted-foreground">Bu aralıkta kayıt bulunamadı.</p>}</div>
     </CardContent></Card>
 
     <section className="production-print-root hidden bg-white text-black">
