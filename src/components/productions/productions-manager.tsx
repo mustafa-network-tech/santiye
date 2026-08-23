@@ -1,84 +1,213 @@
 "use client";
+
+import Image from "next/image";
 import { useMemo, useState } from "react";
-import { Download, Hammer, Loader2, Plus, Settings2, Trash2 } from "lucide-react";
+import { Loader2, Plus, Printer, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import type { DailyWorkPlanWithTeams, WorkPlanTeamSnapshot } from "@/types/work-plan";
-import type { Project } from "@/types/project";
-import type { ProductionDefinition, ProductionEntry, ProductionSaveJob } from "@/types/production";
+import type { Personnel } from "@/types/work-plan";
+import type { ProductionEntry, ProductionSaveJob } from "@/types/production";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate } from "@/lib/utils";
-import { downloadProductionWord } from "@/lib/production-word";
-import { WorkPlanRepository } from "@/modules/work-plans/work-plan-repository";
 import { ProductionRepository } from "@/modules/productions/production-repository";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
-type FormItem = { definition_id: string; quantity: string };
-type FormJob = { project_id: string; project_name: string; project_code: string; source: "work_plan" | "manual"; items: FormItem[] };
-type Leader = { id: string; name: string; team: WorkPlanTeamSnapshot };
+type FormJob = { key: string; workId: string; lines: { key: string; description: string }[] };
+type FormTeam = { key: string; entryId: string | null; personnelId: string; jobs: FormJob[] };
 
-export function ProductionsManager({ initialDate, initialPlan, initialDefinitions, initialEntries, projects, readOnly }: {
-  initialDate: string; initialPlan: DailyWorkPlanWithTeams | null; initialDefinitions: ProductionDefinition[]; initialEntries: ProductionEntry[]; projects: Project[]; readOnly: boolean;
+const accents = [
+  { border: "border-l-blue-600", jobBorder: "border-blue-600", soft: "bg-blue-50/60 dark:bg-blue-950/20", label: "text-blue-700 dark:text-blue-300" },
+  { border: "border-l-emerald-600", jobBorder: "border-emerald-600", soft: "bg-emerald-50/60 dark:bg-emerald-950/20", label: "text-emerald-700 dark:text-emerald-300" },
+  { border: "border-l-amber-600", jobBorder: "border-amber-600", soft: "bg-amber-50/60 dark:bg-amber-950/20", label: "text-amber-700 dark:text-amber-300" },
+  { border: "border-l-rose-600", jobBorder: "border-rose-600", soft: "bg-rose-50/60 dark:bg-rose-950/20", label: "text-rose-700 dark:text-rose-300" },
+  { border: "border-l-cyan-600", jobBorder: "border-cyan-600", soft: "bg-cyan-50/60 dark:bg-cyan-950/20", label: "text-cyan-700 dark:text-cyan-300" },
+];
+
+const makeKey = () => crypto.randomUUID();
+const newJob = (): FormJob => ({ key: makeKey(), workId: "", lines: [{ key: makeKey(), description: "" }] });
+const newTeam = (): FormTeam => ({ key: makeKey(), entryId: null, personnelId: "", jobs: [newJob()] });
+
+function entriesToTeams(entries: ProductionEntry[]): FormTeam[] {
+  return entries.map((entry) => ({
+    key: entry.id,
+    entryId: entry.id,
+    personnelId: entry.team_leader_personnel_id,
+    jobs: entry.jobs.map((job) => ({
+      key: job.id,
+      workId: job.project_code_snapshot || (job.source === "manual" ? "" : job.project_name_snapshot),
+      lines: job.items.map((item) => ({ key: item.id, description: legacyDescription(item.item_name_snapshot, item.quantity, item.unit_snapshot) })),
+    })),
+  })).map((team) => ({ ...team, jobs: team.jobs.length ? team.jobs : [newJob()] }));
+}
+
+function legacyDescription(name: string, quantity: number, unit: string) {
+  if (unit === "SATIR" && Number(quantity) === 1) return name;
+  return `${name} — ${Number(quantity).toLocaleString("tr-TR")} ${unit}`;
+}
+
+export function ProductionsManager({ initialDate, personnel, initialEntries, readOnly }: {
+  initialDate: string;
+  personnel: Personnel[];
+  initialEntries: ProductionEntry[];
+  readOnly: boolean;
 }) {
-  const [date, setDate] = useState(initialDate); const [plan, setPlan] = useState(initialPlan);
-  const [dailyEntries, setDailyEntries] = useState(initialEntries.filter((e) => e.work_date === initialDate));
-  const [reportEntries, setReportEntries] = useState(initialEntries); const [definitions, setDefinitions] = useState(initialDefinitions);
-  const [editor, setEditor] = useState<{ leader: Leader; entry: ProductionEntry | null } | null>(null);
-  const [jobs, setJobs] = useState<FormJob[]>([]); const [loading, setLoading] = useState(false);
-  const [definitionOpen, setDefinitionOpen] = useState(false); const [newDefinition, setNewDefinition] = useState({ name: "", unit: "ADET" });
-  const month = initialDate.slice(0,7); const [from, setFrom] = useState(`${month}-01`); const [to, setTo] = useState(`${month}-${String(new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0).getDate()).padStart(2,"0")}`);
-  const [leaderFilter, setLeaderFilter] = useState("all"); const [projectFilter, setProjectFilter] = useState("all");
+  const initialDailyEntries = initialEntries.filter((entry) => entry.work_date === initialDate);
+  const [date, setDate] = useState(initialDate);
+  const [dailyEntries, setDailyEntries] = useState(initialDailyEntries);
+  const [teams, setTeams] = useState<FormTeam[]>(() => entriesToTeams(initialDailyEntries).length ? entriesToTeams(initialDailyEntries) : [newTeam()]);
+  const [removedEntryIds, setRemovedEntryIds] = useState<string[]>([]);
+  const [reportEntries, setReportEntries] = useState(initialEntries);
+  const [loading, setLoading] = useState(false);
+  const month = initialDate.slice(0, 7);
+  const [from, setFrom] = useState(`${month}-01`);
+  const [to, setTo] = useState(`${month}-${String(new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).getDate()).padStart(2, "0")}`);
+  const [personnelFilter, setPersonnelFilter] = useState("all");
 
-  const leaders = useMemo(() => {
-    const map = new Map<string, Leader>();
-    for (const team of plan?.teams ?? []) {
-      const chiefMember = team.members.find((member) => member.is_chief);
-      const id = team.chief_personnel_id || chiefMember?.personnel_id;
-      if (id && !map.has(id)) map.set(id, { id, name: chiefMember?.full_name || team.chief_name, team });
-    }
-    return [...map.values()];
-  }, [plan]);
+  const activePersonnel = useMemo(() => personnel.filter((person) => person.is_active).sort((a, b) => a.full_name.localeCompare(b.full_name, "tr")), [personnel]);
+  const personnelById = useMemo(() => new Map(personnel.map((person) => [person.id, person])), [personnel]);
+  const filteredReport = reportEntries.filter((entry) => personnelFilter === "all" || entry.team_leader_personnel_id === personnelFilter);
+  const reportPersonnel = [...new Map(reportEntries.map((entry) => [entry.team_leader_personnel_id, entry.team_leader_name_snapshot])).entries()];
 
   async function changeDate(nextDate: string) {
-    setDate(nextDate); setLoading(true);
-    try { const supabase=createClient(); const [nextPlan, entries]=await Promise.all([new WorkPlanRepository(supabase).getByDate(nextDate),new ProductionRepository(supabase).listEntries(nextDate,nextDate)]); setPlan(nextPlan); setDailyEntries(entries); }
-    catch(error){ console.error(error); toast.error("Tarih bilgileri yüklenemedi"); } finally { setLoading(false); }
+    setDate(nextDate);
+    setLoading(true);
+    try {
+      const entries = await new ProductionRepository(createClient()).listEntries(nextDate, nextDate);
+      setDailyEntries(entries);
+      const loadedTeams = entriesToTeams(entries);
+      setTeams(loadedTeams.length ? loadedTeams : [newTeam()]);
+      setRemovedEntryIds([]);
+    } catch (error) {
+      console.error(error);
+      toast.error("Günlük imalatlar yüklenemedi");
+    } finally {
+      setLoading(false);
+    }
   }
-  function openEditor(leader: Leader) {
-    const entry=dailyEntries.find((e)=>e.team_leader_personnel_id===leader.id) ?? null;
-    setEditor({leader,entry});
-    setJobs(entry ? entry.jobs.map((job)=>({ project_id:job.project_id||"",project_name:job.project_name_snapshot,project_code:job.project_code_snapshot||"",source:job.source,items:job.items.map((item)=>({definition_id:item.production_item_definition_id||"",quantity:String(item.quantity)})) })) : [{ project_id:"",project_name:leader.team.project_name,project_code:leader.team.project_code,source:"work_plan",items:[] }]);
-  }
-  function addJob(){ setJobs((current)=>[...current,{project_id:"",project_name:"",project_code:"",source:"manual",items:[]}]); }
-  function addItem(jobIndex:number){ const first=definitions.find((d)=>d.is_active); if(!first){toast.error("Önce aktif imalat kalemi tanımlayın");return;} setJobs((current)=>current.map((job,index)=>index===jobIndex?{...job,items:[...job.items,{definition_id:first.id,quantity:""}]}:job)); }
-  function updateJob(index:number, patch:Partial<FormJob>){setJobs((current)=>current.map((job,i)=>i===index?{...job,...patch}:job));}
-  function updateItem(jobIndex:number,itemIndex:number,patch:Partial<FormItem>){
-    setJobs((current)=>current.map((job,j)=>j===jobIndex
-      ? {...job,items:job.items.map((item,i)=>i===itemIndex?{...item,...patch}:item)}
-      : job));
-  }
-  async function saveEntry(){ if(!editor||!plan)return; const completedJobs=jobs.filter((job)=>job.items.length>0); if(completedJobs.length===0){toast.error("En az bir işe imalat kalemi ekleyin");return;} if(completedJobs.some((job)=>job.project_name.trim().length<2||job.items.some((item)=>!item.definition_id||Number(item.quantity)<=0))){toast.error("İmalat girilen her işte proje, kalem ve geçerli miktar olmalı");return;} setLoading(true); try{const repo=new ProductionRepository(createClient()); const payload:ProductionSaveJob[]=completedJobs.map((job,j)=>({...job,project_id:job.project_id||null,sort_order:j,items:job.items.map((item,i)=>({definition_id:item.definition_id,quantity:Number(item.quantity),sort_order:i}))})); await repo.saveEntry({entry_id:editor.entry?.id,work_date:date,leader_id:editor.leader.id,leader_name:editor.leader.name,work_plan_id:plan.id,jobs:payload}); const entries=await repo.listEntries(date,date);setDailyEntries(entries);setEditor(null);toast.success("İmalat kaydedildi");}catch(error){console.error(error);toast.error("İmalat kaydedilemedi",{description:(error as Error).message});}finally{setLoading(false);}}
-  async function saveDefinition(){if(definitions.length>=50){toast.error("En fazla 50 iş kalemi ekleyebilirsiniz");return;}if(newDefinition.name.trim().length<2||!newDefinition.unit.trim()){toast.error("Ad ve birim zorunlu");return;}try{const repo=new ProductionRepository(createClient());const saved=await repo.saveDefinition({...newDefinition,is_active:true});setDefinitions((x)=>[...x,saved].sort((a,b)=>a.name.localeCompare(b.name,"tr")));setNewDefinition({name:"",unit:"ADET"});toast.success("İş kalemi eklendi");}catch(error){toast.error("Kalem eklenemedi",{description:(error as Error).message});}}
-  async function toggleDefinition(def:ProductionDefinition){try{const saved=await new ProductionRepository(createClient()).saveDefinition({...def,is_active:!def.is_active});setDefinitions((x)=>x.map((d)=>d.id===saved.id?saved:d));}catch(error){toast.error("Kalem güncellenemedi",{description:(error as Error).message});}}
-  async function loadReport(nextFrom=from,nextTo=to){setLoading(true);try{setReportEntries(await new ProductionRepository(createClient()).listEntries(nextFrom,nextTo));}catch{toast.error("Rapor yüklenemedi");}finally{setLoading(false);}}
-  function preset(kind:"today"|"month"|"previous"){const now=new Date();let start:string,end:string;if(kind==="today"){start=end=new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Istanbul"}).format(now);}else{const d=kind==="month"?now:new Date(now.getFullYear(),now.getMonth()-1,1);const m=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;start=`${m}-01`;end=`${m}-${String(new Date(d.getFullYear(),d.getMonth()+1,0).getDate()).padStart(2,"0")}`;}setFrom(start);setTo(end);void loadReport(start,end);}
-  const filteredReport=reportEntries
-    .filter((entry)=>leaderFilter==="all"||entry.team_leader_personnel_id===leaderFilter)
-    .map((entry)=>projectFilter==="all"?entry:{...entry,jobs:entry.jobs.filter((job)=>job.project_name_snapshot===projectFilter)})
-    .filter((entry)=>entry.jobs.length>0);
-  const reportLeaders=[...new Map(reportEntries.map((e)=>[e.team_leader_personnel_id,e.team_leader_name_snapshot])).entries()];
-  const reportProjects=[...new Set(reportEntries.flatMap((e)=>e.jobs.map((j)=>j.project_name_snapshot)))].sort();
-  const reportTotals=[...filteredReport.flatMap((entry)=>entry.jobs.flatMap((job)=>job.items)).reduce((map,item)=>{const key=`${item.item_name_snapshot}|||${item.unit_snapshot}`;map.set(key,(map.get(key)||0)+Number(item.quantity));return map;},new Map<string,number>()).entries()].map(([key,quantity])=>{const [name,unit]=key.split("|||");return{name,unit,quantity};}).sort((a,b)=>a.name.localeCompare(b.name,"tr"));
 
-  return <div className="space-y-6"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="text-3xl font-semibold">İmalatlar</h1><p className="mt-1 text-sm text-muted-foreground">Günlük ekip başı imalat kayıtları</p></div><div className="flex gap-2">{!readOnly&&<Button variant="outline" onClick={()=>setDefinitionOpen(true)}><Settings2 className="h-4 w-4"/>İmalat Kalemleri</Button>}<Button variant="outline" onClick={()=>downloadProductionWord(filteredReport,from,to,leaderFilter==="all"?undefined:reportLeaders.find(([id])=>id===leaderFilter)?.[1])}><Download className="h-4 w-4"/>Word</Button></div></div>
-    <Card><CardHeader><CardTitle className="text-base">Günlük İmalat Girişi</CardTitle></CardHeader><CardContent className="space-y-4"><div className="max-w-xs space-y-2"><Label>Tarih</Label><Input type="date" value={date} onChange={(e)=>void changeDate(e.target.value)}/></div>{loading&&<Loader2 className="h-5 w-5 animate-spin"/>}{!plan&&!loading&&<p className="rounded-xl border p-4 text-sm text-muted-foreground">Bu tarihte iş planı bulunmuyor.</p>}<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{leaders.map((leader)=>{const entry=dailyEntries.find((e)=>e.team_leader_personnel_id===leader.id);return <button type="button" key={leader.id} onClick={()=>openEditor(leader)} className="rounded-xl border p-4 text-left transition-colors hover:bg-muted/50"><div className="flex items-center justify-between gap-3"><p className="font-semibold">{leader.name}</p>{entry&&<span className="flex items-center gap-1 text-xs font-medium text-emerald-600"><Hammer className="h-4 w-4"/>Kaydedildi</span>}</div>{readOnly&&<p className="mt-2 text-xs text-muted-foreground">Detayı görmek için dokunun</p>}</button>})}</div></CardContent></Card>
-    <Card><CardHeader><CardTitle className="text-base">İmalat Raporu</CardTitle></CardHeader><CardContent className="space-y-4"><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={()=>preset("today")}>Bugün</Button><Button size="sm" variant="outline" onClick={()=>preset("month")}>Bu Ay</Button><Button size="sm" variant="outline" onClick={()=>preset("previous")}>Geçen Ay</Button></div><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Field label="Başlangıç"><Input type="date" value={from} onChange={(e)=>setFrom(e.target.value)}/></Field><Field label="Bitiş"><Input type="date" value={to} onChange={(e)=>setTo(e.target.value)}/></Field><Field label="Ekip Başı"><Select value={leaderFilter} onValueChange={setLeaderFilter}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">Tüm Ekip Başları</SelectItem>{reportLeaders.map(([id,name])=><SelectItem key={id} value={id}>{name}</SelectItem>)}</SelectContent></Select></Field><Field label="Proje"><Select value={projectFilter} onValueChange={setProjectFilter}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">Tümü</SelectItem>{reportProjects.map((name)=><SelectItem key={name} value={name}>{name}</SelectItem>)}</SelectContent></Select></Field></div><Button onClick={()=>void loadReport()}>Raporu Getir</Button>{reportTotals.length>0&&<div className="rounded-xl border bg-muted/30 p-4"><p className="mb-3 font-semibold">Toplam İş Kalemi Miktarları</p><div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{reportTotals.map((total)=><div key={`${total.name}-${total.unit}`} className="flex justify-between gap-3 rounded-lg bg-background px-3 py-2 text-sm"><span>{total.name}</span><strong>{total.quantity.toLocaleString("tr-TR")} {total.unit}</strong></div>)}</div></div>}<div className="space-y-4">{filteredReport.map((entry)=><div key={entry.id} className="rounded-xl border p-4"><p className="font-bold">{entry.team_leader_name_snapshot}</p><p className="text-sm text-muted-foreground">{formatDate(entry.work_date)}</p>{entry.jobs.map((job)=><div key={job.id} className="mt-3 border-l-2 pl-3"><p className="font-medium">{job.project_name_snapshot} {job.project_code_snapshot&&`/ ${job.project_code_snapshot}`}</p>{job.items.map((item)=><p key={item.id} className="text-sm">{item.item_name_snapshot} — {Number(item.quantity).toLocaleString("tr-TR")} {item.unit_snapshot}</p>)}</div>)}</div>)}{!filteredReport.length&&<p className="text-sm text-muted-foreground">Filtreye uygun kayıt yok.</p>}</div></CardContent></Card>
-    <Dialog open={Boolean(editor)} onOpenChange={(open)=>!open&&setEditor(null)}><DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>{editor?.leader.name} · {formatDate(date)}</DialogTitle></DialogHeader><div className="space-y-4">{jobs.map((job,j)=><div key={j} className="rounded-xl border p-3"><div className="mb-3 flex justify-between"><strong>İş {j+1}</strong>{job.source==="manual"&&<Button size="icon" variant="ghost" onClick={()=>setJobs((x)=>x.filter((_,i)=>i!==j))}><Trash2 className="h-4 w-4"/></Button>}</div>{job.source==="manual"&&<Field label="Projelerden Seç"><Select value={job.project_id||"manual"} onValueChange={(value)=>{if(value==="manual")updateJob(j,{project_id:""});else{const p=projects.find((x)=>x.id===value);if(p)updateJob(j,{project_id:p.id,project_name:p.name,project_code:p.project_code});}}}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="manual">Manuel / Geçici Proje</SelectItem>{projects.map((p)=><SelectItem key={p.id} value={p.id}>{p.name} · {p.project_code}</SelectItem>)}</SelectContent></Select></Field>}<div className="mt-3 grid gap-3 sm:grid-cols-2"><Field label="Proje Adı"><Input value={job.project_name} readOnly={job.source==="work_plan"} onChange={(e)=>updateJob(j,{project_name:e.target.value})}/></Field><Field label="Proje ID"><Input value={job.project_code} readOnly={job.source==="work_plan"} onChange={(e)=>updateJob(j,{project_code:e.target.value})}/></Field></div><div className="mt-3 space-y-2">{job.items.map((item,i)=>{const def=definitions.find((d)=>d.id===item.definition_id);return <div key={i} className="grid grid-cols-[1fr_100px_auto] items-end gap-2"><Field label="İmalat Kalemi"><Select value={item.definition_id} onValueChange={(value)=>updateItem(j,i,{definition_id:value})}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{definitions.filter((d)=>d.is_active||d.id===item.definition_id).map((d)=><SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent></Select></Field><Field label={`Miktar (${def?.unit||""})`}><Input type="number" min="0.001" step="0.001" value={item.quantity} onChange={(e)=>updateItem(j,i,{quantity:e.target.value})}/></Field><Button size="icon" variant="outline" onClick={()=>setJobs((x)=>x.map((jj,ji)=>ji===j?{...jj,items:jj.items.filter((_,ii)=>ii!==i)}:jj))}><Trash2 className="h-4 w-4"/></Button></div>})}<Button variant="outline" className="w-full" onClick={()=>addItem(j)}><Plus className="h-4 w-4"/>İmalat Ekle</Button></div></div>)}<Button variant="outline" className="w-full" onClick={addJob}><Plus className="h-4 w-4"/>İş Ekle</Button><Button className="w-full" disabled={loading} onClick={()=>void saveEntry()}>{loading&&<Loader2 className="h-4 w-4 animate-spin"/>}Kaydet</Button></div></DialogContent></Dialog>
-    <Dialog open={definitionOpen} onOpenChange={setDefinitionOpen}><DialogContent className="max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>İş Kalemleri</DialogTitle></DialogHeader><div className="space-y-4"><div className="sticky top-0 z-10 space-y-4 border-b bg-background pb-4"><p className="text-sm text-muted-foreground">Kendi iş kalemlerinizi ve birimlerini tanımlayın. {definitions.length}/50 kalem kullanılıyor.</p><div className="grid grid-cols-[minmax(0,1fr)_100px] gap-2"><Field label="İş Kalemi Adı"><Input value={newDefinition.name} onChange={(e)=>setNewDefinition((x)=>({...x,name:e.target.value}))}/></Field><Field label="Birim"><Input value={newDefinition.unit} onChange={(e)=>setNewDefinition((x)=>({...x,unit:e.target.value}))}/></Field></div><Button className="w-full" disabled={definitions.length>=50} onClick={()=>void saveDefinition()}><Plus className="h-4 w-4"/>İş Kalemi Ekle</Button></div><div className="space-y-2">{definitions.map((def)=><button key={def.id} onClick={()=>void toggleDefinition(def)} className="flex w-full justify-between gap-3 rounded-lg border p-3 text-left"><span className="min-w-0 break-words">{def.name} · {def.unit}</span><span className={`shrink-0 ${def.is_active?"text-emerald-600":"text-muted-foreground"}`}>{def.is_active?"Aktif":"Pasif"}</span></button>)}</div></div></DialogContent></Dialog>
+  function updateTeam(teamIndex: number, patch: Partial<FormTeam>) {
+    setTeams((current) => current.map((team, index) => index === teamIndex ? { ...team, ...patch } : team));
+  }
+
+  function updateJob(teamIndex: number, jobIndex: number, patch: Partial<FormJob>) {
+    setTeams((current) => current.map((team, index) => index === teamIndex
+      ? { ...team, jobs: team.jobs.map((job, currentJobIndex) => currentJobIndex === jobIndex ? { ...job, ...patch } : job) }
+      : team));
+  }
+
+  function updateLine(teamIndex: number, jobIndex: number, lineIndex: number, description: string) {
+    setTeams((current) => current.map((team, index) => index === teamIndex ? {
+      ...team,
+      jobs: team.jobs.map((job, currentJobIndex) => currentJobIndex === jobIndex ? {
+        ...job,
+        lines: job.lines.map((line, currentLineIndex) => currentLineIndex === lineIndex ? { ...line, description } : line),
+      } : job),
+    } : team));
+  }
+
+  function removeTeam(teamIndex: number) {
+    const team = teams[teamIndex];
+    if (team.entryId) setRemovedEntryIds((current) => [...current, team.entryId!]);
+    setTeams((current) => current.filter((_, index) => index !== teamIndex));
+  }
+
+  async function saveAll() {
+    const completedTeams = teams.filter((team) => team.personnelId || team.jobs.some((job) => job.workId.trim() || job.lines.some((line) => line.description.trim())));
+    if (!completedTeams.length) return void toast.error("En az bir ekip ekleyin");
+    if (completedTeams.some((team) => !team.personnelId)) return void toast.error("Her ekip için personel seçin");
+    if (new Set(completedTeams.map((team) => team.personnelId)).size !== completedTeams.length) return void toast.error("Aynı personel bir günde yalnızca bir ekipte seçilebilir");
+    if (completedTeams.some((team) => team.jobs.some((job) => !job.lines.length || job.lines.some((line) => line.description.trim().length < 2)))) return void toast.error("Her iş bloğunda en az bir imalat açıklaması bulunmalı");
+
+    setLoading(true);
+    try {
+      const repository = new ProductionRepository(createClient());
+      for (const entryId of removedEntryIds) await repository.deleteEntry(entryId);
+      for (const team of completedTeams) {
+        const person = personnelById.get(team.personnelId);
+        if (!person) throw new Error("Seçilen personel bulunamadı");
+        const jobs: ProductionSaveJob[] = team.jobs.map((job, jobIndex) => ({
+          project_id: null,
+          project_name: job.workId.trim() || `İş ${jobIndex + 1}`,
+          project_code: job.workId.trim(),
+          source: "manual",
+          sort_order: jobIndex,
+          items: job.lines.map((line, lineIndex) => ({ item_name: line.description.trim(), quantity: 1, unit: "SATIR", sort_order: lineIndex })),
+        }));
+        await repository.saveEntry({ entry_id: team.entryId, work_date: date, leader_id: person.id, leader_name: person.full_name, work_plan_id: null, jobs });
+      }
+      const entries = await repository.listEntries(date, date);
+      setDailyEntries(entries);
+      setTeams(entriesToTeams(entries));
+      setRemovedEntryIds([]);
+      toast.success("Günlük imalatlar kaydedildi");
+    } catch (error) {
+      console.error(error);
+      toast.error("İmalatlar kaydedilemedi", { description: (error as Error).message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadReport() {
+    setLoading(true);
+    try { setReportEntries(await new ProductionRepository(createClient()).listEntries(from, to)); }
+    catch { toast.error("Geçmiş kayıtlar yüklenemedi"); }
+    finally { setLoading(false); }
+  }
+
+  return <div className="space-y-6 production-module">
+    <header className="grid items-center gap-4 border-b pb-5 sm:grid-cols-[140px_1fr_180px]">
+      <Image src="/images/logo-azg.jpeg" alt="AZG" width={112} height={64} className="h-auto w-24 object-contain sm:w-28" priority />
+      <h1 className="text-center text-xl font-bold sm:text-2xl">AZG MERKEZ GÜNLÜK İŞ PLANI</h1>
+      <div className="space-y-1 sm:text-right"><Label htmlFor="production-date">Tarih</Label><Input id="production-date" type="date" value={date} onChange={(event) => void changeDate(event.target.value)} className="sm:ml-auto sm:w-40" /></div>
+    </header>
+
+    <div className="space-y-5">
+      {teams.map((team, teamIndex) => { const accent = accents[teamIndex % accents.length]; return <section key={team.key} className={`overflow-hidden rounded-lg border border-l-4 ${accent.border}`}>
+        <div className={`flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-end sm:justify-between ${accent.soft}`}>
+          <div className="w-full max-w-md space-y-2"><Label className={accent.label}>Ekip Adı</Label><Select disabled={readOnly} value={team.personnelId || undefined} onValueChange={(value) => updateTeam(teamIndex, { personnelId: value })}><SelectTrigger><SelectValue placeholder="Personel seçin" /></SelectTrigger><SelectContent>{activePersonnel.map((person) => <SelectItem key={person.id} value={person.id} disabled={teams.some((other, index) => index !== teamIndex && other.personnelId === person.id)}>{person.full_name}</SelectItem>)}</SelectContent></Select></div>
+          {!readOnly && teams.length > 1 && <Button type="button" size="icon" variant="ghost" title="Ekibi kaldır" onClick={() => removeTeam(teamIndex)}><Trash2 className="h-4 w-4" /></Button>}
+        </div>
+        <div className="space-y-4 p-4">{team.jobs.map((job, jobIndex) => <div key={job.key} className={`border-2 ${accent.jobBorder} bg-background p-4`}>
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><p className={`font-semibold ${accent.label}`}>İş / Proje {jobIndex + 1}</p><div className="flex items-end gap-2"><div className="space-y-1"><Label>ID</Label><Input disabled={readOnly} value={job.workId} onChange={(event) => updateJob(teamIndex, jobIndex, { workId: event.target.value })} placeholder="-" className="w-full sm:w-52" /></div>{!readOnly && team.jobs.length > 1 && <Button type="button" size="icon" variant="ghost" title="İşi kaldır" onClick={() => updateTeam(teamIndex, { jobs: team.jobs.filter((_, index) => index !== jobIndex) })}><Trash2 className="h-4 w-4" /></Button>}</div></div>
+          <div className="space-y-3">{job.lines.map((line, lineIndex) => <div key={line.key} className="grid grid-cols-[28px_minmax(0,1fr)_40px] items-start gap-2"><span className="pt-2 text-right text-sm font-semibold">{lineIndex + 1}.</span><Textarea disabled={readOnly} value={line.description} onChange={(event) => updateLine(teamIndex, jobIndex, lineIndex, event.target.value)} placeholder="İmalat açıklamasını yazın" rows={2} className="min-h-16 resize-y" />{!readOnly && job.lines.length > 1 ? <Button type="button" size="icon" variant="ghost" title="Satırı kaldır" onClick={() => updateJob(teamIndex, jobIndex, { lines: job.lines.filter((_, index) => index !== lineIndex) })}><Trash2 className="h-4 w-4" /></Button> : <span />}</div>)}</div>
+          {!readOnly && <Button type="button" variant="outline" className="mt-3 w-full" onClick={() => updateJob(teamIndex, jobIndex, { lines: [...job.lines, { key: makeKey(), description: "" }] })}><Plus className="h-4 w-4" />İmalat Ekle</Button>}
+        </div>)}
+          {!readOnly && <Button type="button" variant="outline" className="w-full" onClick={() => updateTeam(teamIndex, { jobs: [...team.jobs, newJob()] })}><Plus className="h-4 w-4" />İş / Proje Ekle</Button>}
+        </div>
+      </section>; })}
+      {!readOnly && <div className="grid gap-3 sm:grid-cols-2"><Button type="button" variant="outline" onClick={() => setTeams((current) => [...current, newTeam()])}><Plus className="h-4 w-4" />Ekip Ekle</Button><Button type="button" disabled={loading} onClick={() => void saveAll()}>{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Kaydet</Button></div>}
+      {!dailyEntries.length && !loading && <p className="text-center text-sm text-muted-foreground">Bu tarih için henüz kayıt yok.</p>}
+    </div>
+
+    <Card className="screen-only"><CardHeader><CardTitle className="text-base">Geçmiş Kayıtlar ve A4 Çıktı</CardTitle></CardHeader><CardContent className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><Field label="Başlangıç"><Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></Field><Field label="Bitiş"><Input type="date" value={to} onChange={(event) => setTo(event.target.value)} /></Field><Field label="Ekip"><Select value={personnelFilter} onValueChange={setPersonnelFilter}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Tüm Ekipler</SelectItem>{reportPersonnel.map(([id, name]) => <SelectItem key={id} value={id}>{name}</SelectItem>)}</SelectContent></Select></Field></div>
+      <div className="flex flex-wrap gap-2"><Button onClick={() => void loadReport()}>Kayıtları Getir</Button><Button variant="outline" disabled={!filteredReport.length} onClick={() => window.print()}><Printer className="h-4 w-4" />A4 Yazdır / PDF</Button></div>
+    </CardContent></Card>
+
+    <section className="production-print-root hidden bg-white text-black">
+      <div className="grid grid-cols-[100px_1fr_140px] items-center border-b-2 border-black pb-3"><Image src="/images/logo-azg.jpeg" alt="AZG" width={100} height={58} className="h-auto w-24 object-contain" /><h2 className="text-center text-lg font-bold">AZG MERKEZ GÜNLÜK İŞ PLANI</h2><p className="text-right text-sm font-semibold">Tarih: {from === to ? formatDate(from) : `${formatDate(from)} - ${formatDate(to)}`}</p></div>
+      <div className="mt-5 space-y-5">{filteredReport.map((entry, entryIndex) => { const accent = accents[entryIndex % accents.length]; return <article key={entry.id} className={`production-print-team border-2 border-l-8 border-black ${accent.border}`}><div className="border-b-2 border-black bg-slate-100 px-4 py-2 font-bold">EKİP ADI: {entry.team_leader_name_snapshot}</div><div className="space-y-3 p-3">{entry.jobs.map((job, jobIndex) => <div key={job.id} className="production-print-job border border-black p-3"><div className="mb-2 flex items-center justify-between border-b border-black pb-2"><strong>İŞ / PROJE {jobIndex + 1}</strong><strong>ID: {job.project_code_snapshot || "-"}</strong></div><ol className="list-decimal space-y-2 pl-6">{job.items.map((item) => <li key={item.id}>{legacyDescription(item.item_name_snapshot, item.quantity, item.unit_snapshot)}</li>)}</ol></div>)}</div></article>; })}{!filteredReport.length && <p className="py-10 text-center">Filtreye uygun kayıt yok.</p>}</div>
+    </section>
+
+    <style jsx global>{`
+      @page { size: A4 portrait; margin: 14mm; }
+      @media print {
+        body * { visibility: hidden !important; }
+        .production-print-root, .production-print-root * { visibility: visible !important; }
+        .production-print-root { display: block !important; position: absolute; inset: 0; width: 100%; border: 0 !important; padding: 0 !important; font-family: Arial, sans-serif; font-size: 11pt; }
+        .production-print-team { break-inside: avoid-page; page-break-inside: avoid; }
+        .production-print-job { break-inside: avoid-page; page-break-inside: avoid; }
+        .production-print-root h2 { font-size: 15pt; }
+      }
+    `}</style>
   </div>;
 }
-function Field({label,children}:{label:string;children:React.ReactNode}){return <div className="space-y-2"><Label>{label}</Label>{children}</div>;}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return <div className="space-y-2"><Label>{label}</Label>{children}</div>;
+}
