@@ -8,13 +8,48 @@ const CONTENT_HEIGHT_MM = PAGE_HEIGHT_MM - MARGIN_MM * 2;
 const RENDER_WIDTH_PX = 760;
 
 export async function downloadDailyProductionPdf(entries: ProductionEntry[], date: string) {
-  if (!entries.length) throw new Error("PDF oluşturmak için günlük imalat kaydı bulunamadı");
+  const files = await createProductionFiles(entries, formatPdfDate(date), date, false);
+  downloadFile(files.pdf);
+}
+
+export async function downloadProductionHistoryPdf(entries: ProductionEntry[], from: string, to: string) {
+  const label = from === to ? formatPdfDate(from) : `${formatPdfDate(from)} - ${formatPdfDate(to)}`;
+  const suffix = from === to ? from : `${from}-${to}`;
+  const files = await createProductionFiles(entries, label, suffix, false);
+  downloadFile(files.pdf);
+}
+
+export async function saveAndShareDailyProduction(entries: ProductionEntry[], date: string) {
+  const files = await createProductionFiles(entries, formatPdfDate(date), date, true);
+  downloadFile(files.pdf);
+  if (files.png) downloadFile(files.png);
+
+  const shareFiles = files.png ? [files.pdf, files.png] : [files.pdf];
+  if (navigator.share && (!navigator.canShare || navigator.canShare({ files: shareFiles }))) {
+    await navigator.share({
+      title: `AZG Günlük İmalat ${formatPdfDate(date)}`,
+      text: `${formatPdfDate(date)} tarihli günlük imalat raporu`,
+      files: shareFiles,
+    });
+    return true;
+  }
+
+  window.open(
+    `https://wa.me/?text=${encodeURIComponent(`${formatPdfDate(date)} tarihli AZG günlük imalat raporu PDF ve PNG olarak indirildi.`)}`,
+    "_blank",
+    "noopener,noreferrer"
+  );
+  return false;
+}
+
+async function createProductionFiles(entries: ProductionEntry[], dateLabel: string, fileSuffix: string, includePng: boolean) {
+  if (!entries.length) throw new Error("Rapor oluşturmak için imalat kaydı bulunamadı");
 
   const [{ default: jsPDF }, { toPng }] = await Promise.all([
     import("jspdf"),
     import("html-to-image"),
   ]);
-  const root = buildPdfDom(entries, date);
+  const root = buildPdfDom(entries, dateLabel);
   document.body.appendChild(root);
 
   try {
@@ -70,10 +105,26 @@ export async function downloadDailyProductionPdf(entries: ProductionEntry[], dat
       y += 5;
     }
 
-    pdf.save(`AZG-Gunluk-Imalat-${date}.pdf`);
+    const pdfFile = new File([pdf.output("blob")], `AZG-Gunluk-Imalat-${fileSuffix}.pdf`, { type: "application/pdf" });
+    let pngFile: File | null = null;
+    if (includePng) {
+      const pngUrl = await toPng(root, { backgroundColor: "#ffffff", pixelRatio: 2, cacheBust: true });
+      const pngBlob = await (await fetch(pngUrl)).blob();
+      pngFile = new File([pngBlob], `AZG-Gunluk-Imalat-${fileSuffix}.png`, { type: "image/png" });
+    }
+    return { pdf: pdfFile, png: pngFile };
   } finally {
     root.remove();
   }
+}
+
+function downloadFile(file: File) {
+  const url = URL.createObjectURL(file);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = file.name;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 type CapturedImage = { url: string; width: number; height: number };
@@ -106,7 +157,7 @@ function waitForImages(root: HTMLElement) {
       })));
 }
 
-function buildPdfDom(entries: ProductionEntry[], date: string) {
+function buildPdfDom(entries: ProductionEntry[], dateLabel: string) {
   const root = document.createElement("div");
   Object.assign(root.style, {
     position: "fixed", left: "-10000px", top: "0", width: `${RENDER_WIDTH_PX}px`,
@@ -121,12 +172,12 @@ function buildPdfDom(entries: ProductionEntry[], date: string) {
   logo.alt = "AZG";
   Object.assign(logo.style, { width: "112px", height: "64px", objectFit: "contain" });
   const title = document.createElement("strong");
-  title.textContent = "AZG MERKEZ GÜNLÜK İŞ PLANI";
+  title.textContent = "AZG MERKEZ GÜNLÜK İMALAT";
   Object.assign(title.style, { textAlign: "center", fontSize: "22px" });
-  const dateLabel = document.createElement("strong");
-  dateLabel.textContent = `Tarih: ${formatPdfDate(date)}`;
-  Object.assign(dateLabel.style, { textAlign: "right", fontSize: "15px" });
-  header.append(logo, title, dateLabel);
+  const dateLabelElement = document.createElement("strong");
+  dateLabelElement.textContent = `Tarih: ${dateLabel}`;
+  Object.assign(dateLabelElement.style, { textAlign: "right", fontSize: "15px" });
+  header.append(logo, title, dateLabelElement);
   root.appendChild(header);
 
   entries.forEach((entry) => {
@@ -149,14 +200,19 @@ function buildPdfDom(entries: ProductionEntry[], date: string) {
       const jobId = document.createElement("span");
       jobId.textContent = `ID: ${job.project_code_snapshot || "-"}`;
       jobHeader.append(jobName, jobId);
-      const list = document.createElement("ol");
-      Object.assign(list.style, { margin: "0", paddingLeft: "26px" });
-      job.items.forEach((item) => {
-        const line = document.createElement("li");
-        line.textContent = item.unit_snapshot === "SATIR" && Number(item.quantity) === 1
+      const list = document.createElement("div");
+      Object.assign(list.style, { display: "grid", gap: "7px" });
+      job.items.forEach((item, itemIndex) => {
+        const line = document.createElement("div");
+        Object.assign(line.style, { display: "grid", gridTemplateColumns: "32px 1fr", alignItems: "start", lineHeight: "1.45" });
+        const lineNumber = document.createElement("strong");
+        lineNumber.textContent = `${itemIndex + 1}:`;
+        const description = document.createElement("span");
+        description.textContent = item.unit_snapshot === "SATIR" && Number(item.quantity) === 1
           ? item.item_name_snapshot
           : `${item.item_name_snapshot} — ${Number(item.quantity).toLocaleString("tr-TR")} ${item.unit_snapshot}`;
-        Object.assign(line.style, { marginBottom: "7px", lineHeight: "1.45", whiteSpace: "pre-wrap", overflowWrap: "anywhere" });
+        Object.assign(description.style, { whiteSpace: "pre-wrap", overflowWrap: "anywhere" });
+        line.append(lineNumber, description);
         list.appendChild(line);
       });
       jobBlock.append(jobHeader, list);

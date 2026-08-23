@@ -2,14 +2,14 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
-import { FileDown, Loader2, Plus, Printer, Save, Trash2 } from "lucide-react";
+import { FileDown, Loader2, MessageCircle, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Personnel } from "@/types/work-plan";
 import type { ProductionEntry, ProductionSaveJob } from "@/types/production";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate } from "@/lib/utils";
 import { ProductionRepository } from "@/modules/productions/production-repository";
-import { downloadDailyProductionPdf } from "@/lib/production-pdf";
+import { downloadProductionHistoryPdf, saveAndShareDailyProduction } from "@/lib/production-pdf";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -117,7 +117,7 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
     setTeams((current) => current.filter((_, index) => index !== teamIndex));
   }
 
-  async function saveAll() {
+  async function saveAll(finalize = false) {
     const completedTeams = teams.filter((team) => team.personnelId || team.jobs.some((job) => job.workId.trim() || job.lines.some((line) => line.description.trim())));
     if (!completedTeams.length) return void toast.error("En az bir ekip ekleyin");
     if (completedTeams.some((team) => !team.personnelId)) return void toast.error("Her ekip için personel seçin");
@@ -149,14 +149,18 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
         ...entries,
       ]);
       setRemovedEntryIds([]);
-      toast.success("Günlük imalatlar kaydedildi");
-      try {
+      toast.success(finalize ? "Günlük imalatlar kaydedildi" : "Taslak kaydedildi; düzenlemeye devam edebilirsiniz");
+      if (finalize) try {
         setPdfLoading(true);
-        await downloadDailyProductionPdf(entries, date);
-        toast.success("Günlük A4 PDF indirildi");
-      } catch (pdfError) {
-        console.error(pdfError);
-        toast.error("Kayıt tamamlandı, PDF oluşturulamadı", { description: (pdfError as Error).message });
+        const shared = await saveAndShareDailyProduction(entries, date);
+        toast.success(shared ? "PDF ve PNG paylaşım için hazırlandı" : "PDF ve PNG indirildi; WhatsApp açıldı");
+      } catch (shareError) {
+        if ((shareError as Error).name === "AbortError") {
+          toast.info("PDF ve PNG indirildi; paylaşım iptal edildi");
+        } else {
+          console.error(shareError);
+          toast.error("Kayıt tamamlandı, dosyalar oluşturulamadı", { description: (shareError as Error).message });
+        }
       } finally {
         setPdfLoading(false);
       }
@@ -175,12 +179,29 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
     finally { setLoading(false); }
   }
 
-  async function downloadCurrentDayPdf() {
+  async function shareCurrentDay() {
     if (!dailyEntries.length) return void toast.error("Önce günlük imalatları kaydedin");
     setPdfLoading(true);
     try {
-      await downloadDailyProductionPdf(dailyEntries, date);
-      toast.success("Günlük A4 PDF indirildi");
+      const shared = await saveAndShareDailyProduction(dailyEntries, date);
+      toast.success(shared ? "PDF ve PNG paylaşım için hazırlandı" : "PDF ve PNG indirildi; WhatsApp açıldı");
+    } catch (error) {
+      if ((error as Error).name === "AbortError") toast.info("PDF ve PNG indirildi; paylaşım iptal edildi");
+      else {
+        console.error(error);
+        toast.error("Dosyalar oluşturulamadı", { description: (error as Error).message });
+      }
+    } finally {
+      setPdfLoading(false);
+    }
+  }
+
+  async function downloadHistoryPdf() {
+    if (!filteredReport.length) return void toast.error("PDF için kayıt seçin");
+    setPdfLoading(true);
+    try {
+      await downloadProductionHistoryPdf(filteredReport, from, to);
+      toast.success("Geçmiş imalat PDF'i indirildi");
     } catch (error) {
       console.error(error);
       toast.error("PDF oluşturulamadı", { description: (error as Error).message });
@@ -192,7 +213,7 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
   return <div className="space-y-6 production-module">
     <header className="grid items-center gap-4 border-b pb-5 sm:grid-cols-[140px_1fr_180px]">
       <Image src="/images/logo-azg.jpeg" alt="AZG" width={112} height={64} className="h-auto w-24 object-contain sm:w-28" priority />
-      <h1 className="text-center text-xl font-bold sm:text-2xl">AZG MERKEZ GÜNLÜK İŞ PLANI</h1>
+      <h1 className="text-center text-xl font-bold sm:text-2xl">AZG MERKEZ GÜNLÜK İMALAT</h1>
       <div className="space-y-1 sm:text-right"><Label htmlFor="production-date">Tarih</Label><Input id="production-date" type="date" value={date} onChange={(event) => void changeDate(event.target.value)} className="sm:ml-auto sm:w-40" /></div>
     </header>
 
@@ -204,23 +225,23 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
         </div>
         <div className="space-y-4 p-4">{team.jobs.map((job, jobIndex) => <div key={job.key} className={`border-2 ${accent.jobBorder} bg-background p-4`}>
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><p className={`font-semibold ${accent.label}`}>İş / Proje {jobIndex + 1}</p><div className="flex items-end gap-2"><div className="space-y-1"><Label>ID</Label><Input disabled={readOnly} value={job.workId} onChange={(event) => updateJob(teamIndex, jobIndex, { workId: event.target.value })} placeholder="-" className="w-full sm:w-52" /></div>{!readOnly && team.jobs.length > 1 && <Button type="button" size="icon" variant="ghost" title="İşi kaldır" onClick={() => updateTeam(teamIndex, { jobs: team.jobs.filter((_, index) => index !== jobIndex) })}><Trash2 className="h-4 w-4" /></Button>}</div></div>
-          <div className="space-y-3">{job.lines.map((line, lineIndex) => <div key={line.key} className="grid grid-cols-[28px_minmax(0,1fr)_40px] items-start gap-2"><span className="pt-2 text-right text-sm font-semibold">{lineIndex + 1}.</span><Textarea disabled={readOnly} value={line.description} onChange={(event) => updateLine(teamIndex, jobIndex, lineIndex, event.target.value)} placeholder="İmalat açıklamasını yazın" rows={2} className="min-h-16 resize-y" />{!readOnly && job.lines.length > 1 ? <Button type="button" size="icon" variant="ghost" title="Satırı kaldır" onClick={() => updateJob(teamIndex, jobIndex, { lines: job.lines.filter((_, index) => index !== lineIndex) })}><Trash2 className="h-4 w-4" /></Button> : <span />}</div>)}</div>
+          <div className="space-y-3">{job.lines.map((line, lineIndex) => <div key={line.key} className="grid grid-cols-[28px_minmax(0,1fr)_40px] items-start gap-2"><span className="pt-2 text-right text-sm font-semibold">{lineIndex + 1}:</span><Textarea disabled={readOnly} value={line.description} onChange={(event) => updateLine(teamIndex, jobIndex, lineIndex, event.target.value)} placeholder="İmalat açıklamasını yazın" rows={2} className="min-h-16 resize-y" />{!readOnly && job.lines.length > 1 ? <Button type="button" size="icon" variant="ghost" title="Satırı kaldır" onClick={() => updateJob(teamIndex, jobIndex, { lines: job.lines.filter((_, index) => index !== lineIndex) })}><Trash2 className="h-4 w-4" /></Button> : <span />}</div>)}</div>
           {!readOnly && <Button type="button" variant="outline" className="mt-3 w-full" onClick={() => updateJob(teamIndex, jobIndex, { lines: [...job.lines, { key: makeKey(), description: "" }] })}><Plus className="h-4 w-4" />İmalat Ekle</Button>}
         </div>)}
           {!readOnly && <Button type="button" variant="outline" className="w-full" onClick={() => updateTeam(teamIndex, { jobs: [...team.jobs, newJob()] })}><Plus className="h-4 w-4" />İş / Proje Ekle</Button>}
         </div>
       </section>; })}
-      {!readOnly && <div className="grid gap-3 sm:grid-cols-3"><Button type="button" variant="outline" onClick={() => setTeams((current) => [...current, newTeam()])}><Plus className="h-4 w-4" />Ekip Ekle</Button><Button type="button" variant="outline" disabled={!dailyEntries.length || pdfLoading} onClick={() => void downloadCurrentDayPdf()}>{pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}A4 PDF Kaydet</Button><Button type="button" disabled={loading || pdfLoading} onClick={() => void saveAll()}>{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Kaydet</Button></div>}
+      {!readOnly && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Button type="button" variant="outline" onClick={() => setTeams((current) => [...current, newTeam()])}><Plus className="h-4 w-4" />Ekip Ekle</Button><Button type="button" variant="outline" disabled={loading || pdfLoading} onClick={() => void saveAll(false)}>{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Taslak Kaydet</Button><Button type="button" variant="outline" disabled={!dailyEntries.length || pdfLoading} onClick={() => void shareCurrentDay()}>{pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />}Tekrar Paylaş</Button><Button type="button" disabled={loading || pdfLoading} onClick={() => void saveAll(true)}>{loading || pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}Kaydet ve Paylaş</Button></div>}
       {!dailyEntries.length && !loading && <p className="text-center text-sm text-muted-foreground">Bu tarih için henüz kayıt yok.</p>}
     </div>
 
     <Card className="screen-only"><CardHeader><CardTitle className="text-base">Geçmiş Kayıtlar ve A4 Çıktı</CardTitle></CardHeader><CardContent className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><Field label="Başlangıç"><Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></Field><Field label="Bitiş"><Input type="date" value={to} onChange={(event) => setTo(event.target.value)} /></Field><Field label="Ekip"><Select value={personnelFilter} onValueChange={setPersonnelFilter}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Tüm Ekipler</SelectItem>{reportPersonnel.map(([id, name]) => <SelectItem key={id} value={id}>{name}</SelectItem>)}</SelectContent></Select></Field></div>
-      <div className="flex flex-wrap gap-2"><Button onClick={() => void loadReport()}>Kayıtları Getir</Button><Button variant="outline" disabled={!filteredReport.length} onClick={() => window.print()}><Printer className="h-4 w-4" />A4 Yazdır / PDF</Button></div>
+      <div className="flex flex-wrap gap-2"><Button onClick={() => void loadReport()}>Kayıtları Getir</Button><Button variant="outline" disabled={!filteredReport.length || pdfLoading} onClick={() => void downloadHistoryPdf()}>{pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}Seçimi PDF Kaydet</Button></div>
     </CardContent></Card>
 
     <section className="production-print-root hidden bg-white text-black">
-      <div className="grid grid-cols-[100px_1fr_140px] items-center border-b-2 border-black pb-3"><Image src="/images/logo-azg.jpeg" alt="AZG" width={100} height={58} className="h-auto w-24 object-contain" /><h2 className="text-center text-lg font-bold">AZG MERKEZ GÜNLÜK İŞ PLANI</h2><p className="text-right text-sm font-semibold">Tarih: {from === to ? formatDate(from) : `${formatDate(from)} - ${formatDate(to)}`}</p></div>
+      <div className="grid grid-cols-[100px_1fr_140px] items-center border-b-2 border-black pb-3"><Image src="/images/logo-azg.jpeg" alt="AZG" width={100} height={58} className="h-auto w-24 object-contain" /><h2 className="text-center text-lg font-bold">AZG MERKEZ GÜNLÜK İMALAT</h2><p className="text-right text-sm font-semibold">Tarih: {from === to ? formatDate(from) : `${formatDate(from)} - ${formatDate(to)}`}</p></div>
       <div className="mt-5 space-y-5">{filteredReport.map((entry, entryIndex) => { const accent = accents[entryIndex % accents.length]; return <article key={entry.id} className={`production-print-team border-2 border-l-8 border-black ${accent.border}`}><div className="border-b-2 border-black bg-slate-100 px-4 py-2 font-bold">EKİP ADI: {entry.team_leader_name_snapshot}</div><div className="space-y-3 p-3">{entry.jobs.map((job, jobIndex) => <div key={job.id} className="production-print-job border border-black p-3"><div className="mb-2 flex items-center justify-between border-b border-black pb-2"><strong>İŞ / PROJE {jobIndex + 1}</strong><strong>ID: {job.project_code_snapshot || "-"}</strong></div><ol className="list-decimal space-y-2 pl-6">{job.items.map((item) => <li key={item.id}>{legacyDescription(item.item_name_snapshot, item.quantity, item.unit_snapshot)}</li>)}</ol></div>)}</div></article>; })}{!filteredReport.length && <p className="py-10 text-center">Filtreye uygun kayıt yok.</p>}</div>
     </section>
 
