@@ -2,13 +2,14 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
-import { Loader2, Plus, Printer, Save, Trash2 } from "lucide-react";
+import { FileDown, Loader2, Plus, Printer, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Personnel } from "@/types/work-plan";
 import type { ProductionEntry, ProductionSaveJob } from "@/types/production";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate } from "@/lib/utils";
 import { ProductionRepository } from "@/modules/productions/production-repository";
+import { downloadDailyProductionPdf } from "@/lib/production-pdf";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -62,6 +63,7 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
   const [removedEntryIds, setRemovedEntryIds] = useState<string[]>([]);
   const [reportEntries, setReportEntries] = useState(initialEntries);
   const [loading, setLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const month = initialDate.slice(0, 7);
   const [from, setFrom] = useState(`${month}-01`);
   const [to, setTo] = useState(`${month}-${String(new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).getDate()).padStart(2, "0")}`);
@@ -142,8 +144,22 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
       const entries = await repository.listEntries(date, date);
       setDailyEntries(entries);
       setTeams(entriesToTeams(entries));
+      setReportEntries((current) => [
+        ...current.filter((entry) => entry.work_date !== date),
+        ...entries,
+      ]);
       setRemovedEntryIds([]);
       toast.success("Günlük imalatlar kaydedildi");
+      try {
+        setPdfLoading(true);
+        await downloadDailyProductionPdf(entries, date);
+        toast.success("Günlük A4 PDF indirildi");
+      } catch (pdfError) {
+        console.error(pdfError);
+        toast.error("Kayıt tamamlandı, PDF oluşturulamadı", { description: (pdfError as Error).message });
+      } finally {
+        setPdfLoading(false);
+      }
     } catch (error) {
       console.error(error);
       toast.error("İmalatlar kaydedilemedi", { description: (error as Error).message });
@@ -157,6 +173,20 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
     try { setReportEntries(await new ProductionRepository(createClient()).listEntries(from, to)); }
     catch { toast.error("Geçmiş kayıtlar yüklenemedi"); }
     finally { setLoading(false); }
+  }
+
+  async function downloadCurrentDayPdf() {
+    if (!dailyEntries.length) return void toast.error("Önce günlük imalatları kaydedin");
+    setPdfLoading(true);
+    try {
+      await downloadDailyProductionPdf(dailyEntries, date);
+      toast.success("Günlük A4 PDF indirildi");
+    } catch (error) {
+      console.error(error);
+      toast.error("PDF oluşturulamadı", { description: (error as Error).message });
+    } finally {
+      setPdfLoading(false);
+    }
   }
 
   return <div className="space-y-6 production-module">
@@ -180,7 +210,7 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
           {!readOnly && <Button type="button" variant="outline" className="w-full" onClick={() => updateTeam(teamIndex, { jobs: [...team.jobs, newJob()] })}><Plus className="h-4 w-4" />İş / Proje Ekle</Button>}
         </div>
       </section>; })}
-      {!readOnly && <div className="grid gap-3 sm:grid-cols-2"><Button type="button" variant="outline" onClick={() => setTeams((current) => [...current, newTeam()])}><Plus className="h-4 w-4" />Ekip Ekle</Button><Button type="button" disabled={loading} onClick={() => void saveAll()}>{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Kaydet</Button></div>}
+      {!readOnly && <div className="grid gap-3 sm:grid-cols-3"><Button type="button" variant="outline" onClick={() => setTeams((current) => [...current, newTeam()])}><Plus className="h-4 w-4" />Ekip Ekle</Button><Button type="button" variant="outline" disabled={!dailyEntries.length || pdfLoading} onClick={() => void downloadCurrentDayPdf()}>{pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}A4 PDF Kaydet</Button><Button type="button" disabled={loading || pdfLoading} onClick={() => void saveAll()}>{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Kaydet</Button></div>}
       {!dailyEntries.length && !loading && <p className="text-center text-sm text-muted-foreground">Bu tarih için henüz kayıt yok.</p>}
     </div>
 
