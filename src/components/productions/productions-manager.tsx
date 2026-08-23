@@ -225,35 +225,6 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
     }
   }
 
-  async function deleteSelectedHistory() {
-    if (!selectedHistoryDate || !selectedHistoryEntries.length) return;
-    const target = personnelFilter === "all"
-      ? `${formatDate(selectedHistoryDate)} tarihindeki ${selectedHistoryEntries.length} ekip kaydı`
-      : `${formatDate(selectedHistoryDate)} tarihindeki ${selectedHistoryEntries[0]?.team_leader_name_snapshot} kaydı`;
-    if (!window.confirm(`${target} kalıcı olarak silinsin mi? Bu işlem geri alınamaz.`)) return;
-
-    setLoading(true);
-    try {
-      const repository = new ProductionRepository(createClient());
-      for (const entry of selectedHistoryEntries) await repository.deleteEntry(entry.id);
-      const deletedIds = new Set(selectedHistoryEntries.map((entry) => entry.id));
-      setReportEntries((current) => current.filter((entry) => !deletedIds.has(entry.id)));
-      if (date === selectedHistoryDate) {
-        const remainingDailyEntries = dailyEntries.filter((entry) => !deletedIds.has(entry.id));
-        setDailyEntries(remainingDailyEntries);
-        const remainingTeams = entriesToTeams(remainingDailyEntries);
-        setTeams(remainingTeams.length ? remainingTeams : [newTeam()]);
-      }
-      setSelectedHistoryDate(null);
-      toast.success("Seçili geçmiş imalat kayıtları silindi");
-    } catch (error) {
-      console.error(error);
-      toast.error("Geçmiş kayıtlar silinemedi", { description: (error as Error).message });
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return <div className="space-y-6 production-module">
     <header className="grid items-center gap-4 border-b pb-5 sm:grid-cols-[140px_1fr_180px]">
       <Image src="/images/logo-azg.jpeg" alt="AZG" width={112} height={64} className="h-auto w-24 object-contain sm:w-28" priority />
@@ -283,7 +254,7 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><Field label="Başlangıç"><Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></Field><Field label="Bitiş"><Input type="date" value={to} onChange={(event) => setTo(event.target.value)} /></Field><Field label="Ekip"><Select value={personnelFilter} onValueChange={setPersonnelFilter}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Tüm Ekipler</SelectItem>{reportPersonnel.map(([id, name]) => <SelectItem key={id} value={id}>{name}</SelectItem>)}</SelectContent></Select></Field></div>
       <div className="flex flex-wrap gap-2"><Button onClick={() => void loadReport()}>Kayıtları Getir</Button><Button variant="outline" disabled={!filteredReport.length || pdfLoading} onClick={() => void downloadHistoryPdf()}>{pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}Seçimi PDF Kaydet</Button></div>
       <div className="border-t pt-4"><p className="mb-3 text-sm font-semibold">Geçmiş</p><div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{historyDates.map((historyDate) => <button type="button" key={historyDate} onClick={() => selectHistoryDate(historyDate)} className={`border px-4 py-3 text-left text-sm font-semibold transition-colors hover:bg-muted/50 ${selectedHistoryDate === historyDate ? "border-primary bg-primary/5 text-primary" : "bg-background"}`}>{formatDate(historyDate)}</button>)}</div>{!historyDates.length && <p className="text-sm text-muted-foreground">Bu aralıkta kayıt bulunamadı.</p>}
-        {selectedHistoryDate && <div className="mt-5 space-y-4"><div className="flex flex-col gap-3 border-b pb-3 sm:flex-row sm:items-center sm:justify-between"><div><h3 className="font-semibold">{formatDate(selectedHistoryDate)} İmalatları</h3><span className="text-sm text-muted-foreground">{selectedHistoryEntries.length} ekip</span></div>{!readOnly && selectedHistoryEntries.length > 0 && <Button type="button" variant="destructive" size="sm" disabled={loading} onClick={() => void deleteSelectedHistory()}><Trash2 className="h-4 w-4" />Seçili Kayıtları Sil</Button>}</div>{selectedHistoryEntries.map((entry) => <section key={entry.id} className="border-l-4 border-l-primary border p-4"><h4 className="font-bold">Ekip: {entry.team_leader_name_snapshot}</h4><div className="mt-3 space-y-3">{entry.jobs.map((job, jobIndex) => <div key={job.id} className="border p-3"><div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b pb-2"><strong>İş / Proje {jobIndex + 1}</strong><strong>ID: {job.project_code_snapshot || "-"}</strong></div><div className="space-y-2">{job.items.map((item, itemIndex) => <div key={item.id} className="grid grid-cols-[30px_minmax(0,1fr)] gap-2 text-sm"><strong>{itemIndex + 1}:</strong><span>{legacyDescription(item.item_name_snapshot, item.quantity, item.unit_snapshot)}</span></div>)}</div></div>)}</div></section>)}{!selectedHistoryEntries.length && <p className="text-sm text-muted-foreground">Bu tarih ve ekip filtresine uygun kayıt bulunamadı.</p>}</div>}
+        {selectedHistoryDate && <div className="mt-5 space-y-4"><div className="border-b pb-3"><h3 className="font-semibold">{formatDate(selectedHistoryDate)} İmalatları</h3><span className="text-sm text-muted-foreground">{selectedHistoryEntries.length} ekip</span></div>{selectedHistoryEntries.map((entry) => <section key={entry.id} className="border-l-4 border-l-primary border p-4"><h4 className="font-bold">Ekip: {entry.team_leader_name_snapshot}</h4><div className="mt-3 space-y-3">{entry.jobs.map((job, jobIndex) => <div key={job.id} className="border p-3"><div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b pb-2"><strong>İş / Proje {jobIndex + 1}</strong><strong>ID: {job.project_code_snapshot || "-"}</strong></div><div className="space-y-2">{job.items.map((item, itemIndex) => <div key={item.id} className="grid grid-cols-[30px_minmax(0,1fr)] gap-2 text-sm"><strong>{itemIndex + 1}:</strong><span>{legacyDescription(item.item_name_snapshot, item.quantity, item.unit_snapshot)}</span></div>)}</div></div>)}</div></section>)}{!selectedHistoryEntries.length && <p className="text-sm text-muted-foreground">Bu tarih ve ekip filtresine uygun kayıt bulunamadı.</p>}</div>}
       </div>
     </CardContent></Card>
 
