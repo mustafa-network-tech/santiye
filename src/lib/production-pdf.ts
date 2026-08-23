@@ -21,9 +21,6 @@ export async function downloadProductionHistoryPdf(entries: ProductionEntry[], f
 
 export async function saveAndShareDailyProduction(entries: ProductionEntry[], date: string) {
   const files = await createProductionFiles(entries, formatPdfDate(date), date, true);
-  downloadFile(files.pdf);
-  if (files.png) downloadFile(files.png);
-
   const shareFiles = files.png ? [files.pdf, files.png] : [files.pdf];
   if (navigator.share && (!navigator.canShare || navigator.canShare({ files: shareFiles }))) {
     await navigator.share({
@@ -34,6 +31,8 @@ export async function saveAndShareDailyProduction(entries: ProductionEntry[], da
     return true;
   }
 
+  downloadFile(files.pdf);
+  if (files.png) downloadFile(files.png);
   window.open(
     `https://wa.me/?text=${encodeURIComponent(`${formatPdfDate(date)} tarihli AZG günlük imalat raporu PDF ve PNG olarak indirildi.`)}`,
     "_blank",
@@ -108,14 +107,49 @@ async function createProductionFiles(entries: ProductionEntry[], dateLabel: stri
     const pdfFile = new File([pdf.output("blob")], `AZG-Gunluk-Imalat-${fileSuffix}.pdf`, { type: "application/pdf" });
     let pngFile: File | null = null;
     if (includePng) {
-      const pngUrl = await toPng(root, { backgroundColor: "#ffffff", pixelRatio: 2, cacheBust: true });
-      const pngBlob = await (await fetch(pngUrl)).blob();
+      const pngBlob = await composeReportPng(headerImage, teamImages);
       pngFile = new File([pngBlob], `AZG-Gunluk-Imalat-${fileSuffix}.png`, { type: "image/png" });
     }
     return { pdf: pdfFile, png: pngFile };
   } finally {
     root.remove();
   }
+}
+
+async function composeReportPng(header: CapturedImage, teams: CapturedImage[]) {
+  const gap = 32;
+  const sourceWidth = Math.max(header.width, ...teams.map((team) => team.width));
+  const sourceHeight = header.height + teams.reduce((total, team) => total + gap + team.height, 0);
+  const maxCanvasPixels = 16_000_000;
+  const scale = Math.min(
+    1,
+    16_000 / sourceHeight,
+    Math.sqrt(maxCanvasPixels / (sourceWidth * sourceHeight))
+  );
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+  canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("PNG çizim alanı oluşturulamadı");
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+
+  let y = 0;
+  for (const captured of [header, ...teams]) {
+    if (y > 0) y += gap;
+    const image = await loadImage(captured.url);
+    const width = captured.width * scale;
+    const height = captured.height * scale;
+    context.drawImage(image, 0, y * scale, width, height);
+    y += captured.height;
+  }
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => blob ? resolve(blob) : reject(new Error("PNG dosyası oluşturulamadı")),
+      "image/png"
+    );
+  });
 }
 
 function downloadFile(file: File) {
