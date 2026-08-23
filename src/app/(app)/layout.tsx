@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { AppShell } from "@/components/layout/app-shell";
 import { createClient } from "@/lib/supabase/server";
 import { UserRepository } from "@/modules/users/user-repository";
@@ -19,6 +20,40 @@ export default async function AppLayout({
     profile.role === "accounting" ? Promise.resolve([]) : new NotesRepository(supabase).listDueNotifications(),
     new UserRepository(supabase).getWritableModules(),
   ]);
+  const pathname = (await headers()).get("x-app-pathname") || "/";
+  const permissionModule = pathname.startsWith("/projects") ? "projects"
+    : pathname.startsWith("/work-plans") ? "work_plans"
+    : pathname.startsWith("/imalatlar") ? "productions"
+    : pathname.startsWith("/vehicles") ? "vehicles"
+    : pathname.startsWith("/inventory") ? "inventory"
+    : pathname.startsWith("/custody") ? "custody" : null;
+
+  if (
+    profile.role === "accounting" &&
+    !pathname.startsWith("/attendance") &&
+    !pathname.startsWith("/personnel") &&
+    !pathname.startsWith("/profile") &&
+    (!permissionModule || !writableModules.includes(permissionModule))
+  ) redirect("/attendance");
+
+  if (
+    (pathname.startsWith("/users") || pathname.startsWith("/settings")) &&
+    profile.role !== "site_chief"
+  ) redirect(profile.role === "accounting" ? "/attendance" : "/");
+
+  const isWriteOnlyRoute =
+    pathname === "/projects/new" ||
+    /^\/projects\/[^/]+\/edit$/.test(pathname) ||
+    pathname === "/work-plans/new" ||
+    /^\/work-plans\/[^/]+\/edit$/.test(pathname);
+  if (isWriteOnlyRoute) {
+    const requiredModule = pathname.startsWith("/work-plans")
+      ? "work_plans"
+      : "projects";
+    if (!writableModules.includes(requiredModule)) {
+      redirect(pathname.startsWith("/work-plans") ? "/work-plans" : "/projects");
+    }
+  }
 
   return (
     <AppShell

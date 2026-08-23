@@ -1,9 +1,23 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const PUBLIC_AUTH_ROUTES = [
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/update-password",
+];
+const REDIRECT_WHEN_AUTHENTICATED = [
+  "/login",
+  "/register",
+  "/forgot-password",
+];
+
 export async function updateSession(request: NextRequest) {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-app-pathname", request.nextUrl.pathname);
   let supabaseResponse = NextResponse.next({
-    request,
+    request: { headers: requestHeaders },
   });
 
   const supabase = createServerClient(
@@ -15,11 +29,9 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({
-            request,
+            request: { headers: requestHeaders },
           });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
@@ -29,116 +41,30 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  // Keep database authorization out of the middleware request path. App layouts,
+  // server pages and Supabase RLS/RPC policies remain the authorization boundary.
+  const { data, error } = await supabase.auth.getClaims();
+  const isAuthenticated = !error && Boolean(data?.claims?.sub);
   const pathname = request.nextUrl.pathname;
-  const isAuthRoute =
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/register") ||
-    pathname.startsWith("/forgot-password") ||
-    pathname.startsWith("/update-password") ||
-    pathname.startsWith("/auth");
-  const isPendingRoute = pathname.startsWith("/pending-approval");
+  const isPublicAuthRoute = PUBLIC_AUTH_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  );
 
-  if (!user && !isAuthRoute) {
+  if (!isAuthenticated && !isPublicAuthRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    url.search = "";
     url.searchParams.set("redirect", pathname);
     return NextResponse.redirect(url);
   }
 
-  if (!user) return supabaseResponse;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, is_approved")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const isApproved =
-    profile?.is_approved === true && profile.role !== "pending";
-
-  if (!isApproved && !isPendingRoute && !isAuthRoute) {
+  if (
+    isAuthenticated &&
+    REDIRECT_WHEN_AUTHENTICATED.some((route) => pathname === route)
+  ) {
     const url = request.nextUrl.clone();
-    url.pathname = "/pending-approval";
+    url.pathname = "/";
     url.search = "";
-    return NextResponse.redirect(url);
-  }
-
-  if (isApproved && isPendingRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = profile.role === "accounting" ? "/attendance" : "/";
-    return NextResponse.redirect(url);
-  }
-
-  if (
-    profile?.role === "accounting" &&
-    !isAuthRoute &&
-    !isPendingRoute &&
-    !pathname.startsWith("/attendance") &&
-    !pathname.startsWith("/personnel") &&
-    !pathname.startsWith("/profile")
-  ) {
-    const permissionModule = pathname.startsWith("/projects") ? "projects"
-      : pathname.startsWith("/work-plans") ? "work_plans"
-      : pathname.startsWith("/imalatlar") ? "productions"
-      : pathname.startsWith("/vehicles") ? "vehicles"
-      : pathname.startsWith("/inventory") ? "inventory"
-      : pathname.startsWith("/custody") ? "custody" : null;
-    const { data: allowed } = permissionModule
-      ? await supabase.rpc("has_module_write_permission", { p_module: permissionModule })
-      : { data: false };
-    if (allowed !== true) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/attendance";
-      url.search = "";
-      return NextResponse.redirect(url);
-    }
-  }
-
-  if (
-    (pathname.startsWith("/users") || pathname.startsWith("/settings")) &&
-    profile?.role !== "site_chief"
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = profile?.role === "accounting" ? "/attendance" : "/";
-    url.search = "";
-    return NextResponse.redirect(url);
-  }
-
-  const isWriteOnlyRoute =
-    pathname === "/projects/new" ||
-    /^\/projects\/[^/]+\/edit$/.test(pathname) ||
-    pathname === "/work-plans/new" ||
-    /^\/work-plans\/[^/]+\/edit$/.test(pathname);
-  if (isWriteOnlyRoute) {
-    const permissionModule = pathname.startsWith("/work-plans")
-      ? "work_plans"
-      : "projects";
-    const { data: canWrite } = await supabase.rpc(
-      "has_module_write_permission",
-      { p_module: permissionModule }
-    );
-    if (canWrite !== true) {
-      const url = request.nextUrl.clone();
-      url.pathname = pathname.startsWith("/work-plans")
-        ? "/work-plans"
-        : "/projects";
-      url.search = "";
-      return NextResponse.redirect(url);
-    }
-  }
-
-  if (
-    isApproved &&
-    (pathname === "/login" ||
-      pathname === "/register" ||
-      pathname === "/forgot-password")
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = profile.role === "accounting" ? "/attendance" : "/";
     return NextResponse.redirect(url);
   }
 
