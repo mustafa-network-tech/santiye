@@ -192,6 +192,9 @@ function buildPdfDom(entries: ProductionEntry[], dateLabel: string) {
       const jobId = document.createElement("span");
       jobId.textContent = `ID: ${job.project_code_snapshot || "-"}`;
       jobHeader.append(jobName, jobId);
+      const projectTitle = document.createElement("div");
+      projectTitle.textContent = job.project_name_snapshot;
+      Object.assign(projectTitle.style, { textAlign: "center", fontWeight: "700", fontSize: "17px", marginBottom: "10px" });
       const list = document.createElement("div");
       Object.assign(list.style, { display: "grid", gap: "7px" });
       job.items.forEach((item, itemIndex) => {
@@ -207,7 +210,7 @@ function buildPdfDom(entries: ProductionEntry[], dateLabel: string) {
         line.append(lineNumber, description);
         list.appendChild(line);
       });
-      jobBlock.append(jobHeader, list);
+      jobBlock.append(jobHeader, projectTitle, list);
       jobs.appendChild(jobBlock);
     });
     team.appendChild(jobs);

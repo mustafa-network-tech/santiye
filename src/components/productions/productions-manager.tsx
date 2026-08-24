@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-type FormJob = { key: string; workId: string; lines: { key: string; description: string }[] };
+type FormJob = { key: string; title: string; workId: string; lines: { key: string; description: string }[] };
 type FormTeam = { key: string; entryId: string | null; personnelId: string; jobs: FormJob[] };
 
 const accents = [
@@ -29,7 +29,7 @@ const accents = [
 ];
 
 const makeKey = () => crypto.randomUUID();
-const newJob = (): FormJob => ({ key: makeKey(), workId: "", lines: [{ key: makeKey(), description: "" }] });
+const newJob = (): FormJob => ({ key: makeKey(), title: "", workId: "", lines: [{ key: makeKey(), description: "" }] });
 const newTeam = (): FormTeam => ({ key: makeKey(), entryId: null, personnelId: "", jobs: [newJob()] });
 
 function entriesToTeams(entries: ProductionEntry[]): FormTeam[] {
@@ -39,6 +39,7 @@ function entriesToTeams(entries: ProductionEntry[]): FormTeam[] {
     personnelId: entry.team_leader_personnel_id,
     jobs: entry.jobs.map((job) => ({
       key: job.id,
+      title: job.project_name_snapshot,
       workId: job.project_code_snapshot || (job.source === "manual" ? "" : job.project_name_snapshot),
       lines: job.items.map((item) => ({ key: item.id, description: legacyDescription(item.item_name_snapshot, item.quantity, item.unit_snapshot) })),
     })),
@@ -123,7 +124,7 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
   }
 
   async function saveAll(finalize = false) {
-    const completedTeams = teams.filter((team) => team.personnelId || team.jobs.some((job) => job.workId.trim() || job.lines.some((line) => line.description.trim())));
+    const completedTeams = teams.filter((team) => team.personnelId || team.jobs.some((job) => job.title.trim() || job.workId.trim() || job.lines.some((line) => line.description.trim())));
     if (!completedTeams.length) return void toast.error("En az bir ekip ekleyin");
     if (completedTeams.some((team) => !team.personnelId)) return void toast.error("Her ekip için personel seçin");
     if (new Set(completedTeams.map((team) => team.personnelId)).size !== completedTeams.length) return void toast.error("Aynı personel bir günde yalnızca bir ekipte seçilebilir");
@@ -138,7 +139,7 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
         if (!person) throw new Error("Seçilen personel bulunamadı");
         const jobs: ProductionSaveJob[] = team.jobs.map((job, jobIndex) => ({
           project_id: null,
-          project_name: job.workId.trim() || `İş ${jobIndex + 1}`,
+          project_name: job.title.trim() || `İş / Proje ${jobIndex + 1}`,
           project_code: job.workId.trim(),
           source: "manual",
           sort_order: jobIndex,
@@ -240,6 +241,7 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
         </div>
         <div className="space-y-4 p-4">{team.jobs.map((job, jobIndex) => <div key={job.key} className={`border-2 ${accent.jobBorder} bg-background p-4`}>
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><p className={`font-semibold ${accent.label}`}>İş / Proje {jobIndex + 1}</p><div className="flex items-end gap-2"><div className="space-y-1"><Label>ID</Label><Input disabled={readOnly} value={job.workId} onChange={(event) => updateJob(teamIndex, jobIndex, { workId: event.target.value })} placeholder="-" className="w-full sm:w-52" /></div>{!readOnly && team.jobs.length > 1 && <Button type="button" size="icon" variant="ghost" title="İşi kaldır" onClick={() => updateTeam(teamIndex, { jobs: team.jobs.filter((_, index) => index !== jobIndex) })}><Trash2 className="h-4 w-4" /></Button>}</div></div>
+          <div className="mx-auto mb-4 max-w-2xl space-y-1 text-center"><Label htmlFor={`job-title-${job.key}`} className={accent.label}>Başlık</Label><Input id={`job-title-${job.key}`} disabled={readOnly} value={job.title} onChange={(event) => updateJob(teamIndex, jobIndex, { title: event.target.value })} placeholder="İş / proje başlığını yazın" className="text-center font-semibold" /></div>
           <div className="space-y-3">{job.lines.map((line, lineIndex) => <div key={line.key} className="grid grid-cols-[28px_minmax(0,1fr)_40px] items-start gap-2"><span className="pt-2 text-right text-sm font-semibold">{lineIndex + 1}:</span><Textarea disabled={readOnly} value={line.description} onChange={(event) => updateLine(teamIndex, jobIndex, lineIndex, event.target.value)} placeholder="İmalat açıklamasını yazın" rows={2} className="min-h-16 resize-y" />{!readOnly && job.lines.length > 1 ? <Button type="button" size="icon" variant="ghost" title="Satırı kaldır" onClick={() => updateJob(teamIndex, jobIndex, { lines: job.lines.filter((_, index) => index !== lineIndex) })}><Trash2 className="h-4 w-4" /></Button> : <span />}</div>)}</div>
           {!readOnly && <Button type="button" variant="outline" className="mt-3 w-full" onClick={() => updateJob(teamIndex, jobIndex, { lines: [...job.lines, { key: makeKey(), description: "" }] })}><Plus className="h-4 w-4" />İmalat Ekle</Button>}
         </div>)}
@@ -254,13 +256,13 @@ export function ProductionsManager({ initialDate, personnel, initialEntries, rea
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><Field label="Başlangıç"><Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></Field><Field label="Bitiş"><Input type="date" value={to} onChange={(event) => setTo(event.target.value)} /></Field><Field label="Ekip"><Select value={personnelFilter} onValueChange={setPersonnelFilter}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Tüm Ekipler</SelectItem>{reportPersonnel.map(([id, name]) => <SelectItem key={id} value={id}>{name}</SelectItem>)}</SelectContent></Select></Field></div>
       <div className="flex flex-wrap gap-2"><Button onClick={() => void loadReport()}>Kayıtları Getir</Button><Button variant="outline" disabled={!filteredReport.length || pdfLoading} onClick={() => void downloadHistoryPdf()}>{pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}Seçimi PDF Kaydet</Button></div>
       <div className="border-t pt-4"><p className="mb-3 text-sm font-semibold">Geçmiş</p><div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{historyDates.map((historyDate) => <button type="button" key={historyDate} onClick={() => selectHistoryDate(historyDate)} className={`border px-4 py-3 text-left text-sm font-semibold transition-colors hover:bg-muted/50 ${selectedHistoryDate === historyDate ? "border-primary bg-primary/5 text-primary" : "bg-background"}`}>{formatDate(historyDate)}</button>)}</div>{!historyDates.length && <p className="text-sm text-muted-foreground">Bu aralıkta kayıt bulunamadı.</p>}
-        {selectedHistoryDate && <div className="mt-5 space-y-4"><div className="border-b pb-3"><h3 className="font-semibold">{formatDate(selectedHistoryDate)} İmalatları</h3><span className="text-sm text-muted-foreground">{selectedHistoryEntries.length} ekip</span></div>{selectedHistoryEntries.map((entry) => <section key={entry.id} className="border-l-4 border-l-primary border p-4"><h4 className="font-bold">Ekip: {entry.team_leader_name_snapshot}</h4><div className="mt-3 space-y-3">{entry.jobs.map((job, jobIndex) => <div key={job.id} className="border p-3"><div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b pb-2"><strong>İş / Proje {jobIndex + 1}</strong><strong>ID: {job.project_code_snapshot || "-"}</strong></div><div className="space-y-2">{job.items.map((item, itemIndex) => <div key={item.id} className="grid grid-cols-[30px_minmax(0,1fr)] gap-2 text-sm"><strong>{itemIndex + 1}:</strong><span>{legacyDescription(item.item_name_snapshot, item.quantity, item.unit_snapshot)}</span></div>)}</div></div>)}</div></section>)}{!selectedHistoryEntries.length && <p className="text-sm text-muted-foreground">Bu tarih ve ekip filtresine uygun kayıt bulunamadı.</p>}</div>}
+        {selectedHistoryDate && <div className="mt-5 space-y-4"><div className="border-b pb-3"><h3 className="font-semibold">{formatDate(selectedHistoryDate)} İmalatları</h3><span className="text-sm text-muted-foreground">{selectedHistoryEntries.length} ekip</span></div>{selectedHistoryEntries.map((entry) => <section key={entry.id} className="border-l-4 border-l-primary border p-4"><h4 className="font-bold">Ekip: {entry.team_leader_name_snapshot}</h4><div className="mt-3 space-y-3">{entry.jobs.map((job, jobIndex) => <div key={job.id} className="border p-3"><div className="mb-2 flex flex-wrap items-center justify-between gap-2 border-b pb-2"><strong>İş / Proje {jobIndex + 1}</strong><strong>ID: {job.project_code_snapshot || "-"}</strong></div><h5 className="mb-3 text-center font-bold">{job.project_name_snapshot}</h5><div className="space-y-2">{job.items.map((item, itemIndex) => <div key={item.id} className="grid grid-cols-[30px_minmax(0,1fr)] gap-2 text-sm"><strong>{itemIndex + 1}:</strong><span>{legacyDescription(item.item_name_snapshot, item.quantity, item.unit_snapshot)}</span></div>)}</div></div>)}</div></section>)}{!selectedHistoryEntries.length && <p className="text-sm text-muted-foreground">Bu tarih ve ekip filtresine uygun kayıt bulunamadı.</p>}</div>}
       </div>
     </CardContent></Card>
 
     <section className="production-print-root hidden bg-white text-black">
       <div className="grid grid-cols-[100px_1fr_140px] items-center border-b-2 border-black pb-3"><Image src="/images/logo-azg.jpeg" alt="AZG" width={100} height={58} className="h-auto w-24 object-contain" /><h2 className="text-center text-lg font-bold">AZG MERKEZ GÜNLÜK İMALAT</h2><p className="text-right text-sm font-semibold">Tarih: {from === to ? formatDate(from) : `${formatDate(from)} - ${formatDate(to)}`}</p></div>
-      <div className="mt-5 space-y-5">{filteredReport.map((entry, entryIndex) => { const accent = accents[entryIndex % accents.length]; return <article key={entry.id} className={`production-print-team border-2 border-l-8 border-black ${accent.border}`}><div className="border-b-2 border-black bg-slate-100 px-4 py-2 font-bold">EKİP ADI: {entry.team_leader_name_snapshot}</div><div className="space-y-3 p-3">{entry.jobs.map((job, jobIndex) => <div key={job.id} className="production-print-job border border-black p-3"><div className="mb-2 flex items-center justify-between border-b border-black pb-2"><strong>İŞ / PROJE {jobIndex + 1}</strong><strong>ID: {job.project_code_snapshot || "-"}</strong></div><ol className="list-decimal space-y-2 pl-6">{job.items.map((item) => <li key={item.id}>{legacyDescription(item.item_name_snapshot, item.quantity, item.unit_snapshot)}</li>)}</ol></div>)}</div></article>; })}{!filteredReport.length && <p className="py-10 text-center">Filtreye uygun kayıt yok.</p>}</div>
+      <div className="mt-5 space-y-5">{filteredReport.map((entry, entryIndex) => { const accent = accents[entryIndex % accents.length]; return <article key={entry.id} className={`production-print-team border-2 border-l-8 border-black ${accent.border}`}><div className="border-b-2 border-black bg-slate-100 px-4 py-2 font-bold">EKİP ADI: {entry.team_leader_name_snapshot}</div><div className="space-y-3 p-3">{entry.jobs.map((job, jobIndex) => <div key={job.id} className="production-print-job border border-black p-3"><div className="mb-2 flex items-center justify-between border-b border-black pb-2"><strong>İŞ / PROJE {jobIndex + 1}</strong><strong>ID: {job.project_code_snapshot || "-"}</strong></div><div className="mb-3 text-center font-bold">{job.project_name_snapshot}</div><ol className="list-decimal space-y-2 pl-6">{job.items.map((item) => <li key={item.id}>{legacyDescription(item.item_name_snapshot, item.quantity, item.unit_snapshot)}</li>)}</ol></div>)}</div></article>; })}{!filteredReport.length && <p className="py-10 text-center">Filtreye uygun kayıt yok.</p>}</div>
     </section>
 
     <style jsx global>{`
