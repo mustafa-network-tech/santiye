@@ -9,6 +9,9 @@ import type {
   InventoryMovementType,
   InventoryUnit,
   InventoryMaterialCategory,
+  InventoryLocation,
+  InventoryShipment,
+  InventoryStockCategory,
 } from "@/types/inventory";
 
 export class InventoryRepository {
@@ -62,6 +65,10 @@ export class InventoryRepository {
     material_code?: string;
     unit: InventoryUnit;
     initial_quantity: number;
+    stock_category: InventoryStockCategory;
+    receipt_date: string;
+    received_by: string;
+    dispatch_number: string;
     notes?: string;
   }): Promise<InventoryMaterial> {
     const { data, error } = await this.supabase.rpc(
@@ -71,6 +78,10 @@ export class InventoryRepository {
         p_material_code: payload.material_code || null,
         p_unit: payload.unit,
         p_initial_quantity: payload.initial_quantity,
+        p_stock_category: payload.stock_category,
+        p_receipt_date: payload.receipt_date,
+        p_received_by: payload.received_by,
+        p_dispatch_number: payload.dispatch_number,
         p_notes: payload.notes || null,
       }
     );
@@ -82,7 +93,10 @@ export class InventoryRepository {
     material_id: string;
     movement_type: InventoryMovementType;
     quantity: number;
-    usage_location?: string;
+    source_location?: InventoryLocation;
+    project_name?: string;
+    project_code?: string;
+    team_personnel_ids?: string[];
     description?: string;
   }): Promise<InventoryMaterial> {
     const { data, error } = await this.supabase.rpc(
@@ -91,12 +105,71 @@ export class InventoryRepository {
         p_material_id: payload.material_id,
         p_movement_type: payload.movement_type,
         p_quantity: payload.quantity,
-        p_usage_location: payload.usage_location || null,
+        p_source_location: payload.source_location || "center",
+        p_project_name: payload.project_name || null,
+        p_project_code: payload.project_code || null,
+        p_team_personnel_ids: payload.team_personnel_ids || [],
         p_description: payload.description || null,
       }
     );
     if (error) throw error;
     return data as InventoryMaterial;
+  }
+
+  async listShipments(limit = 100): Promise<InventoryShipment[]> {
+    const { data, error } = await this.supabase
+      .from("inventory_shipments")
+      .select("*, items:inventory_shipment_items(*, material:inventory_materials(material_name, material_code, unit))")
+      .order("shipment_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return (data ?? []) as InventoryShipment[];
+  }
+
+  async transferToBiga(payload: {
+    material_id: string;
+    quantity: number;
+    description?: string;
+  }): Promise<InventoryMaterial> {
+    const { data, error } = await this.supabase.rpc("transfer_inventory_to_biga", {
+      p_material_id: payload.material_id,
+      p_quantity: payload.quantity,
+      p_description: payload.description || null,
+    });
+    if (error) throw error;
+    return data as InventoryMaterial;
+  }
+
+  async createBigaShipment(payload: {
+    shipment_date: string;
+    delivered_by: string;
+    received_by: string;
+    vehicle_plate: string;
+    notes?: string;
+    items: { material_id: string; quantity: number }[];
+  }): Promise<void> {
+    const { error } = await this.supabase.rpc("create_biga_inventory_shipment", {
+      p_shipment_date: payload.shipment_date,
+      p_delivered_by: payload.delivered_by,
+      p_received_by: payload.received_by,
+      p_vehicle_plate: payload.vehicle_plate,
+      p_notes: payload.notes || null,
+      p_items: payload.items,
+    });
+    if (error) throw error;
+  }
+
+  async deleteShipment(id: string): Promise<void> {
+    const { error } = await this.supabase.rpc("delete_biga_inventory_shipment", { p_shipment_id: id });
+    if (error) throw error;
+  }
+
+  async deleteMovement(id: string): Promise<void> {
+    const { error } = await this.supabase.rpc("delete_inventory_movement", {
+      p_movement_id: id,
+    });
+    if (error) throw error;
   }
 
   async listCustodyBalances(): Promise<InventoryCustodyBalance[]> {

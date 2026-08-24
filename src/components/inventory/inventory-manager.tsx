@@ -1,517 +1,140 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  Boxes,
-  Loader2,
-  Plus,
-} from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Boxes, Loader2, Plus, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import type {
-  InventoryMaterial,
-  InventoryMovement,
-  InventoryMovementType,
-} from "@/types/inventory";
-import type { Project } from "@/types/project";
-import {
-  INVENTORY_UNITS,
-  formatInventoryQuantity,
-} from "@/lib/constants/inventory";
-import {
-  inventoryMaterialSchema,
-  inventoryMovementSchema,
-  type InventoryMaterialFormValues,
-  type InventoryMovementFormValues,
-} from "@/lib/validations/inventory";
+import type { InventoryLocation, InventoryMaterial, InventoryMovement, InventoryMovementType, InventoryShipment } from "@/types/inventory";
+import type { Personnel } from "@/types/work-plan";
+import { INVENTORY_STOCK_CATEGORIES, INVENTORY_UNITS, formatInventoryQuantity, getInventoryStockCategoryLabel } from "@/lib/constants/inventory";
+import { inventoryMaterialSchema, inventoryMovementSchema, type InventoryMaterialFormValues, type InventoryMovementFormValues } from "@/lib/validations/inventory";
 import { formatDateTime } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { InventoryRepository } from "@/modules/inventory/inventory-repository";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-type MovementDialogState = {
-  material: InventoryMaterial;
-  type: InventoryMovementType;
-} | null;
+type MovementDialogState = { material: InventoryMaterial; type: InventoryMovementType } | null;
+type ShipmentLine = { material_id: string; quantity: string };
 
-export function InventoryManager({
-  initialMaterials,
-  initialMovements,
-  projects,
-  readOnly = false,
-}: {
-  initialMaterials: InventoryMaterial[];
-  initialMovements: InventoryMovement[];
-  projects: Project[];
-  readOnly?: boolean;
+export function InventoryManager({ initialMaterials, initialMovements, initialShipments, personnel, readOnly = false }: {
+  initialMaterials: InventoryMaterial[]; initialMovements: InventoryMovement[]; initialShipments: InventoryShipment[]; personnel: Personnel[]; readOnly?: boolean;
 }) {
   const [materials, setMaterials] = useState(initialMaterials);
   const [movements, setMovements] = useState(initialMovements);
+  const [shipments, setShipments] = useState(initialShipments);
   const [search, setSearch] = useState("");
   const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
-  const [movementDialog, setMovementDialog] =
-    useState<MovementDialogState>(null);
+  const [movementDialog, setMovementDialog] = useState<MovementDialogState>(null);
+  const [deleteMovement, setDeleteMovement] = useState<InventoryMovement | null>(null);
+  const [shipmentDialogOpen, setShipmentDialogOpen] = useState(false);
+  const [deleteShipment, setDeleteShipment] = useState<InventoryShipment | null>(null);
   const [loading, setLoading] = useState(false);
-  const [usageMode, setUsageMode] = useState<"project" | "manual">("project");
-  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const materialForm = useForm<InventoryMaterialFormValues>({ resolver: zodResolver(inventoryMaterialSchema), defaultValues: { material_name: "", material_code: "", stock_category: "fiber_accessory", unit: "piece", initial_quantity: 1, receipt_date: new Date().toLocaleDateString("en-CA"), received_by: "", dispatch_number: "", notes: "" } });
+  const movementForm = useForm<InventoryMovementFormValues>({ resolver: zodResolver(inventoryMovementSchema), defaultValues: { quantity: 1, source_location: "center", project_name: "", project_code: "", team_personnel_ids: [], description: "" } });
 
-  const materialForm = useForm<InventoryMaterialFormValues>({
-    resolver: zodResolver(inventoryMaterialSchema),
-    defaultValues: {
-      material_name: "",
-      material_code: "",
-      unit: "piece",
-      initial_quantity: 1,
-      notes: "",
-    },
-  });
-  const movementForm = useForm<InventoryMovementFormValues>({
-    resolver: zodResolver(inventoryMovementSchema),
-    defaultValues: {
-      quantity: 1,
-      usage_location: "",
-      description: "",
-    },
-  });
-
-  const filteredMaterials = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("tr-TR");
-    if (!query) return materials;
-    return materials.filter((material) =>
-      [
-        material.material_name,
-        material.material_code ?? "",
-        material.notes ?? "",
-      ].some((value) => value.toLocaleLowerCase("tr-TR").includes(query))
-    );
-  }, [materials, search]);
   const groupedMaterials = useMemo(() => {
-    const groups = new Map<string, { name: string; materials: InventoryMaterial[] }>();
-    for (const material of filteredMaterials) {
-      const key = material.material_name.trim().toLocaleLowerCase("tr-TR");
+    const query = search.trim().toLocaleLowerCase("tr-TR");
+    const filtered = query ? materials.filter((item) => [item.material_name, item.material_code ?? "", item.notes ?? "", getInventoryStockCategoryLabel(item.stock_category)].some((value) => value.toLocaleLowerCase("tr-TR").includes(query))) : materials;
+    const groups = new Map<string, { name: string; category: InventoryMaterial["stock_category"]; materials: InventoryMaterial[] }>();
+    for (const material of filtered) {
+      const key = `${material.stock_category}:${material.material_name.trim().toLocaleLowerCase("tr-TR")}`;
       const group = groups.get(key);
-      if (group) group.materials.push(material);
-      else groups.set(key, { name: material.material_name.trim(), materials: [material] });
+      if (group) group.materials.push(material); else groups.set(key, { name: material.material_name.trim(), category: material.stock_category, materials: [material] });
     }
-    return [...groups.values()]
-      .map((group) => ({ ...group, materials: group.materials.sort((a, b) => (a.material_code || "").localeCompare(b.material_code || "", "tr")) }))
-      .sort((a, b) => a.name.localeCompare(b.name, "tr"));
-  }, [filteredMaterials]);
+    return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name, "tr"));
+  }, [materials, search]);
 
-  function openNewMaterial() {
-    materialForm.reset({
-      material_name: "",
-      material_code: "",
-      unit: "piece",
-      initial_quantity: 1,
-      notes: "",
-    });
-    setMaterialDialogOpen(true);
+  function openNewMaterial() { materialForm.reset({ material_name: "", material_code: "", stock_category: "fiber_accessory", unit: "piece", initial_quantity: 1, receipt_date: new Date().toLocaleDateString("en-CA"), received_by: "", dispatch_number: "", notes: "" }); setMaterialDialogOpen(true); }
+  function openMovement(material: InventoryMaterial, type: InventoryMovementType) {
+    movementForm.reset({ quantity: 1, source_location: "center", project_name: "", project_code: "", team_personnel_ids: [], description: "" }); setMovementDialog({ material, type });
   }
-
-  function openMovement(
-    material: InventoryMaterial,
-    type: InventoryMovementType
-  ) {
-    movementForm.reset({
-      quantity: 1,
-      usage_location: "",
-      description: "",
-    });
-    setUsageMode("project");
-    setSelectedProjectId("");
-    setMovementDialog({ material, type });
+  async function reload(repository: InventoryRepository) {
+    const [nextMaterials, nextMovements, nextShipments] = await Promise.all([repository.listMaterials("stock"), repository.listMovements(), repository.listShipments()]); setMaterials(nextMaterials); setMovements(nextMovements); setShipments(nextShipments);
   }
-
-  async function reloadMovements(repository: InventoryRepository) {
-    setMovements(await repository.listMovements());
-  }
-
   async function createMaterial(values: InventoryMaterialFormValues) {
-    setLoading(true);
-    try {
-      const repository = new InventoryRepository(createClient());
-      const created = await repository.createMaterial(values);
-      setMaterials((current) =>
-        [...current, created].sort((a, b) =>
-          a.material_name.localeCompare(b.material_name, "tr")
-        )
-      );
-      await reloadMovements(repository);
-      setMaterialDialogOpen(false);
-      toast.success("Malzeme ve ilk stok girişi kaydedildi");
-    } catch (error) {
-      console.error(error);
-      toast.error("Malzeme kaydedilemedi", {
-        description:
-          (error as { code?: string })?.code === "23505"
-            ? "Bu malzeme ID zaten kullanılıyor."
-            : (error as Error)?.message,
-      });
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true); try { const repository = new InventoryRepository(createClient()); await repository.createMaterial(values); await reload(repository); setMaterialDialogOpen(false); toast.success("Malzeme Merkez Şantiye stokuna kaydedildi"); }
+    catch (error) { toast.error("Malzeme kaydedilemedi", { description: (error as Error)?.message }); } finally { setLoading(false); }
   }
-
   async function recordMovement(values: InventoryMovementFormValues) {
     if (!movementDialog) return;
-    if (
-      movementDialog.type === "out" &&
-      !values.usage_location?.trim()
-    ) {
-      movementForm.setError("usage_location", {
-        message: "Kullanım yeri zorunlu",
-      });
-      return;
-    }
-    if (
-      movementDialog.material.unit === "piece" &&
-      !Number.isInteger(values.quantity)
-    ) {
-      movementForm.setError("quantity", {
-        message: "Adet miktarı tam sayı olmalı",
-      });
-      return;
-    }
-
+    if (movementDialog.type === "out" && !values.project_name?.trim()) { movementForm.setError("project_name", { message: "Proje adı zorunlu" }); return; }
+    if (movementDialog.material.unit === "piece" && !Number.isInteger(values.quantity)) { movementForm.setError("quantity", { message: "Adet miktarı tam sayı olmalı" }); return; }
     setLoading(true);
     try {
       const repository = new InventoryRepository(createClient());
-      const updated = await repository.recordMovement({
-        material_id: movementDialog.material.id,
-        movement_type: movementDialog.type,
-        ...values,
-      });
-      setMaterials((current) =>
-        current.map((material) =>
-          material.id === updated.id ? updated : material
-        )
-      );
-      await reloadMovements(repository);
-      setMovementDialog(null);
-      toast.success(
-        movementDialog.type === "out"
-          ? "Malzeme stoktan düşüldü"
-          : "Stok girişi kaydedildi"
-      );
-    } catch (error) {
-      console.error(error);
-      toast.error("Stok hareketi kaydedilemedi", {
-        description: (error as Error)?.message,
-      });
-    } finally {
-      setLoading(false);
-    }
+      await repository.recordMovement({ material_id: movementDialog.material.id, movement_type: movementDialog.type, ...values });
+      await reload(repository); setMovementDialog(null);
+      toast.success(movementDialog.type === "out" ? "Malzeme stoktan düşüldü" : "Stok girişi kaydedildi");
+    } catch (error) { toast.error("Stok hareketi kaydedilemedi", { description: (error as Error)?.message }); } finally { setLoading(false); }
+  }
+  async function confirmDeleteMovement() {
+    if (!deleteMovement) return; setLoading(true);
+    try { const repository = new InventoryRepository(createClient()); await repository.deleteMovement(deleteMovement.id); await reload(repository); setDeleteMovement(null); toast.success("Stok hareketi silindi ve bakiye geri alındı"); }
+    catch (error) { toast.error("Stok hareketi silinemedi", { description: (error as Error)?.message }); } finally { setLoading(false); }
+  }
+  async function confirmDeleteShipment() {
+    if (!deleteShipment) return; setLoading(true);
+    try { const repository = new InventoryRepository(createClient()); await repository.deleteShipment(deleteShipment.id); await reload(repository); setDeleteShipment(null); toast.success("Sevkiyat silindi ve malzemeler Merkez Şantiye stokuna döndü"); }
+    catch (error) { toast.error("Sevkiyat silinemedi", { description: (error as Error)?.message }); } finally { setLoading(false); }
   }
 
   const selectedUnit = materialForm.watch("unit");
-  const movementUnit = movementDialog?.material.unit;
+  const selectedSource = movementForm.watch("source_location") as InventoryLocation;
+  const selectedTeam = movementForm.watch("team_personnel_ids") ?? [];
+  const availableQuantity = movementDialog ? Number(selectedSource === "biga" ? movementDialog.material.biga_stock_quantity : movementDialog.material.stock_quantity) : 0;
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Malzeme Stok
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Malzeme bakiyeleri, girişler ve kullanım kayıtları
-          </p>
-        </div>
-        {!readOnly && (
-          <Button onClick={openNewMaterial}>
-            <Plus className="h-4 w-4" />
-            Yeni Malzeme
-          </Button>
-        )}
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Güncel Stoklar</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Malzeme cinsi veya ID ara..."
-          />
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {groupedMaterials.map((group) => (
-              <div key={group.name.toLocaleLowerCase("tr-TR")} className="rounded-2xl border p-4">
-                <div className="flex items-start gap-3 border-b pb-3">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <span className="rounded-xl bg-primary/10 p-2 text-primary">
-                      <Boxes className="h-5 w-5" />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="font-semibold">{group.name}</p>
-                      <p className="text-xs text-muted-foreground">{group.materials.length} farklı Malzeme ID</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-3 space-y-3">{group.materials.map((material) => <div key={material.id} className="rounded-xl bg-muted/50 p-3">
-                  <div className="flex items-center justify-between gap-3"><span className="text-sm">ID: <strong>{material.material_code || "—"}</strong></span><Badge>{formatInventoryQuantity(material.stock_quantity, material.unit)}</Badge></div>
-                  {material.notes && <p className="mt-1 text-xs text-muted-foreground">{material.notes}</p>}
-                  {!readOnly && <div className="mt-3 grid grid-cols-2 gap-2"><Button variant="outline" size="sm" onClick={() => openMovement(material, "in")}><ArrowDownToLine className="h-4 w-4" />Stok Ekle</Button><Button size="sm" onClick={() => openMovement(material, "out")} disabled={Number(material.stock_quantity) <= 0}><ArrowUpFromLine className="h-4 w-4" />Stoktan Düş</Button></div>}
-                </div>)}</div>
-              </div>
-            ))}
-          </div>
-          {groupedMaterials.length === 0 && (
-            <p className="py-10 text-center text-sm text-muted-foreground">
-              Malzeme bulunamadı.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Son Stok Hareketleri</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
-              <thead>
-                <tr className="border-b text-muted-foreground">
-                  <th className="px-3 py-2 font-medium">Tarih</th>
-                  <th className="px-3 py-2 font-medium">Malzeme</th>
-                  <th className="px-3 py-2 font-medium">İşlem</th>
-                  <th className="px-3 py-2 font-medium">Miktar</th>
-                  <th className="px-3 py-2 font-medium">Kullanım Yeri</th>
-                  <th className="px-3 py-2 font-medium">Kalan Stok</th>
-                  <th className="px-3 py-2 font-medium">Açıklama</th>
-                </tr>
-              </thead>
-              <tbody>
-                {movements.map((movement) => (
-                  <tr key={movement.id} className="border-b last:border-0">
-                    <td className="whitespace-nowrap px-3 py-3">
-                      {formatDateTime(movement.created_at)}
-                    </td>
-                    <td className="px-3 py-3 font-medium">
-                      {movement.material?.material_name ?? "—"}
-                    </td>
-                    <td className="px-3 py-3">
-                      <Badge
-                        className={
-                          movement.movement_type === "in"
-                            ? "bg-emerald-600"
-                            : "bg-orange-600"
-                        }
-                      >
-                        {movement.movement_type === "in" ? "Giriş" : "Kullanım"}
-                      </Badge>
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-3">
-                      {movement.material
-                        ? formatInventoryQuantity(
-                            movement.quantity,
-                            movement.material.unit
-                          )
-                        : movement.quantity}
-                    </td>
-                    <td className="px-3 py-3">
-                      {movement.usage_location || "—"}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-3">
-                      {movement.material
-                        ? formatInventoryQuantity(
-                            movement.balance_after,
-                            movement.material.unit
-                          )
-                        : movement.balance_after}
-                    </td>
-                    <td className="px-3 py-3">
-                      {movement.description || "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {movements.length === 0 && (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              Henüz stok hareketi yok.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Dialog
-        open={materialDialogOpen}
-        onOpenChange={setMaterialDialogOpen}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Yeni Malzeme ve İlk Stok Girişi</DialogTitle>
-          </DialogHeader>
-          <form
-            onSubmit={materialForm.handleSubmit(createMaterial)}
-            className="space-y-4"
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field
-                label="Malzeme Cinsi"
-                error={materialForm.formState.errors.material_name?.message}
-              >
-                <Input {...materialForm.register("material_name")} />
-              </Field>
-              <Field
-                label="Malzeme ID (Zorunlu Değil)"
-                error={materialForm.formState.errors.material_code?.message}
-              >
-                <Input {...materialForm.register("material_code")} />
-              </Field>
-              <Field label="Birim">
-                <Select
-                  value={selectedUnit}
-                  onValueChange={(value: "piece" | "meter" | "kilogram") =>
-                    materialForm.setValue("unit", value, {
-                      shouldValidate: true,
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INVENTORY_UNITS.map((unit) => (
-                      <SelectItem key={unit.value} value={unit.value}>
-                        {unit.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field
-                label="Başlangıç Miktarı"
-                error={materialForm.formState.errors.initial_quantity?.message}
-              >
-                <Input
-                  type="number"
-                  min="0"
-                  step={selectedUnit === "piece" ? "1" : "0.001"}
-                  {...materialForm.register("initial_quantity")}
-                />
-              </Field>
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Not</Label>
-                <Textarea {...materialForm.register("notes")} />
-              </div>
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              Malzemeyi Kaydet
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={Boolean(movementDialog)}
-        onOpenChange={(open) => !open && setMovementDialog(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {movementDialog?.type === "out" ? "Stoktan Düş" : "Stok Ekle"}
-            </DialogTitle>
-          </DialogHeader>
-          {movementDialog && (
-            <form
-              onSubmit={movementForm.handleSubmit(recordMovement)}
-              className="space-y-4"
-            >
-              <div className="rounded-xl bg-muted p-3 text-sm">
-                <p className="font-semibold">
-                  {movementDialog.material.material_name}
-                </p>
-                <p className="text-muted-foreground">
-                  Mevcut stok:{" "}
-                  {formatInventoryQuantity(
-                    movementDialog.material.stock_quantity,
-                    movementDialog.material.unit
-                  )}
-                </p>
-              </div>
-              <Field
-                label="Miktar"
-                error={movementForm.formState.errors.quantity?.message}
-              >
-                <Input
-                  type="number"
-                  min="0"
-                  max={
-                    movementDialog.type === "out"
-                      ? movementDialog.material.stock_quantity
-                      : undefined
-                  }
-                  step={movementUnit === "piece" ? "1" : "0.001"}
-                  {...movementForm.register("quantity")}
-                />
-              </Field>
-              {movementDialog.type === "out" && (
-                <div className="space-y-4">
-                  <Field label="Kullanım Yeri Türü">
-                    <Select value={usageMode} onValueChange={(value: "project" | "manual") => { setUsageMode(value); setSelectedProjectId(""); movementForm.setValue("usage_location", ""); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="project">Projeden Seç</SelectItem><SelectItem value="manual">Manuel Alan Gir</SelectItem></SelectContent></Select>
-                  </Field>
-                  {usageMode === "project" ? <Field label="Proje ID / Proje" error={movementForm.formState.errors.usage_location?.message}>
-                    <Select value={selectedProjectId} onValueChange={(value) => { const project = projects.find((item) => item.id === value); setSelectedProjectId(value); movementForm.setValue("usage_location", project ? `${project.project_code} · ${project.name}` : "", { shouldValidate: true }); }}><SelectTrigger><SelectValue placeholder="Proje seçin" /></SelectTrigger><SelectContent>{projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.project_code} · {project.name}</SelectItem>)}</SelectContent></Select>
-                  </Field> : <Field label="Manuel Kullanım Alanı" error={movementForm.formState.errors.usage_location?.message}><Input placeholder="Proje ID, şantiye veya kullanım alanı" {...movementForm.register("usage_location")} /></Field>}
-                </div>
-              )}
-              <Field label="Açıklama (Zorunlu Değil)">
-                <Textarea {...movementForm.register("description")} />
-              </Field>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                Kaydet
-              </Button>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+  return <div className="space-y-6">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="text-3xl font-semibold tracking-tight">Malzeme Stok</h1><p className="mt-1 text-sm text-muted-foreground">Merkez Şantiye ve AZG BİGA ŞUBE stokları</p></div>{!readOnly && <div className="flex gap-2"><Button variant="outline" onClick={() => setShipmentDialogOpen(true)}><Send />Biga Sevkiyatı</Button><Button onClick={openNewMaterial}><Plus />Yeni Malzeme</Button></div>}</div>
+    <Card><CardHeader><CardTitle className="text-base">Güncel Stoklar</CardTitle></CardHeader><CardContent className="space-y-4">
+      <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Malzeme cinsi veya ID ara..." />
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{groupedMaterials.map((group) => <div key={`${group.category}:${group.name}`} className="rounded-lg border p-4"><div className="flex items-center gap-3 border-b pb-3"><span className="rounded-lg bg-primary/10 p-2 text-primary"><Boxes /></span><div><Badge className="mb-1 bg-secondary text-secondary-foreground">{getInventoryStockCategoryLabel(group.category)}</Badge><p className="font-semibold">{group.name}</p><p className="text-xs text-muted-foreground">{group.materials.length} farklı Malzeme ID</p></div></div><div className="mt-3 space-y-3">{group.materials.map((material) => <div key={material.id} className="rounded-lg bg-muted/50 p-3">
+        <p className="text-sm">ID: <strong>{material.material_code || "—"}</strong></p><div className="mt-2 grid grid-cols-2 gap-2 text-xs"><StockBalance label="Merkez Şantiye" value={formatInventoryQuantity(material.stock_quantity, material.unit)} /><StockBalance label="AZG BİGA ŞUBE" value={formatInventoryQuantity(material.biga_stock_quantity, material.unit)} secondary /></div>{material.notes && <p className="mt-2 text-xs text-muted-foreground">{material.notes}</p>}
+        {!readOnly && <div className="mt-3 grid grid-cols-2 gap-2"><Button title="Merkez stokuna ekle" variant="outline" size="icon" onClick={() => openMovement(material, "in")}><ArrowDownToLine /></Button><Button title="Stoktan düş" size="icon" disabled={Number(material.stock_quantity) + Number(material.biga_stock_quantity) <= 0} onClick={() => openMovement(material, "out")}><ArrowUpFromLine /></Button></div>}
+      </div>)}</div></div>)}</div>{!groupedMaterials.length && <p className="py-10 text-center text-sm text-muted-foreground">Malzeme bulunamadı.</p>}
+    </CardContent></Card>
+    <Card><CardHeader><CardTitle className="text-base">Geçmiş Stok Hareketleri</CardTitle></CardHeader><CardContent><div className="overflow-x-auto"><table className="w-full min-w-[1250px] text-left text-sm"><thead><tr className="border-b text-muted-foreground"><th className="px-3 py-2">Kayıt Tarihi</th><th className="px-3 py-2">Malzeme</th><th className="px-3 py-2">İşlem</th><th className="px-3 py-2">Miktar</th><th className="px-3 py-2">Giriş Tarihi</th><th className="px-3 py-2">Teslim Alan</th><th className="px-3 py-2">İrsaliye No</th><th className="px-3 py-2">Konum / Proje</th><th className="px-3 py-2">Ekip</th><th className="px-3 py-2">Açıklama</th>{!readOnly && <th className="px-3 py-2"><span className="sr-only">Sil</span></th>}</tr></thead><tbody>{movements.map((movement) => <tr key={movement.id} className="border-b last:border-0">
+      <td className="whitespace-nowrap px-3 py-3">{formatDateTime(movement.created_at)}</td><td className="px-3 py-3 font-medium">{movement.material?.material_name ?? "—"}</td><td className="px-3 py-3"><MovementBadge movement={movement} /></td><td className="whitespace-nowrap px-3 py-3">{movement.material ? formatInventoryQuantity(movement.quantity, movement.material.unit) : movement.quantity}</td><td className="whitespace-nowrap px-3 py-3">{movement.receipt_date ? new Date(`${movement.receipt_date}T00:00:00`).toLocaleDateString("tr-TR") : "—"}</td><td className="px-3 py-3">{movement.received_by || "—"}</td><td className="px-3 py-3">{movement.dispatch_number || "—"}</td><td className="px-3 py-3"><MovementLocation movement={movement} /></td><td className="px-3 py-3">{movement.team_personnel_names?.length ? movement.team_personnel_names.join(", ") : "—"}</td><td className="px-3 py-3">{movement.description || "—"}</td>{!readOnly && <td className="px-3 py-3">{!movement.shipment_id && <Button title="Hareketi sil" variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteMovement(movement)}><Trash2 /></Button>}</td>}
+    </tr>)}</tbody></table></div>{!movements.length && <p className="py-8 text-center text-sm text-muted-foreground">Henüz stok hareketi yok.</p>}</CardContent></Card>
+    <ShipmentHistory shipments={shipments} readOnly={readOnly} onDelete={setDeleteShipment} />
+    <ShipmentDialog open={shipmentDialogOpen} setOpen={setShipmentDialogOpen} materials={materials} loading={loading} onSaved={async (payload) => { setLoading(true); try { const repository = new InventoryRepository(createClient()); await repository.createBigaShipment(payload); await reload(repository); setShipmentDialogOpen(false); toast.success("Biga sevkiyatı kaydedildi"); } catch (error) { toast.error("Sevkiyat kaydedilemedi", { description: (error as Error)?.message }); } finally { setLoading(false); } }} />
+    <DeleteShipmentDialog shipment={deleteShipment} setShipment={setDeleteShipment} loading={loading} onConfirm={confirmDeleteShipment} />
+    <MaterialDialog open={materialDialogOpen} setOpen={setMaterialDialogOpen} form={materialForm} selectedUnit={selectedUnit} loading={loading} onSubmit={createMaterial} />
+    <Dialog open={Boolean(movementDialog)} onOpenChange={(open) => !open && setMovementDialog(null)}><DialogContent className="max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>{movementDialog?.type === "out" ? "Stoktan Düş" : "Merkez Stokuna Ekle"}</DialogTitle></DialogHeader>{movementDialog && <form onSubmit={movementForm.handleSubmit(recordMovement)} className="space-y-4">
+      <div className="rounded-lg bg-muted p-3 text-sm"><p className="font-semibold">{movementDialog.material.material_name}</p><p className="text-muted-foreground">Merkez: {formatInventoryQuantity(movementDialog.material.stock_quantity, movementDialog.material.unit)} · Biga: {formatInventoryQuantity(movementDialog.material.biga_stock_quantity, movementDialog.material.unit)}</p></div>
+      {movementDialog.type === "out" && <Field label="Stok Konumu"><Select value={selectedSource} onValueChange={(value: InventoryLocation) => movementForm.setValue("source_location", value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="center">Merkez Şantiye</SelectItem><SelectItem value="biga">AZG BİGA ŞUBE</SelectItem></SelectContent></Select></Field>}
+      <Field label="Miktar" error={movementForm.formState.errors.quantity?.message}><Input type="number" min="0" max={movementDialog.type === "in" ? undefined : availableQuantity} step={movementDialog.material.unit === "piece" ? "1" : "0.001"} {...movementForm.register("quantity")} /></Field>
+      {movementDialog.type === "out" && <><Field label="Proje Adı" error={movementForm.formState.errors.project_name?.message}><Input placeholder="Proje adını manuel girin" {...movementForm.register("project_name")} /></Field><Field label="Proje ID (Zorunlu Değil)"><Input placeholder="Proje ID" {...movementForm.register("project_code")} /></Field><Field label="Ekip (Zorunlu Değil)"><Select value="personnel" onValueChange={(id) => { if (id !== "personnel" && !selectedTeam.includes(id)) movementForm.setValue("team_personnel_ids", [...selectedTeam, id]); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="personnel" disabled>Personel seçin</SelectItem>{personnel.filter((person) => !selectedTeam.includes(person.id)).map((person) => <SelectItem key={person.id} value={person.id}>{person.full_name}</SelectItem>)}</SelectContent></Select><div className="mt-2 flex flex-wrap gap-2">{selectedTeam.map((id) => <Button key={id} type="button" size="sm" variant="secondary" onClick={() => movementForm.setValue("team_personnel_ids", selectedTeam.filter((item) => item !== id))}>{personnel.find((item) => item.id === id)?.full_name ?? id} ×</Button>)}</div></Field></>}
+      <Field label="Açıklama (Zorunlu Değil)"><Textarea {...movementForm.register("description")} /></Field><Button type="submit" className="w-full" disabled={loading}>{loading && <Loader2 className="animate-spin" />}Kaydet</Button>
+    </form>}</DialogContent></Dialog>
+    <Dialog open={Boolean(deleteMovement)} onOpenChange={(open) => !open && setDeleteMovement(null)}><DialogContent><DialogHeader><DialogTitle>Stok Hareketini Sil</DialogTitle></DialogHeader><p className="text-sm text-muted-foreground">Bu hareket silinecek ve stok bakiyesi otomatik olarak geri alınacak. İşleme devam edilsin mi?</p><div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setDeleteMovement(null)}>Vazgeç</Button><Button variant="destructive" onClick={confirmDeleteMovement} disabled={loading}>{loading && <Loader2 className="animate-spin" />}Sil</Button></div></DialogContent></Dialog>
+  </div>;
 }
 
-function Field({
-  label,
-  error,
-  children,
-}: {
-  label: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      {children}
-      {error && <p className="text-xs text-destructive">{error}</p>}
-    </div>
-  );
+function StockBalance({ label, value, secondary = false }: { label: string; value: string; secondary?: boolean }) { return <div><span className="text-muted-foreground">{label}</span><Badge className={`mt-1 block w-fit ${secondary ? "bg-secondary text-secondary-foreground" : ""}`}>{value}</Badge></div>; }
+function MovementBadge({ movement }: { movement: InventoryMovement }) { return <Badge className={movement.action_type === "in" ? "bg-emerald-600" : movement.action_type === "transfer" ? "bg-blue-600" : "bg-orange-600"}>{movement.action_type === "in" ? "Giriş" : movement.action_type === "transfer" ? "Şube Sevkiyatı" : "Kullanım"}</Badge>; }
+function MovementLocation({ movement }: { movement: InventoryMovement }) { if (movement.action_type === "transfer") return <>Merkez Şantiye → AZG BİGA ŞUBE</>; if (movement.action_type === "in") return <>Merkez Şantiye</>; return <><span>{movement.source_location === "biga" ? "AZG BİGA ŞUBE" : "Merkez Şantiye"}</span><br/><strong>{movement.project_name || movement.usage_location || "—"}</strong>{movement.project_code && <span> · ID: {movement.project_code}</span>}</>; }
+function MaterialDialog({ open, setOpen, form, selectedUnit, loading, onSubmit }: { open: boolean; setOpen: (open: boolean) => void; form: UseFormReturn<InventoryMaterialFormValues>; selectedUnit: InventoryMaterialFormValues["unit"]; loading: boolean; onSubmit: (values: InventoryMaterialFormValues) => Promise<void> }) { const selectedCategory = form.watch("stock_category"); return <Dialog open={open} onOpenChange={setOpen}><DialogContent className="max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Merkez Şantiyeye Yeni Malzeme</DialogTitle></DialogHeader><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4"><div className="grid gap-4 sm:grid-cols-2"><Field label="Kategori"><Select value={selectedCategory} onValueChange={(value: InventoryMaterialFormValues["stock_category"]) => form.setValue("stock_category", value, { shouldValidate: true })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{INVENTORY_STOCK_CATEGORIES.map((category) => <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>)}</SelectContent></Select></Field><Field label="Malzeme Cinsi" error={form.formState.errors.material_name?.message}><Input {...form.register("material_name")} /></Field><Field label="Malzeme ID (Zorunlu Değil)" error={form.formState.errors.material_code?.message}><Input {...form.register("material_code")} /></Field><Field label="Birim"><Select value={selectedUnit} onValueChange={(value: InventoryMaterialFormValues["unit"]) => form.setValue("unit", value, { shouldValidate: true })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{INVENTORY_UNITS.map((unit) => <SelectItem key={unit.value} value={unit.value}>{unit.label}</SelectItem>)}</SelectContent></Select></Field><Field label="Başlangıç Miktarı" error={form.formState.errors.initial_quantity?.message}><Input type="number" min="0" step={selectedUnit === "piece" ? "1" : "0.001"} {...form.register("initial_quantity")} /></Field><Field label="Giriş Tarihi" error={form.formState.errors.receipt_date?.message}><Input type="date" {...form.register("receipt_date")} /></Field><Field label="Teslim Alan" error={form.formState.errors.received_by?.message}><Input {...form.register("received_by")} /></Field><Field label="İrsaliye No" error={form.formState.errors.dispatch_number?.message}><Input {...form.register("dispatch_number")} /></Field><div className="space-y-2 sm:col-span-2"><Label>Not</Label><Textarea {...form.register("notes")} /></div></div><Button type="submit" className="w-full" disabled={loading}>{loading && <Loader2 className="animate-spin" />}Merkez Stokuna Kaydet</Button></form></DialogContent></Dialog>; }
+function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) { return <div className="space-y-2"><Label>{label}</Label>{children}{error && <p className="text-xs text-destructive">{error}</p>}</div>; }
+
+function ShipmentHistory({ shipments, readOnly, onDelete }: { shipments: InventoryShipment[]; readOnly: boolean; onDelete: (shipment: InventoryShipment) => void }) {
+  return <Card><CardHeader><CardTitle className="text-base">Biga Sevkiyatları</CardTitle></CardHeader><CardContent><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead><tr className="border-b text-muted-foreground"><th className="px-3 py-2">Tarih</th><th className="px-3 py-2">Malzeme Listesi</th><th className="px-3 py-2">Teslim Eden</th><th className="px-3 py-2">Teslim Alan</th><th className="px-3 py-2">Araç</th><th className="px-3 py-2">Not</th>{!readOnly && <th className="px-3 py-2"><span className="sr-only">Sil</span></th>}</tr></thead><tbody>{shipments.map((shipment) => <tr key={shipment.id} className="border-b last:border-0"><td className="whitespace-nowrap px-3 py-3">{new Date(`${shipment.shipment_date}T00:00:00`).toLocaleDateString("tr-TR")}</td><td className="px-3 py-3"><ul className="space-y-1">{shipment.items.map((item) => <li key={item.id}><strong>{item.material?.material_name ?? "—"}</strong>{item.material?.material_code && ` · ${item.material.material_code}`} · {item.material ? formatInventoryQuantity(item.quantity, item.material.unit) : item.quantity}</li>)}</ul></td><td className="px-3 py-3">{shipment.delivered_by}</td><td className="px-3 py-3">{shipment.received_by}</td><td className="px-3 py-3 font-medium">{shipment.vehicle_plate}</td><td className="px-3 py-3">{shipment.notes || "—"}</td>{!readOnly && <td className="px-3 py-3"><Button title="Sevkiyatı sil" variant="ghost" size="icon" className="text-destructive" onClick={() => onDelete(shipment)}><Trash2 /></Button></td>}</tr>)}</tbody></table></div>{!shipments.length && <p className="py-8 text-center text-sm text-muted-foreground">Henüz Biga sevkiyatı yok.</p>}</CardContent></Card>;
 }
+
+function ShipmentDialog({ open, setOpen, materials, loading, onSaved }: { open: boolean; setOpen: (open: boolean) => void; materials: InventoryMaterial[]; loading: boolean; onSaved: (payload: { shipment_date: string; delivered_by: string; received_by: string; vehicle_plate: string; notes?: string; items: { material_id: string; quantity: number }[] }) => Promise<void> }) {
+  const [shipmentDate, setShipmentDate] = useState(() => new Date().toLocaleDateString("en-CA"));
+  const [deliveredBy, setDeliveredBy] = useState(""); const [receivedBy, setReceivedBy] = useState(""); const [vehiclePlate, setVehiclePlate] = useState(""); const [notes, setNotes] = useState("");
+  const [lines, setLines] = useState<ShipmentLine[]>([{ material_id: "", quantity: "1" }]);
+  function close(nextOpen: boolean) { setOpen(nextOpen); if (!nextOpen) { setDeliveredBy(""); setReceivedBy(""); setVehiclePlate(""); setNotes(""); setLines([{ material_id: "", quantity: "1" }]); } }
+  async function submit(event: React.FormEvent) { event.preventDefault(); const items = lines.filter((line) => line.material_id).map((line) => ({ material_id: line.material_id, quantity: Number(line.quantity) })); if (!shipmentDate || deliveredBy.trim().length < 2 || receivedBy.trim().length < 2 || vehiclePlate.trim().length < 2 || !items.length) { toast.error("Tarih, teslim eden, teslim alan, araç ve en az bir malzeme zorunlu"); return; } if (items.some((item) => !Number.isFinite(item.quantity) || item.quantity <= 0)) { toast.error("Sevk miktarları sıfırdan büyük olmalı"); return; } if (new Set(items.map((item) => item.material_id)).size !== items.length) { toast.error("Aynı malzeme listeye iki kez eklenemez"); return; } await onSaved({ shipment_date: shipmentDate, delivered_by: deliveredBy.trim(), received_by: receivedBy.trim(), vehicle_plate: vehiclePlate.trim(), notes, items }); }
+  return <Dialog open={open} onOpenChange={close}><DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto"><DialogHeader><DialogTitle>AZG BİGA ŞUBE Sevkiyatı</DialogTitle></DialogHeader><form onSubmit={submit} className="space-y-4"><div className="grid gap-4 sm:grid-cols-2"><Field label="Tarih"><Input type="date" value={shipmentDate} onChange={(event) => setShipmentDate(event.target.value)} /></Field><Field label="Araç / Plaka"><Input placeholder="Sevkiyat aracını manuel girin" value={vehiclePlate} onChange={(event) => setVehiclePlate(event.target.value)} /></Field><Field label="Teslim Eden"><Input value={deliveredBy} onChange={(event) => setDeliveredBy(event.target.value)} /></Field><Field label="Teslim Alan"><Input value={receivedBy} onChange={(event) => setReceivedBy(event.target.value)} /></Field></div><div className="space-y-3"><div className="flex items-center justify-between"><Label>Malzeme Listesi</Label><Button type="button" size="sm" variant="outline" onClick={() => setLines((current) => [...current, { material_id: "", quantity: "1" }])}><Plus />Satır Ekle</Button></div>{lines.map((line, index) => { const material = materials.find((item) => item.id === line.material_id); return <div key={index} className="grid grid-cols-[minmax(0,1fr)_120px_40px] gap-2"><Select value={line.material_id} onValueChange={(value) => setLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, material_id: value } : item))}><SelectTrigger><SelectValue placeholder="Malzeme seçin" /></SelectTrigger><SelectContent>{materials.filter((item) => Number(item.stock_quantity) > 0).map((item) => <SelectItem key={item.id} value={item.id}>{item.material_name}{item.material_code ? ` · ${item.material_code}` : ""} · {formatInventoryQuantity(item.stock_quantity, item.unit)}</SelectItem>)}</SelectContent></Select><Input aria-label="Sevk miktarı" type="number" min="0" max={material?.stock_quantity} step={material?.unit === "piece" ? "1" : "0.001"} value={line.quantity} onChange={(event) => setLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: event.target.value } : item))} /><Button title="Satırı sil" type="button" variant="ghost" size="icon" disabled={lines.length === 1} onClick={() => setLines((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Trash2 /></Button></div>; })}</div><Field label="Not (Zorunlu Değil)"><Textarea value={notes} onChange={(event) => setNotes(event.target.value)} /></Field><Button type="submit" className="w-full" disabled={loading}>{loading && <Loader2 className="animate-spin" />}Sevkiyatı Kaydet</Button></form></DialogContent></Dialog>;
+}
+
+function DeleteShipmentDialog({ shipment, setShipment, loading, onConfirm }: { shipment: InventoryShipment | null; setShipment: (shipment: InventoryShipment | null) => void; loading: boolean; onConfirm: () => Promise<void> }) { return <Dialog open={Boolean(shipment)} onOpenChange={(open) => !open && setShipment(null)}><DialogContent><DialogHeader><DialogTitle>Sevkiyatı Sil</DialogTitle></DialogHeader><p className="text-sm text-muted-foreground">Sevkiyattaki tüm malzemeler Merkez Şantiye stokuna geri alınacak. Devam edilsin mi?</p><div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setShipment(null)}>Vazgeç</Button><Button variant="destructive" onClick={onConfirm} disabled={loading}>{loading && <Loader2 className="animate-spin" />}Sil</Button></div></DialogContent></Dialog>; }

@@ -9,8 +9,12 @@ export const inventoryMaterialSchema = z
   .object({
     material_name: z.string().trim().min(2, "Malzeme cinsi zorunlu").max(150),
     material_code: z.string().trim().max(80).optional().or(z.literal("")),
+    stock_category: z.enum(["fiber_accessory", "fiber_cable", "copper_network"]),
     unit: z.enum(["piece", "meter", "kilogram"]),
     initial_quantity: quantity,
+    receipt_date: z.string().date("Giriş tarihi zorunlu"),
+    received_by: z.string().trim().min(2, "Teslim alan zorunlu").max(150),
+    dispatch_number: z.string().trim().min(1, "İrsaliye numarası zorunlu").max(100),
     notes: z.string().trim().max(2000).optional().or(z.literal("")),
   })
   .superRefine((data, ctx) => {
@@ -25,7 +29,10 @@ export const inventoryMaterialSchema = z
 
 export const inventoryMovementSchema = z.object({
   quantity,
-  usage_location: z.string().trim().max(250).optional().or(z.literal("")),
+  source_location: z.enum(["center", "biga"]),
+  project_name: z.string().trim().max(250).optional().or(z.literal("")),
+  project_code: z.string().trim().max(100).optional().or(z.literal("")),
+  team_personnel_ids: z.array(z.string().uuid()),
   description: z.string().trim().max(1000).optional().or(z.literal("")),
 });
 

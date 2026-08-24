@@ -1,6 +1,9 @@
 export type InventoryUnit = "piece" | "meter" | "kilogram";
 export type InventoryMovementType = "in" | "out";
+export type InventoryLocation = "center" | "biga";
+export type InventoryMovementAction = "in" | "usage" | "transfer";
 export type InventoryMaterialCategory = "stock" | "equipment";
+export type InventoryStockCategory = "fiber_accessory" | "fiber_cable" | "copper_network";
 
 export type InventoryMaterial = {
   id: string;
@@ -8,7 +11,9 @@ export type InventoryMaterial = {
   material_name: string;
   unit: InventoryUnit;
   stock_quantity: number;
+  biga_stock_quantity: number;
   material_category: InventoryMaterialCategory;
+  stock_category: InventoryStockCategory | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -20,6 +25,17 @@ export type InventoryMovement = {
   movement_type: InventoryMovementType;
   quantity: number;
   usage_location: string | null;
+  action_type: InventoryMovementAction;
+  source_location: InventoryLocation | null;
+  target_location: InventoryLocation | null;
+  project_name: string | null;
+  project_code: string | null;
+  team_personnel_ids: string[];
+  team_personnel_names: string[];
+  shipment_id: string | null;
+  receipt_date: string | null;
+  received_by: string | null;
+  dispatch_number: string | null;
   description: string | null;
   balance_after: number;
   created_at: string;
@@ -28,6 +44,26 @@ export type InventoryMovement = {
     material_code: string | null;
     unit: InventoryUnit;
   } | null;
+};
+
+export type InventoryShipmentItem = {
+  id: string;
+  shipment_id: string;
+  material_id: string;
+  quantity: number;
+  material?: Pick<InventoryMaterial, "material_name" | "material_code" | "unit"> | null;
+};
+
+export type InventoryShipment = {
+  id: string;
+  shipment_date: string;
+  delivered_by: string;
+  received_by: string;
+  vehicle_id: string | null;
+  vehicle_plate: string;
+  notes: string | null;
+  created_at: string;
+  items: InventoryShipmentItem[];
 };
 
 export type CustodyLocationType = "warehouse" | "personnel" | "team" | "vehicle";
