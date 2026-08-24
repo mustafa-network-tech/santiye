@@ -14,6 +14,8 @@ export type InventoryMaterial = {
   biga_stock_quantity: number;
   material_category: InventoryMaterialCategory;
   stock_category: InventoryStockCategory | null;
+  material_type: string | null;
+  size: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -64,6 +66,24 @@ export type InventoryShipment = {
   notes: string | null;
   created_at: string;
   items: InventoryShipmentItem[];
+};
+
+export type InventoryReceiptItem = {
+  id: string;
+  receipt_id: string;
+  material_id: string;
+  quantity: number;
+  material?: Pick<InventoryMaterial, "material_name" | "material_code" | "unit" | "stock_category" | "material_type" | "size"> | null;
+};
+
+export type InventoryReceipt = {
+  id: string;
+  receipt_date: string;
+  received_by: string;
+  dispatch_number: string;
+  notes: string | null;
+  created_at: string;
+  items: InventoryReceiptItem[];
 };
 
 export type CustodyLocationType = "warehouse" | "personnel" | "team" | "vehicle";

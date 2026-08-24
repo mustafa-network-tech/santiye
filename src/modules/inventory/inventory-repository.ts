@@ -12,6 +12,7 @@ import type {
   InventoryLocation,
   InventoryShipment,
   InventoryStockCategory,
+  InventoryReceipt,
 } from "@/types/inventory";
 
 export class InventoryRepository {
@@ -125,6 +126,36 @@ export class InventoryRepository {
       .limit(limit);
     if (error) throw error;
     return (data ?? []) as InventoryShipment[];
+  }
+
+  async listReceipts(limit = 100): Promise<InventoryReceipt[]> {
+    const { data, error } = await this.supabase.from("inventory_receipts")
+      .select("*, items:inventory_receipt_items(*, material:inventory_materials(material_name,material_code,unit,stock_category,material_type,size))")
+      .order("receipt_date", { ascending: false }).order("created_at", { ascending: false }).limit(limit);
+    if (error) throw error;
+    return (data ?? []) as InventoryReceipt[];
+  }
+
+  async createCatalogMaterial(payload: { material_name: string; material_code?: string; stock_category: InventoryStockCategory; material_type?: string; size?: string; unit: InventoryUnit; notes?: string }): Promise<void> {
+    const { error } = await this.supabase.rpc("create_inventory_catalog_material", {
+      p_material_name: payload.material_name, p_material_code: payload.material_code || null,
+      p_stock_category: payload.stock_category, p_material_type: payload.material_type || null,
+      p_size: payload.size || null, p_unit: payload.unit, p_notes: payload.notes || null,
+    });
+    if (error) throw error;
+  }
+
+  async createReceipt(payload: { receipt_date: string; received_by: string; dispatch_number: string; notes?: string; items: { material_id: string; quantity: number }[] }): Promise<void> {
+    const { error } = await this.supabase.rpc("create_inventory_receipt", {
+      p_receipt_date: payload.receipt_date, p_received_by: payload.received_by,
+      p_dispatch_number: payload.dispatch_number, p_notes: payload.notes || null, p_items: payload.items,
+    });
+    if (error) throw error;
+  }
+
+  async deleteMaterial(id: string): Promise<void> {
+    const { error } = await this.supabase.rpc("delete_inventory_material_with_history", { p_material_id: id });
+    if (error) throw error;
   }
 
   async transferToBiga(payload: {

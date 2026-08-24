@@ -1,9 +1,9 @@
 import type { InventoryStockCategory, InventoryUnit } from "@/types/inventory";
 
 export const INVENTORY_STOCK_CATEGORIES: { value: InventoryStockCategory; label: string }[] = [
-  { value: "fiber_accessory", label: "Fiber Ek Malzeme" },
   { value: "fiber_cable", label: "Fiber Kablo Malzeme" },
   { value: "copper_network", label: "Bakır Şebeke Malzeme" },
+  { value: "fiber_accessory", label: "Fiber Ek Malzeme" },
 ];
 
 export function getInventoryStockCategoryLabel(category: InventoryStockCategory | null) {
