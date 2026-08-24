@@ -10,7 +10,6 @@ export type InventoryMaterial = {
   material_code: string | null;
   material_name: string;
   unit: InventoryUnit;
-  has_id: boolean;
   stock_quantity: number;
   biga_stock_quantity: number;
   material_category: InventoryMaterialCategory;
@@ -30,6 +29,7 @@ export type InventoryCatalog = {
   material_type: string | null;
   size: string | null;
   unit: InventoryUnit;
+  has_id: boolean;
   notes: string | null;
   created_at: string;
 };
