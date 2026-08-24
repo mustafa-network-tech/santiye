@@ -444,15 +444,15 @@ function EditProjectForm({
         location: values.location,
         description: values.description || null,
         received_at: values.received_at,
-        tracks_cable: false,
-        cable_pulled: null,
-        tracks_obk: isBfOrGf && values.tracks_obk,
-        obk_pulled: isBfOrGf && values.tracks_obk
+        tracks_cable: isCorporate ? undefined : false,
+        cable_pulled: isCorporate ? undefined : null,
+        tracks_obk: isCorporate ? undefined : isBfOrGf && values.tracks_obk,
+        obk_pulled: isCorporate ? undefined : isBfOrGf && values.tracks_obk
           ? triStateToBoolean(values.obk_pulled)
           : null,
-        tracks_joint: false,
-        tracks_excavation: values.tracks_excavation,
-        joint_done: null,
+        tracks_joint: isCorporate ? undefined : false,
+        tracks_excavation: isCorporate ? undefined : values.tracks_excavation,
+        joint_done: isCorporate ? undefined : null,
         progress_notes: values.progress_notes || null,
         status: isCorporate ? values.status : undefined,
         project_date: isCorporate ? values.project_date || null : null,
@@ -471,6 +471,9 @@ function EditProjectForm({
       router.refresh();
     } catch (error) {
       console.error(error);
+      const errorMessage = error && typeof error === "object" && "message" in error
+        ? String((error as { message?: string }).message)
+        : "";
       const message =
         error &&
         typeof error === "object" &&
@@ -478,7 +481,7 @@ function EditProjectForm({
         (error as { code?: string }).code === "23505"
           ? "Bu Proje ID zaten kayıtlı"
           : "Proje güncellenemedi";
-      toast.error(message);
+      toast.error(message, { description: errorMessage || undefined });
     } finally {
       setLoading(false);
     }
