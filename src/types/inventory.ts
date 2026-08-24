@@ -10,15 +10,28 @@ export type InventoryMaterial = {
   material_code: string | null;
   material_name: string;
   unit: InventoryUnit;
+  has_id: boolean;
   stock_quantity: number;
   biga_stock_quantity: number;
   material_category: InventoryMaterialCategory;
   stock_category: InventoryStockCategory | null;
   material_type: string | null;
   size: string | null;
+  catalog_id: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type InventoryCatalog = {
+  id: string;
+  material_name: string;
+  stock_category: InventoryStockCategory;
+  material_type: string | null;
+  size: string | null;
+  unit: InventoryUnit;
+  notes: string | null;
+  created_at: string;
 };
 
 export type InventoryMovement = {
