@@ -11,6 +11,8 @@ import {
   Pencil,
   Plus,
   Printer,
+  UserMinus,
+  UserPlus,
   UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -80,6 +82,11 @@ export function PersonnelManager({
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("");
   const [showPassive, setShowPassive] = useState(false);
+  const [terminating, setTerminating] = useState<Personnel | null>(null);
+  const [terminationDate, setTerminationDate] = useState("");
+  const [terminationReason, setTerminationReason] = useState("");
+  const [reactivating, setReactivating] = useState<Personnel | null>(null);
+  const [reactivationDate, setReactivationDate] = useState("");
 
   const form = useForm<PersonnelFormValues>({
     resolver: zodResolver(personnelSchema),
@@ -126,6 +133,126 @@ export function PersonnelManager({
       notes: person.notes ?? "",
     });
     setOpen(true);
+  }
+
+  function openTermination(person: Personnel) {
+    setTerminating(person);
+    setTerminationDate(
+      new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Istanbul" })
+    );
+    setTerminationReason("");
+  }
+
+  async function terminatePersonnel() {
+    if (!terminating || !terminationDate || !terminationReason.trim()) {
+      toast.error("Çıkış tarihi ve çıkış sebebi zorunludur");
+      return;
+    }
+    if (
+      terminating.employment_start_date &&
+      terminationDate < terminating.employment_start_date
+    ) {
+      toast.error("Çıkış tarihi işe giriş tarihinden önce olamaz");
+      return;
+    }
+
+    setLoading(true);
+    const supabase = createClient();
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Oturum bulunamadı");
+
+      const custody = await new InventoryRepository(
+        supabase
+      ).listPersonnelCustodyBalances(terminating.id);
+      if (custody.length > 0) {
+        toast.error("Personel çıkışı kaydedilemez", {
+          description: `Üzerinde ${custody.length} aktif malzeme zimmeti var. Önce zimmetleri aktarın veya depoya iade edin.`,
+        });
+        return;
+      }
+
+      const updated = await new PersonnelRepository(supabase).terminate(
+        terminating.id,
+        {
+          employment_end_date: terminationDate,
+          termination_reason: terminationReason,
+          updated_by: user.id,
+        }
+      );
+      setItems((previous) =>
+        sortByCreatedAtDesc(
+          previous.map((person) =>
+            person.id === updated.id ? updated : person
+          )
+        )
+      );
+      setTerminating(null);
+      toast.success("Personel çıkışı kaydedildi ve personel pasife alındı");
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      toast.error("Personel çıkışı kaydedilemedi", {
+        description: (error as Error)?.message,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function openReactivation(person: Personnel) {
+    setReactivating(person);
+    setReactivationDate(
+      new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Istanbul" })
+    );
+  }
+
+  async function reactivatePersonnel() {
+    if (!reactivating || !reactivationDate) {
+      toast.error("Yeni işe giriş tarihi zorunludur");
+      return;
+    }
+    if (
+      reactivating.employment_end_date &&
+      reactivationDate <= reactivating.employment_end_date
+    ) {
+      toast.error("Yeni işe giriş tarihi son çıkış tarihinden sonra olmalıdır");
+      return;
+    }
+
+    setLoading(true);
+    const supabase = createClient();
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Oturum bulunamadı");
+
+      const updated = await new PersonnelRepository(supabase).reactivate(
+        reactivating.id,
+        reactivationDate,
+        user.id
+      );
+      setItems((previous) =>
+        sortByCreatedAtDesc(
+          previous.map((person) =>
+            person.id === updated.id ? updated : person
+          )
+        )
+      );
+      setReactivating(null);
+      toast.success("Personel yeniden aktif edildi");
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      toast.error("Personel yeniden aktif edilemedi", {
+        description: (error as Error)?.message,
+      });
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function onSubmit(values: PersonnelFormValues) {
@@ -409,17 +536,44 @@ export function PersonnelManager({
                           <strong>{summary?.year_leave ?? 0} gün</strong>
                         </span>
                       </div>
+                      {!person.is_active && person.termination_reason && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Çıkış Sebebi: {person.termination_reason}
+                        </p>
+                      )}
                     </div>
                   </div>
                   {!readOnly && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openEdit(person)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                      Düzenle
-                    </Button>
+                    <div className="flex gap-2">
+                      {person.is_active && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openTermination(person)}
+                        >
+                          <UserMinus className="h-4 w-4" />
+                          İşten Çıkış
+                        </Button>
+                      )}
+                      {!person.is_active && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openReactivation(person)}
+                        >
+                          <UserPlus className="h-4 w-4" />
+                          Yeniden İşe Al
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEdit(person)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                        Düzenle
+                      </Button>
+                    </div>
                   )}
                 </div>
                 );
@@ -510,6 +664,7 @@ export function PersonnelManager({
             <div className="space-y-2">
               <Label>Durum</Label>
               <Select
+                disabled
                 value={form.watch("is_active") ? "active" : "passive"}
                 onValueChange={(v) => {
                   const isActive = v === "active";
@@ -552,6 +707,98 @@ export function PersonnelManager({
               Kaydet
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(reactivating)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !loading) setReactivating(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Personeli Yeniden İşe Al</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {reactivating?.full_name}
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="reactivation_date">Yeni İşe Giriş Tarihi</Label>
+              <Input
+                id="reactivation_date"
+                type="date"
+                min={reactivating?.employment_end_date ?? undefined}
+                value={reactivationDate}
+                onChange={(event) => setReactivationDate(event.target.value)}
+              />
+            </div>
+            <Button
+              type="button"
+              className="w-full"
+              disabled={loading}
+              onClick={reactivatePersonnel}
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4" />
+              )}
+              Yeniden Aktif Et
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(terminating)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !loading) setTerminating(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Personel İşten Çıkış Kaydı</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {terminating?.full_name} pasife alınacak. Geçmiş puantaj kayıtları
+              korunacaktır.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="termination_date">Çıkış Tarihi</Label>
+              <Input
+                id="termination_date"
+                type="date"
+                value={terminationDate}
+                onChange={(event) => setTerminationDate(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="termination_reason">Çıkış Sebebi</Label>
+              <Textarea
+                id="termination_reason"
+                maxLength={1000}
+                value={terminationReason}
+                onChange={(event) => setTerminationReason(event.target.value)}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="destructive"
+              className="w-full"
+              disabled={loading}
+              onClick={terminatePersonnel}
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserMinus className="h-4 w-4" />
+              )}
+              Çıkışı Kaydet
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

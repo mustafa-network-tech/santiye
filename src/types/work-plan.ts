@@ -7,6 +7,7 @@ export type Personnel = {
   is_active: boolean;
   employment_start_date: string | null;
   employment_end_date: string | null;
+  termination_reason: string | null;
   monthly_salary: number;
   notes: string | null;
   created_by: string | null;
@@ -23,6 +24,7 @@ export type PersonnelInsert = {
   is_active?: boolean;
   employment_start_date?: string | null;
   employment_end_date?: string | null;
+  termination_reason?: string | null;
   monthly_salary?: number;
   notes?: string | null;
   created_by?: string | null;
@@ -30,6 +32,15 @@ export type PersonnelInsert = {
 };
 
 export type PersonnelUpdate = Partial<PersonnelInsert>;
+
+export type PersonnelEmploymentPeriod = {
+  id: string;
+  personnel_id: string;
+  employment_start_date: string | null;
+  employment_end_date: string;
+  termination_reason: string;
+  created_at: string;
+};
 
 export type WorkPlanMemberSnapshot = {
   id?: string;

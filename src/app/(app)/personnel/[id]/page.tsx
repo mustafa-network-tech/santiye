@@ -54,8 +54,9 @@ export default async function PersonnelDetailPage({
   const monthEnd = `${year}-${String(month).padStart(2, "0")}-${String(
     new Date(year, month, 0).getDate()
   ).padStart(2, "0")}`;
-  const [personnel, summary, payrollResult, advancesResult, assignedVehicleResult, canWriteAdvances] = await Promise.all([
+  const [personnel, employmentPeriods, summary, payrollResult, advancesResult, assignedVehicleResult, canWriteAdvances] = await Promise.all([
     personnelRepository.getById(id),
+    personnelRepository.listEmploymentPeriods(id),
     attendanceRepository.getPersonnelDetail(id, year, month),
     supabase.rpc("get_monthly_payroll", { p_year: year, p_month: month }),
     supabase
@@ -81,6 +82,7 @@ export default async function PersonnelDetailPage({
   return (
     <PersonnelDetail
       personnel={personnel}
+      employmentPeriods={employmentPeriods}
       summary={summary}
       year={year}
       month={month}

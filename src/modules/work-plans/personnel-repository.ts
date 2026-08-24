@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   Personnel,
+  PersonnelEmploymentPeriod,
   PersonnelInsert,
   PersonnelUpdate,
 } from "@/types/work-plan";
@@ -63,6 +64,10 @@ export class PersonnelRepository {
           payload.is_active === false
             ? emptyToNull(payload.employment_end_date)
             : null,
+        termination_reason:
+          payload.is_active === false
+            ? emptyToNull(payload.termination_reason)
+            : null,
         monthly_salary: payload.monthly_salary ?? 0,
         notes: emptyToNull(payload.notes),
         created_by: payload.created_by ?? null,
@@ -101,6 +106,11 @@ export class PersonnelRepository {
         payload.is_active === true
           ? null
           : emptyToNull(payload.employment_end_date);
+    if (payload.termination_reason !== undefined || payload.is_active === true)
+      updatePayload.termination_reason =
+        payload.is_active === true
+          ? null
+          : emptyToNull(payload.termination_reason);
     if (payload.notes !== undefined)
       updatePayload.notes = emptyToNull(payload.notes);
     if (payload.monthly_salary !== undefined)
@@ -115,5 +125,62 @@ export class PersonnelRepository {
 
     if (error) throw error;
     return data as Personnel;
+  }
+
+  async terminate(
+    id: string,
+    payload: {
+      employment_end_date: string;
+      termination_reason: string;
+      updated_by: string;
+    }
+  ): Promise<Personnel> {
+    const { data, error } = await this.supabase
+      .from("personnel")
+      .update({
+        is_active: false,
+        employment_end_date: payload.employment_end_date,
+        termination_reason: payload.termination_reason.trim(),
+        updated_by: payload.updated_by,
+      })
+      .eq("id", id)
+      .select("*")
+      .single();
+
+    if (error) throw error;
+    return data as Personnel;
+  }
+
+  async reactivate(
+    id: string,
+    employmentStartDate: string,
+    updatedBy: string
+  ): Promise<Personnel> {
+    const { data, error } = await this.supabase
+      .from("personnel")
+      .update({
+        is_active: true,
+        employment_start_date: employmentStartDate,
+        updated_by: updatedBy,
+      })
+      .eq("id", id)
+      .select("*")
+      .single();
+
+    if (error) throw error;
+    return data as Personnel;
+  }
+
+  async listEmploymentPeriods(
+    personnelId: string
+  ): Promise<PersonnelEmploymentPeriod[]> {
+    const { data, error } = await this.supabase
+      .from("personnel_employment_periods")
+      .select("*")
+      .eq("personnel_id", personnelId)
+      .order("employment_end_date", { ascending: false });
+
+    if (error) throw error;
+    return (data ?? []) as PersonnelEmploymentPeriod[];
   }
 }

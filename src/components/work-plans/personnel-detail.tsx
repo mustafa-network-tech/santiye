@@ -17,7 +17,7 @@ import {
   Umbrella,
   UserRound,
 } from "lucide-react";
-import type { Personnel } from "@/types/work-plan";
+import type { Personnel, PersonnelEmploymentPeriod } from "@/types/work-plan";
 import type {
   PayrollRow,
   PersonnelAdvance,
@@ -59,6 +59,7 @@ import {
 
 type Props = {
   personnel: Personnel;
+  employmentPeriods: PersonnelEmploymentPeriod[];
   summary: PersonnelAttendanceDetail;
   year: number;
   month: number;
@@ -70,6 +71,7 @@ type Props = {
 
 export function PersonnelDetail({
   personnel,
+  employmentPeriods,
   summary,
   year,
   month,
@@ -283,6 +285,11 @@ export function PersonnelDetail({
                 <span>
                   İşten Ayrılış: {formatDate(personnel.employment_end_date)}
                 </span>
+                {!personnel.is_active && personnel.termination_reason && (
+                  <span className="sm:col-span-2">
+                    Çıkış Sebebi: {personnel.termination_reason}
+                  </span>
+                )}
                 <span className="sm:col-span-2">
                   Çalışma Süresi:{" "}
                   {formatEmploymentDuration(
@@ -380,6 +387,39 @@ export function PersonnelDetail({
           </div>
         </CardContent>
       </Card>
+
+      {employmentPeriods.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Geçmiş Çalışma Dönemleri</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="divide-y rounded-md border">
+              {employmentPeriods.map((period) => (
+                <div
+                  key={period.id}
+                  className="grid gap-1 px-4 py-3 text-sm sm:grid-cols-[150px_150px_160px_1fr]"
+                >
+                  <span>
+                    Giriş: {formatDate(period.employment_start_date)}
+                  </span>
+                  <span>Çıkış: {formatDate(period.employment_end_date)}</span>
+                  <span>
+                    Süre:{" "}
+                    {formatEmploymentDuration(
+                      period.employment_start_date,
+                      period.employment_end_date
+                    )}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {period.termination_reason}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
