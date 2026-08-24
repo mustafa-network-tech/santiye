@@ -23,6 +23,10 @@ export type MonthlyAttendancePersonnel = {
   is_active: boolean;
   employment_start_date?: string | null;
   employment_end_date?: string | null;
+  employment_periods?: {
+    employment_start_date: string | null;
+    employment_end_date: string;
+  }[];
   records: AttendanceRecord[];
   totals: AttendanceTotals;
 };

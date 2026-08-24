@@ -117,6 +117,23 @@ function cellKey(personnelId: string, date: string) {
   return `${personnelId}|${date}`;
 }
 
+function isPersonnelWorkingDate(
+  personnel: MonthlyAttendancePersonnel,
+  date: string
+) {
+  const inCurrentPeriod =
+    (!personnel.employment_start_date ||
+      date >= personnel.employment_start_date) &&
+    (!personnel.employment_end_date || date <= personnel.employment_end_date);
+  if (inCurrentPeriod) return true;
+
+  return (personnel.employment_periods ?? []).some(
+    (period) =>
+      (!period.employment_start_date || date >= period.employment_start_date) &&
+      date <= period.employment_end_date
+  );
+}
+
 export function MonthlyAttendanceTable({
   initialData,
   exportPersonnel,
@@ -269,9 +286,14 @@ export function MonthlyAttendanceTable({
       toast.error("Pazar günü yalnızca Çalıştı, Çalışmadı veya HT olabilir");
       return;
     }
-    Array.from(personnelIds).forEach((personnelId) =>
-      setAttendance(personnelId, date, status)
-    );
+    Array.from(personnelIds).forEach((personnelId) => {
+      const personnel = initialData.personnel.find(
+        (item) => item.id === personnelId
+      );
+      if (personnel && isPersonnelWorkingDate(personnel, date)) {
+        setAttendance(personnelId, date, status);
+      }
+    });
   }
 
   function togglePersonnel(id: string, checked: boolean) {
@@ -885,7 +907,7 @@ const AttendanceRow = memo(function AttendanceRow({
               {personnel.full_name}
             </Link>
             <span className="block text-[10px] text-muted-foreground">
-              {personnel.is_active ? "Aktif" : "Pasif"}
+              {personnel.is_active ? "Aktif" : "Pasif"} · Çalıştı: {totals.worked} gün
             </span>
           </span>
         </label>
@@ -907,7 +929,11 @@ const AttendanceRow = memo(function AttendanceRow({
               <AttendanceCell
                 status={status}
                 dirty={isDirty}
-              editable={editable && canEditAttendanceDate(day.isoDate)}
+              editable={
+                editable &&
+                canEditAttendanceDate(day.isoDate) &&
+                isPersonnelWorkingDate(personnel, day.isoDate)
+              }
               isSunday={day.isSunday}
               onChange={(nextStatus) =>
                 onChange(personnel.id, day.isoDate, nextStatus)

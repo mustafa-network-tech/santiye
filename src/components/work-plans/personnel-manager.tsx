@@ -14,6 +14,7 @@ import {
   UserMinus,
   UserPlus,
   UserRound,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Personnel } from "@/types/work-plan";
@@ -87,6 +88,7 @@ export function PersonnelManager({
   const [terminationReason, setTerminationReason] = useState("");
   const [reactivating, setReactivating] = useState<Personnel | null>(null);
   const [reactivationDate, setReactivationDate] = useState("");
+  const [deleting, setDeleting] = useState<Personnel | null>(null);
 
   const form = useForm<PersonnelFormValues>({
     resolver: zodResolver(personnelSchema),
@@ -248,6 +250,29 @@ export function PersonnelManager({
     } catch (error) {
       console.error(error);
       toast.error("Personel yeniden aktif edilemedi", {
+        description: (error as Error)?.message,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function deletePersonnel() {
+    if (!deleting) return;
+    setLoading(true);
+    try {
+      await new PersonnelRepository(
+        createClient()
+      ).deleteInactiveWithoutEarnedDays(deleting.id);
+      setItems((previous) =>
+        previous.filter((person) => person.id !== deleting.id)
+      );
+      setDeleting(null);
+      toast.success("Personel kaydı tamamen silindi");
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      toast.error("Personel silinemedi", {
         description: (error as Error)?.message,
       });
     } finally {
@@ -565,6 +590,17 @@ export function PersonnelManager({
                           Yeniden İşe Al
                         </Button>
                       )}
+                      {!person.is_active && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive"
+                          title="Personeli tamamen sil"
+                          onClick={() => setDeleting(person)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"
@@ -707,6 +743,47 @@ export function PersonnelManager({
               Kaydet
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(deleting)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && !loading) setDeleting(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Personeli Kalıcı Olarak Sil</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {deleting?.full_name} personel kaydı kalıcı olarak silinecek.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={loading}
+                onClick={() => setDeleting(null)}
+              >
+                Vazgeç
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={loading}
+                onClick={deletePersonnel}
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                Kalıcı Sil
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

@@ -183,4 +183,12 @@ export class PersonnelRepository {
     if (error) throw error;
     return (data ?? []) as PersonnelEmploymentPeriod[];
   }
+
+  async deleteInactiveWithoutEarnedDays(id: string): Promise<void> {
+    const { error } = await this.supabase.rpc(
+      "delete_inactive_personnel_without_earned_days",
+      { p_personnel_id: id }
+    );
+    if (error) throw error;
+  }
 }
