@@ -15,9 +15,9 @@ export default async function AppLayout({
   if (!profile) redirect("/login");
   if (!profile.is_approved || profile.role === "pending")
     redirect("/pending-approval");
-  const [avatarUrl, noteNotifications, writableModules] = await Promise.all([
+  const [avatarUrl, notes, writableModules] = await Promise.all([
     new UserRepository(supabase).createAvatarUrl(profile.avatar_path),
-    profile.role === "accounting" ? Promise.resolve([]) : new NotesRepository(supabase).listDueNotifications(),
+    new NotesRepository(supabase).list(),
     new UserRepository(supabase).getWritableModules(),
   ]);
   const pathname = (await headers()).get("x-app-pathname") || "/";
@@ -59,7 +59,7 @@ export default async function AppLayout({
     <AppShell
       profile={profile}
       avatarUrl={avatarUrl}
-      noteNotifications={noteNotifications}
+      notes={notes}
       writableModules={writableModules}
     >
       {children}
