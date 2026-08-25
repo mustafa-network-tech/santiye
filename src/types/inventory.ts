@@ -99,6 +99,41 @@ export type InventoryReceipt = {
   items: InventoryReceiptItem[];
 };
 
+export type InventoryRequestStatus = "requested" | "approved" | "receipt_review" | "received";
+
+export type InventoryRequestItem = {
+  id: string;
+  request_id: string;
+  catalog_id: string;
+  quantity: number;
+  catalog?: InventoryCatalog | null;
+};
+
+export type InventoryRequest = {
+  id: string;
+  request_date: string;
+  requested_by: string;
+  status: InventoryRequestStatus;
+  notes: string | null;
+  approved_at: string | null;
+  received_at: string | null;
+  receipt_id: string | null;
+  pending_receipt_date: string | null;
+  pending_received_by: string | null;
+  pending_dispatch_number: string | null;
+  pending_receipt_notes: string | null;
+  created_at: string;
+  items: InventoryRequestItem[];
+  receipt_items: Array<{
+    id: string;
+    request_id: string;
+    catalog_id: string;
+    quantity: number;
+    material_code: string | null;
+    catalog?: InventoryCatalog | null;
+  }>;
+};
+
 export type CustodyLocationType = "warehouse" | "personnel" | "team" | "vehicle";
 
 export type InventoryCustodyBalance = {

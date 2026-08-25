@@ -14,6 +14,7 @@ import type {
   InventoryStockCategory,
   InventoryReceipt,
   InventoryCatalog,
+  InventoryRequest,
 } from "@/types/inventory";
 
 export class InventoryRepository {
@@ -141,6 +142,71 @@ export class InventoryRepository {
       .order("receipt_date", { ascending: false }).order("created_at", { ascending: false }).limit(limit);
     if (error) throw error;
     return (data ?? []) as InventoryReceipt[];
+  }
+
+  async listRequests(): Promise<InventoryRequest[]> {
+    const { data, error } = await this.supabase
+      .from("inventory_requests")
+      .select("*, items:inventory_request_items(*, catalog:inventory_catalog(*)), receipt_items:inventory_request_receipt_items(*, catalog:inventory_catalog(*))")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as InventoryRequest[];
+  }
+
+  async createRequest(payload: {
+    request_date: string;
+    requested_by: string;
+    notes?: string;
+    items: Array<{
+      catalog_id?: string;
+      quantity: number;
+      new_catalog?: {
+        material_name: string;
+        stock_category: InventoryStockCategory;
+        material_type?: string;
+        size?: string;
+        unit: InventoryUnit;
+        has_id: boolean;
+        notes?: string;
+      };
+    }>;
+  }): Promise<void> {
+    const { error } = await this.supabase.rpc("create_inventory_request", {
+      p_request_date: payload.request_date,
+      p_requested_by: payload.requested_by,
+      p_notes: payload.notes || null,
+      p_items: payload.items,
+    });
+    if (error) throw error;
+  }
+
+  async approveRequest(id: string): Promise<void> {
+    const { error } = await this.supabase.rpc("approve_inventory_request", { p_request_id: id });
+    if (error) throw error;
+  }
+
+  async submitRequestReceipt(payload: {
+    request_id: string;
+    receipt_date: string;
+    received_by: string;
+    dispatch_number: string;
+    notes?: string;
+    items: Array<{ catalog_id: string; quantity: number; material_code?: string }>;
+  }): Promise<void> {
+    const { error } = await this.supabase.rpc("submit_inventory_request_receipt", {
+      p_request_id: payload.request_id,
+      p_receipt_date: payload.receipt_date,
+      p_received_by: payload.received_by,
+      p_dispatch_number: payload.dispatch_number,
+      p_notes: payload.notes || null,
+      p_items: payload.items,
+    });
+    if (error) throw error;
+  }
+
+  async finalizeRequestReceipt(id: string): Promise<void> {
+    const { error } = await this.supabase.rpc("approve_inventory_request_receipt", { p_request_id: id });
+    if (error) throw error;
   }
 
   async createCatalogMaterial(payload: { material_name: string; stock_category: InventoryStockCategory; material_type?: string; size?: string; unit: InventoryUnit; has_id: boolean; notes?: string }): Promise<void> {

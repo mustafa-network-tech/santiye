@@ -16,14 +16,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import type { InventoryRequest } from "@/types/inventory";
+import { MaterialRequestsManager } from "@/components/inventory/material-requests-manager";
 
 type StockView = "all" | "center" | "biga";
 type Line = { material_id: string; quantity: string };
 type ReceiptLine = { catalog_id: string; material_code: string; unit: InventoryUnit; quantity: string };
 const today = () => new Date().toLocaleDateString("en-CA");
 
-export function InventoryManager({ initialMaterials, initialCatalogs, initialShipments, initialReceipts, personnel, readOnly = false }: {
-  initialMaterials: InventoryMaterial[]; initialCatalogs: InventoryCatalog[]; initialMovements: unknown[]; initialShipments: InventoryShipment[]; initialReceipts: InventoryReceipt[]; personnel: Personnel[]; readOnly?: boolean;
+export function InventoryManager({ initialMaterials, initialCatalogs, initialShipments, initialReceipts, initialRequests, personnel, readOnly = false }: {
+  initialMaterials: InventoryMaterial[]; initialCatalogs: InventoryCatalog[]; initialMovements: unknown[]; initialShipments: InventoryShipment[]; initialReceipts: InventoryReceipt[]; initialRequests: InventoryRequest[]; personnel: Personnel[]; readOnly?: boolean;
 }) {
   const [materials, setMaterials] = useState(initialMaterials);
   const [catalogs, setCatalogs] = useState(initialCatalogs);
@@ -65,6 +67,8 @@ export function InventoryManager({ initialMaterials, initialCatalogs, initialShi
 
   return <div className="space-y-6">
     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><h1 className="text-3xl font-semibold">Malzeme Stok</h1><p className="mt-1 text-sm text-muted-foreground">Malzeme kataloğu, irsaliye girişleri ve şube stokları</p></div>{!readOnly && <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setShipmentOpen(true)}><Send />Biga Sevkiyatı</Button><Button variant="outline" onClick={() => setReceiptOpen(true)}><ArrowDownToLine />İrsaliye ile Stok Girişi</Button><Button onClick={() => setCatalogOpen(true)}><Plus />Yeni Malzeme</Button></div>}</div>
+
+    <MaterialRequestsManager initialRequests={initialRequests} catalogs={catalogs} readOnly={readOnly} onChanged={async () => { const repository = new InventoryRepository(createClient()); await reload(repository); }} />
 
     <section className="space-y-4">
       <div className="flex flex-wrap gap-3" aria-label="Stok konumu">{([{ value: "all", label: "Tüm Katalog", color: "bg-zinc-700" }, { value: "center", label: "Merkez Depo", color: "bg-emerald-600" }, { value: "biga", label: "Biga Deposu", color: "bg-blue-600" }] as const).map((item) => <button key={item.value} type="button" onClick={() => setStockView(item.value)} className={`flex h-16 w-16 items-center justify-center rounded-full px-2 text-center text-[11px] font-semibold leading-tight text-white shadow-sm transition-transform hover:-translate-y-0.5 ${item.color} ${stockView === item.value ? "ring-2 ring-ring ring-offset-2" : "opacity-75"}`}>{item.label}</button>)}</div>
