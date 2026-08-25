@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Loader2, Pencil, Plus, StickyNote, Trash2, X } from "lucide-react";
+import { Check, FileDown, Loader2, Pencil, Plus, StickyNote, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { NotesRepository } from "@/modules/notes/notes-repository";
@@ -9,6 +9,7 @@ import type { SharedNote } from "@/types/note";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { downloadNotesPdf } from "@/lib/notes-pdf";
 
 function today() {
   const date = new Date();
@@ -34,6 +35,7 @@ export function QuickNotesPanel({
   const [noteDate, setNoteDate] = useState(today());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -93,6 +95,18 @@ export function QuickNotesPanel({
     setNoteDate(today());
   }
 
+  async function downloadPdf() {
+    setPdfLoading(true);
+    try {
+      await downloadNotesPdf(notes);
+      toast.success("Notlar A4 PDF olarak indirildi");
+    } catch (error) {
+      toast.error("PDF oluşturulamadı", { description: (error as Error)?.message });
+    } finally {
+      setPdfLoading(false);
+    }
+  }
+
   async function removeNote(noteId: string) {
     if (!window.confirm("Bu not silinsin mi?")) return;
     try {
@@ -113,9 +127,14 @@ export function QuickNotesPanel({
               <StickyNote className="h-4 w-4 text-primary" />
               <h2 className="font-semibold">Notlar</h2>
             </div>
-            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setOpen(false)} aria-label="Notları kapat">
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button type="button" variant="ghost" size="icon" className="h-8 w-8" disabled={!notes.length || pdfLoading} onClick={() => void downloadPdf()} aria-label="Notları A4 PDF indir" title="A4 PDF indir">
+                {pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+              </Button>
+              <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setOpen(false)} aria-label="Notları kapat">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </header>
 
           <form onSubmit={createNote} className="grid grid-cols-[minmax(0,1fr)_120px_36px] items-end gap-2 border-b p-3">
