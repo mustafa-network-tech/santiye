@@ -49,7 +49,7 @@ export function parseProjectSearchParams(
       (get("stage") as ProjectAnalysisStage | undefined) ??
       defaults?.analysisStage,
     archiveScope:
-      (get("scope") as "active" | "archived" | "all" | undefined) ??
+      (get("scope") as "active" | "archived" | "cancelled" | "all" | undefined) ??
       defaults?.archiveScope ??
       "active",
     page: Number.isFinite(page) && page > 0 ? page : 1,

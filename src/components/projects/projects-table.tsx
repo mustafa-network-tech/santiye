@@ -9,7 +9,7 @@ import {
   useReactTable,
   type ColumnDef,
 } from "@tanstack/react-table";
-import { Archive, ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
+import { Archive, Ban, ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
 import type { PaginatedResult, Project } from "@/types/project";
 import {
   DEFAULT_PAGE_SIZE,
@@ -39,7 +39,7 @@ type Props = {
   locations: string[];
   typeLabels: Record<string, string>;
   showCreate?: boolean;
-  defaultArchiveScope?: "active" | "archived" | "all";
+  defaultArchiveScope?: "active" | "archived" | "cancelled" | "all";
   allowArchiveScopeFilter?: boolean;
   showInlineEdit?: boolean;
   exportProjects?: Project[];
@@ -197,6 +197,12 @@ export function ProjectsTable({
                 Arşiv
               </Link>
             </Button>
+            <Button asChild variant="outline">
+              <Link href="/cancelled-projects">
+                <Ban className="h-4 w-4" />
+                İptal Alanı
+              </Link>
+            </Button>
             <Button asChild>
               <Link href="/projects/new">
                 <Plus className="h-4 w-4" />
@@ -293,6 +299,7 @@ export function ProjectsTable({
                 <SelectContent>
                   <SelectItem value="active">Aktif</SelectItem>
                   <SelectItem value="archived">Arşiv</SelectItem>
+                  <SelectItem value="cancelled">İptal</SelectItem>
                   <SelectItem value="all">Aktif + Arşiv</SelectItem>
                 </SelectContent>
               </Select>

@@ -34,6 +34,10 @@ export type Project = {
   progress_notes: string | null;
   is_archived: boolean;
   archived_at: string | null;
+  is_cancelled: boolean;
+  cancellation_reason: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -54,6 +58,12 @@ export type Project = {
   completed_by_name: string | null;
   current_team_leader_personnel_id: string | null;
   current_team_leader_name: string | null;
+  cancellation_history?: Array<{
+    id: string;
+    reason: string;
+    cancelled_at: string;
+    reactivated_at: string | null;
+  }>;
 };
 
 export type ProjectInsert = {
@@ -187,7 +197,7 @@ export type ProjectFilters = {
   cableStatus?: TrackingFilter;
   excavationStatus?: ExcavationTrackingFilter;
   analysisStage?: ProjectAnalysisStage;
-  archiveScope?: "active" | "archived" | "all";
+  archiveScope?: "active" | "archived" | "cancelled" | "all";
   page?: number;
   pageSize?: number;
   sortBy?: "updated_at" | "created_at" | "name" | "project_code" | "status";

@@ -74,6 +74,7 @@ export class DashboardRepository {
       .from("projects")
       .select("*")
       .eq("is_archived", false)
+      .eq("is_cancelled", false)
       .order("updated_at", { ascending: false })
       .limit(limit);
 
@@ -86,6 +87,7 @@ export class DashboardRepository {
       .from("projects")
       .select("*")
       .eq("is_archived", false)
+      .eq("is_cancelled", false)
       .order("created_at", { ascending: false })
       .limit(limit);
 

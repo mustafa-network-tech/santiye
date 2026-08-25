@@ -41,9 +41,13 @@ export class ProjectRepository {
 
     const scope = filters.archiveScope ?? "active";
     if (scope === "active") {
-      query = query.eq("is_archived", false);
+      query = query.eq("is_archived", false).eq("is_cancelled", false);
     } else if (scope === "archived") {
-      query = query.eq("is_archived", true);
+      query = query.eq("is_archived", true).eq("is_cancelled", false);
+    } else if (scope === "cancelled") {
+      query = query.eq("is_cancelled", true);
+    } else {
+      query = query.eq("is_cancelled", false);
     }
 
     if (filters.analysisStage) {
@@ -157,6 +161,7 @@ export class ProjectRepository {
         `project_code.ilike.%${term}%`,
         `name.ilike.%${term}%`,
       ];
+      if (scope === "cancelled") searchParts.push(`cancellation_reason.ilike.%${term}%`);
       if (sheetProjectIds.length) searchParts.push(`id.in.(${sheetProjectIds.join(",")})`);
       query = query.or(searchParts.join(","));
     }
@@ -210,7 +215,7 @@ export class ProjectRepository {
   async getById(id: string): Promise<Project | null> {
     const { data, error } = await this.supabase
       .from("projects")
-      .select("*")
+      .select("*, cancellation_history:project_cancellation_history(id,reason,cancelled_at,reactivated_at)")
       .eq("id", id)
       .maybeSingle();
 
@@ -454,17 +459,21 @@ export class ProjectRepository {
     return (data ?? []) as Project[];
   }
 
-  async reactivate(id: string, userId: string): Promise<Project> {
-    return this.updateWithStageDate(id, {
-      is_archived: false,
-      archived_at: null,
-      status: "in_progress",
-      tracks_joint: true,
-      joint_done: false,
-      completed_at: null,
-      stage_date: new Date().toISOString().slice(0, 10),
-      updated_by: userId,
+  async reactivate(id: string): Promise<Project> {
+    const { data, error } = await this.supabase.rpc("reactivate_cancelled_project", {
+      p_project_id: id,
     });
+    if (error) throw error;
+    return data as Project;
+  }
+
+  async cancel(id: string, reason: string): Promise<Project> {
+    const { data, error } = await this.supabase.rpc("cancel_project", {
+      p_project_id: id,
+      p_reason: reason,
+    });
+    if (error) throw error;
+    return data as Project;
   }
 
   async delete(id: string): Promise<void> {

@@ -27,10 +27,10 @@ export default async function EditProjectPage({ params }: Props) {
 
   if (!project) notFound();
 
-  if (project.is_archived) {
+  if (project.is_archived || project.is_cancelled) {
     return (
       <div className="rounded-2xl border bg-card p-8 text-sm text-muted-foreground">
-        Arşivdeki projeler düzenlenemez. Önce tekrar aktif edin.
+        {project.is_cancelled ? "İptal edilen projeler düzenlenemez." : "Arşivdeki projeler düzenlenemez. Önce tekrar aktif edin."}
       </div>
     );
   }

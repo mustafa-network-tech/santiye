@@ -19,6 +19,7 @@ import {
   X,
   ChevronDown,
   Hammer,
+  Ban,
 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -45,6 +46,13 @@ const NAV_ITEMS = [
     href: "/projects",
     label: "Projeler",
     icon: FolderKanban,
+    accounting: false,
+    group: "OPERASYON",
+  },
+  {
+    href: "/cancelled-projects",
+    label: "İptal Projeler",
+    icon: Ban,
     accounting: false,
     group: "OPERASYON",
   },

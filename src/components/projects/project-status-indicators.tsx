@@ -12,6 +12,10 @@ type Props = {
 };
 
 export function ProjectStatusIndicators({ project }: Props) {
+  if (project.is_cancelled) {
+    return <Badge className="bg-rose-600 text-white hover:bg-rose-600">İptal Edildi</Badge>;
+  }
+
   const isOngoing = isOngoingProjectStatus(project.status);
 
   if (!isOngoing) {

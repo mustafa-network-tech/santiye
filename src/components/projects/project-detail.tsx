@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArchiveRestore, Loader2, Pencil, Trash2 } from "lucide-react";
+import { ArchiveRestore, Ban, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Project, ProjectSheet, ProjectCabinet } from "@/types/project";
 import type { Personnel } from "@/types/work-plan";
@@ -23,6 +23,9 @@ import { ProjectRepository } from "@/modules/projects/project-repository";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProjectStatusIndicators } from "@/components/projects/project-status-indicators";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 type Props = {
   project: Project;
@@ -36,26 +39,39 @@ type Props = {
 export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets, readOnly = false }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState("");
   const isBfOrGf = isBfOrGfProject(project.project_type);
   const isHpFocused = project.project_type === "HP_ODAKLI";
   const tracksObk = isBfOrGf && project.tracks_obk;
   const isOngoing = isOngoingProjectStatus(project.status);
+  const canCancel = !project.is_archived && !project.is_cancelled && (project.status === "waiting" || project.status === "in_progress");
+  const progressCount = sheets.reduce((total, sheet) => total + sheet.progress.length, 0) + cabinets.reduce((total, cabinet) => total + cabinet.progress.length, 0);
+
+  async function handleCancel() {
+    if (cancellationReason.trim().length < 3) {
+      toast.error("İptal sebebi en az 3 karakter olmalıdır");
+      return;
+    }
+    setLoading(true);
+    try {
+      await new ProjectRepository(createClient()).cancel(project.id, cancellationReason);
+      toast.success("Proje iptal alanına taşındı");
+      router.push(`/projects/${project.id}`);
+      router.refresh();
+      setCancelOpen(false);
+    } catch (error) {
+      toast.error("Proje iptal edilemedi", { description: (error as Error).message });
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleReactivate() {
     setLoading(true);
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      toast.error("Oturum bulunamadı");
-      setLoading(false);
-      return;
-    }
-
     try {
-      await new ProjectRepository(supabase).reactivate(project.id, user.id);
+      await new ProjectRepository(supabase).reactivate(project.id);
       toast.success("Proje tekrar aktif edildi");
       router.push(`/projects/${project.id}`);
       router.refresh();
@@ -122,6 +138,12 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
         : "Hayır",
     },
     { label: "Bitiren Ekip Başı", value: project.completed_by_name ?? "—" },
+    ...(project.is_cancelled
+      ? [
+          { label: "İptal Tarihi", value: formatDateTime(project.cancelled_at) },
+          { label: "İptal Sebebi", value: project.cancellation_reason ?? "—" },
+        ]
+      : []),
     ...(project.status === "in_progress"
       ? [{ label: "Mevcut Ekip Başı", value: project.current_team_leader_name ?? "—" }]
       : []),
@@ -146,7 +168,7 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
           <ProjectStatusIndicators project={project} />
         </div>
         <div className="flex flex-wrap gap-2">
-          {!readOnly && !project.is_archived && (
+          {!readOnly && !project.is_archived && !project.is_cancelled && (
             <Button asChild variant="outline">
               <Link href={`/projects/${project.id}/edit`}>
                 <Pencil className="h-4 w-4" />
@@ -154,7 +176,7 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
               </Link>
             </Button>
           )}
-          {!readOnly && project.is_archived && (
+          {!readOnly && project.is_cancelled && !project.is_archived && (
             <Button onClick={handleReactivate} disabled={loading}>
               {loading ? (
                 <Loader2 className="animate-spin" />
@@ -162,6 +184,12 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
                 <ArchiveRestore className="h-4 w-4" />
               )}
               Tekrar Aktif Et
+            </Button>
+          )}
+          {!readOnly && canCancel && (
+            <Button variant="destructive" onClick={() => setCancelOpen(true)} disabled={loading}>
+              <Ban className="h-4 w-4" />
+              Projeyi İptal Et
             </Button>
           )}
           {!readOnly && (
@@ -172,6 +200,10 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
           )}
         </div>
       </div>
+
+      {project.is_cancelled && <Card className="border-rose-300 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/30"><CardHeader><CardTitle className="text-base text-rose-700 dark:text-rose-300">İptal Bilgileri</CardTitle></CardHeader><CardContent className="space-y-3 text-sm"><div><span className="font-medium">İptal sebebi:</span> <span className="whitespace-pre-wrap">{project.cancellation_reason}</span></div><div><span className="font-medium">İptal tarihi:</span> {formatDateTime(project.cancelled_at)}</div><div><span className="font-medium">İptal öncesi ekip:</span> {project.current_team_leader_name || "Ekip ataması bulunmuyor"}</div><div><span className="font-medium">Kayıtlı işlem:</span> {progressCount > 0 ? `${progressCount} ilerleme kaydı korunuyor` : "İlerleme kaydı bulunmuyor"}</div></CardContent></Card>}
+
+      {Boolean(project.cancellation_history?.length) && <Card><CardHeader><CardTitle className="text-base">İptal Geçmişi</CardTitle></CardHeader><CardContent className="space-y-3">{[...(project.cancellation_history ?? [])].sort((a, b) => b.cancelled_at.localeCompare(a.cancelled_at)).map((history) => <div key={history.id} className="rounded-lg border p-4 text-sm"><p className="whitespace-pre-wrap"><span className="font-medium">İptal sebebi:</span> {history.reason}</p><div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground"><span>İptal edildi: {formatDateTime(history.cancelled_at)}</span><span>{history.reactivated_at ? `Yeniden aktif edildi: ${formatDateTime(history.reactivated_at)}` : "Proje halen iptal durumunda"}</span></div></div>)}</CardContent></Card>}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -234,7 +266,7 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
         </CardContent>
       </Card>}
 
-      {project.project_type === "BGFD" ? <BgfdCabinetProgress project={project} cabinets={cabinets} personnel={personnel} readOnly={readOnly || project.is_archived}/> : project.project_type === "HP_ODAKLI" ? <HpFocusedSheetManager project={project} sheets={sheets} personnel={personnel} readOnly={readOnly || project.is_archived}/> : isCorporateStyleProject(project.project_type) ? null : <ProjectSheetProgress project={project} sheets={sheets} personnel={personnel} readOnly={readOnly || project.is_archived} />}
+      {project.project_type === "BGFD" ? <BgfdCabinetProgress project={project} cabinets={cabinets} personnel={personnel} readOnly={readOnly || project.is_archived || project.is_cancelled}/> : project.project_type === "HP_ODAKLI" ? <HpFocusedSheetManager project={project} sheets={sheets} personnel={personnel} readOnly={readOnly || project.is_archived || project.is_cancelled}/> : isCorporateStyleProject(project.project_type) ? null : <ProjectSheetProgress project={project} sheets={sheets} personnel={personnel} readOnly={readOnly || project.is_archived || project.is_cancelled} />}
 
       {project.project_type !== "BGFD" && project.project_type !== "HP_ODAKLI" && (isBfOrGf ||
         isOngoing ||
@@ -292,6 +324,8 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}><DialogContent><DialogHeader><DialogTitle>Projeyi İptal Et</DialogTitle></DialogHeader><div className="space-y-4"><p className="text-sm text-muted-foreground">{project.project_code} · {project.name} aktif ve arşiv listelerinden kaldırılarak İptal Alanı&apos;na taşınacak. Geçmiş ekip ve işlem kayıtları korunacak.</p><div className="space-y-2"><Label htmlFor="cancellation-reason">İptal Sebebi</Label><Textarea id="cancellation-reason" value={cancellationReason} onChange={(event) => setCancellationReason(event.target.value)} placeholder="Projenin neden iptal edildiğini yazın..." rows={4} /></div><div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setCancelOpen(false)}>Vazgeç</Button><Button variant="destructive" disabled={loading || cancellationReason.trim().length < 3} onClick={handleCancel}>{loading && <Loader2 className="animate-spin" />}İptal Et</Button></div></div></DialogContent></Dialog>
     </div>
   );
 }
