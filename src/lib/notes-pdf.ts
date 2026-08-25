@@ -17,6 +17,7 @@ export async function downloadNotesPdf(notes: SharedNote[]) {
 
   try {
     await document.fonts.ready;
+    await nextPaint();
     const imageUrl = await toPng(root, { backgroundColor: "#ffffff", pixelRatio: 2, cacheBust: true });
     const image = await loadImage(imageUrl);
     const availableWidth = A4_WIDTH_MM - MARGIN_MM * 2;
@@ -38,9 +39,11 @@ export async function downloadNotesPdf(notes: SharedNote[]) {
 function buildNotesDom(notes: SharedNote[]) {
   const root = document.createElement("section");
   Object.assign(root.style, {
-    position: "fixed",
-    left: "-10000px",
+    position: "absolute",
+    left: "0",
     top: "0",
+    zIndex: "-9999",
+    pointerEvents: "none",
     width: `${RENDER_WIDTH_PX}px`,
     boxSizing: "border-box",
     padding: "34px",
@@ -94,5 +97,11 @@ function loadImage(url: string) {
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error("Notlar PDF görseli hazırlanamadı"));
     image.src = url;
+  });
+}
+
+function nextPaint() {
+  return new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
   });
 }
