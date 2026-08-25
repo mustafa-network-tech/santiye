@@ -33,6 +33,7 @@ import type { PermissionModule, UserProfile, UserRole } from "@/types/auth";
 import { USER_ROLE_LABELS } from "@/types/auth";
 import type { SharedNote } from "@/types/note";
 import { QuickNotesPanel } from "@/components/notes/quick-notes-panel";
+import { PrivateNotesPanel } from "@/components/notes/private-notes-panel";
 
 const NAV_ITEMS = [
   {
@@ -432,6 +433,7 @@ export function AppShell({
         </div>
       </div>
       <QuickNotesPanel initialNotes={notes} currentUserId={profile.id} />
+      <PrivateNotesPanel />
     </div>
   );
 }
