@@ -140,7 +140,7 @@ async function createProductionFiles(entries: ProductionEntry[], dateLabel: stri
       y += TEAM_GAP_MM;
     }
 
-    const pdfFile = new File([pdf.output("blob")], `AZG-Gunluk-Imalat-${fileSuffix}.pdf`, { type: "application/pdf" });
+    const pdfFile = new File([pdf.output("blob")], `AZG-MERKEZ-IMALAT-(${fileSuffix}).pdf`, { type: "application/pdf" });
     return { pdf: pdfFile };
   } finally {
     root.remove();
