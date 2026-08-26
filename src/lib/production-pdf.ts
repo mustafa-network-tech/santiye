@@ -97,6 +97,9 @@ async function createProductionFiles(entries: ProductionEntry[], dateLabel: stri
       if (heightMm <= freshPageAvailable) {
         if (heightMm > available) addPage();
         pdf.addImage(image.url, "PNG", MARGIN_MM, y, CONTENT_WIDTH_MM, heightMm, undefined, "FAST");
+        pdf.setDrawColor(31, 41, 55);
+        pdf.setLineWidth(0.25);
+        pdf.line(MARGIN_MM, y + heightMm, MARGIN_MM + CONTENT_WIDTH_MM, y + heightMm);
         y += heightMm + TEAM_GAP_MM;
         continue;
       }
