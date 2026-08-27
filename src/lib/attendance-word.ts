@@ -83,11 +83,6 @@ export async function downloadMonthlyAttendanceWord(options: {
     "Sıra No",
     "Ad Soyad",
     "TC Kimlik No",
-    "Çalıştığı Gün",
-    "İzinli Gün",
-    "Raporlu Gün",
-    "Hafta Tatili",
-    "Mazeretsiz Gelmedi",
     "Toplam Hak Edilen Gün",
   ];
   const cell = (
@@ -124,22 +119,50 @@ export async function downloadMonthlyAttendanceWord(options: {
         })
     ),
   });
-  const rows = options.personnel.map((person, index) => {
-    const totals = countAttendanceRecords(person.records);
-    return new TableRow({
+  const rows = options.personnel.map((person, index) =>
+    new TableRow({
       cantSplit: true,
       children: [
         cell(index + 1),
         cell(person.fullName, AlignmentType.LEFT),
         cell(maskTcIdentityNumber(person.tcIdentityNumber)),
-        cell(totals.worked),
-        cell(totals.leave),
-        cell(totals.medical_report),
-        cell(totals.weekly_rest),
-        cell(totals.unexcused_absence),
         cell(countPayableDays(person.records), AlignmentType.CENTER, true),
       ],
-    });
+    })
+  );
+  const noteItems = options.notes
+    ?.split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean) ?? [];
+  const noteTable = new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    layout: TableLayoutType.FIXED,
+    borders,
+    rows: [
+      new TableRow({
+        cantSplit: true,
+        children: [
+          new TableCell({
+            margins: { top: 110, bottom: 110, left: 120, right: 120 },
+            children: [
+              new Paragraph({
+                spacing: { after: noteItems.length ? 80 : 0 },
+                children: [new TextRun({ text: "NOT", bold: true, size: 18 })],
+              }),
+              ...(noteItems.length
+                ? noteItems.map(
+                    (item) =>
+                      new Paragraph({
+                        spacing: { after: 40 },
+                        children: [new TextRun({ text: item, size: 17 })],
+                      })
+                  )
+                : [new Paragraph({ children: [new TextRun({ text: " ", size: 17 })] })]),
+            ],
+          }),
+        ],
+      }),
+    ],
   });
   const monthName = MONTH_NAMES[options.month - 1].toLocaleUpperCase("tr-TR");
   const document = new Document({
@@ -172,9 +195,8 @@ export async function downloadMonthlyAttendanceWord(options: {
           new Paragraph({ children: [new TextRun({ text: `Dönem: ${getPeriod(options.year, options.month)}`, bold: true })] }),
           new Paragraph({ children: [new TextRun({ text: `Rapor Tarihi: ${formatReportDate()}` })] }),
           new Paragraph({ spacing: { after: 220 }, children: [new TextRun({ text: `Toplam Personel: ${options.personnel.length}` })] }),
-          ...(options.notes?.trim()
-            ? [new Paragraph({ spacing: { after: 220 }, children: [new TextRun({ text: `Açıklama: ${options.notes.trim()}`, bold: true })] })]
-            : []),
+          noteTable,
+          new Paragraph({ spacing: { after: 100 } }),
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             layout: TableLayoutType.FIXED,
