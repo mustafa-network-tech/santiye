@@ -215,7 +215,7 @@ function buildPdfDom(entries: ProductionEntry[], dateLabel: string) {
     team.dataset.teamName = entry.team_leader_name_snapshot;
     Object.assign(team.style, { marginTop: "20px", border: "1px solid #111827", background: "#ffffff", boxSizing: "border-box" });
     const teamTitle = document.createElement("div");
-    teamTitle.textContent = `EKİP ADI: ${entry.team_leader_name_snapshot}`;
+    teamTitle.textContent = `TARİH: ${formatPdfDate(entry.work_date)}  ·  EKİP ADI: ${entry.team_leader_name_snapshot}`;
     Object.assign(teamTitle.style, { padding: "10px 14px", borderBottom: "2px solid #111827", background: "#f1f5f9", fontWeight: "700" });
     team.appendChild(teamTitle);
     const jobs = document.createElement("div");
