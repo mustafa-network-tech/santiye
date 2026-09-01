@@ -18,6 +18,33 @@ const EXCEL_STATUSES = [
   "weekly_rest",
 ] as const satisfies readonly AttendanceStatus[];
 
+const NOTE_CHARACTERS_PER_LINE = 140;
+const NOTE_LINES_PER_ROW = 12;
+
+function wrapNoteLines(value: string) {
+  const lines: string[] = [];
+  for (const paragraph of value.replace(/\r\n/g, "\n").split("\n")) {
+    const words = paragraph.trim().split(/\s+/).filter(Boolean);
+    if (!words.length) {
+      lines.push("");
+      continue;
+    }
+    let line = "";
+    for (const word of words) {
+      if (!line) {
+        line = word;
+      } else if (`${line} ${word}`.length <= NOTE_CHARACTERS_PER_LINE) {
+        line += ` ${word}`;
+      } else {
+        lines.push(line);
+        line = word;
+      }
+    }
+    if (line) lines.push(line);
+  }
+  return lines;
+}
+
 export function maskTcIdentityNumber(value: string | null | undefined) {
   if (!value) return "";
   return `${value.slice(0, 3)}******${value.slice(-2)}`;
@@ -109,14 +136,27 @@ export async function downloadAttendanceSummaryExcel(options: {
     from: "A1",
     to: `${worksheet.getColumn(worksheet.columnCount).letter}1`,
   };
+  worksheet.pageSetup = {
+    orientation: "landscape",
+    paperSize: 9,
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 0,
+    horizontalCentered: true,
+    margins: { left: 0.25, right: 0.25, top: 0.4, bottom: 0.4, header: 0.15, footer: 0.15 },
+  };
 
   if (options.notes?.trim()) {
-    const noteRow = worksheet.addRow([]);
-    noteRow.getCell(1).value = `Açıklama: ${options.notes.trim()}`;
-    worksheet.mergeCells(noteRow.number, 1, noteRow.number, worksheet.columnCount);
-    noteRow.getCell(1).alignment = { vertical: "top", horizontal: "left", wrapText: true };
-    noteRow.getCell(1).font = { italic: true };
-    noteRow.height = 36;
+    const noteLines = wrapNoteLines(options.notes.trim());
+    for (let index = 0; index < noteLines.length; index += NOTE_LINES_PER_ROW) {
+      const chunk = noteLines.slice(index, index + NOTE_LINES_PER_ROW);
+      const noteRow = worksheet.addRow([]);
+      noteRow.getCell(1).value = `${index === 0 ? "Açıklama: " : ""}${chunk.join("\n")}`;
+      worksheet.mergeCells(noteRow.number, 1, noteRow.number, worksheet.columnCount);
+      noteRow.getCell(1).alignment = { vertical: "top", horizontal: "left", wrapText: true, shrinkToFit: false };
+      noteRow.getCell(1).font = { italic: true, size: 10 };
+      noteRow.height = Math.max(30, chunk.length * 15 + 10);
+    }
   }
 
   const buffer = await workbook.xlsx.writeBuffer();
