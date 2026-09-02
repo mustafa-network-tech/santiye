@@ -18,6 +18,7 @@ import {
   isCorporateStyleProject,
 } from "@/lib/constants/project";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import { getDisplayImageUrl } from "@/lib/project-image-url";
 import { createClient } from "@/lib/supabase/client";
 import { ProjectRepository } from "@/modules/projects/project-repository";
 import { Button } from "@/components/ui/button";
@@ -279,7 +280,7 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
             <div className="flex min-h-48 items-center justify-center text-sm text-muted-foreground">Görsel yüklenemedi.</div>
           ) : project.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={project.image_url} alt={`${project.name} proje görseli`} loading="lazy" referrerPolicy="no-referrer" className="mx-auto block max-h-[78vh] max-w-full object-contain" onError={() => setImageLoadFailed(true)} />
+            <img src={getDisplayImageUrl(project.image_url)} alt={`${project.name} proje görseli`} loading="lazy" referrerPolicy="no-referrer" className="mx-auto block max-h-[78vh] max-w-full object-contain" onError={() => setImageLoadFailed(true)} />
           ) : null}
         </DialogContent>
       </Dialog>}
