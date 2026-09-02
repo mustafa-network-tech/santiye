@@ -197,12 +197,14 @@ export class ProjectRepository {
     const projectRows = data ?? [];
     const projectIdsOnPage = projectRows.map((project)=>project.id as string);
     const sheetNumbersByProject = new Map<string,string[]>();
-    if(projectIdsOnPage.length){const {data:sheetRows,error:sheetRowsError}=await this.supabase.from("project_sheets").select("project_id,sheet_no,name").in("project_id",projectIdsOnPage);if(sheetRowsError)throw sheetRowsError;for(const sheet of sheetRows??[]){const values=sheetNumbersByProject.get(sheet.project_id as string)??[];values.push((sheet.sheet_no||sheet.name) as string);sheetNumbersByProject.set(sheet.project_id as string,values);}}
+    const sheetSummariesByProject = new Map<string,Array<{id:string;sheet_no:string}>>();
+    if(projectIdsOnPage.length){const {data:sheetRows,error:sheetRowsError}=await this.supabase.from("project_sheets").select("id,project_id,sheet_no,name").in("project_id",projectIdsOnPage);if(sheetRowsError)throw sheetRowsError;for(const sheet of sheetRows??[]){const sheetNo=(sheet.sheet_no||sheet.name) as string;const values=sheetNumbersByProject.get(sheet.project_id as string)??[];values.push(sheetNo);sheetNumbersByProject.set(sheet.project_id as string,values);const summaries=sheetSummariesByProject.get(sheet.project_id as string)??[];summaries.push({id:sheet.id as string,sheet_no:sheetNo});sheetSummariesByProject.set(sheet.project_id as string,summaries);}}
 
     return {
       data: projectRows.map((project) => ({
         ...project,
         sheet_numbers: sheetNumbersByProject.get(project.id as string)??[],
+        sheet_summaries: sheetSummariesByProject.get(project.id as string)??[],
         matched_sheets: matchedSheetsByProject.get(project.id as string) ?? [],
       })) as Project[],
       total,

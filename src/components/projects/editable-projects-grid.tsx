@@ -5,7 +5,7 @@ import { FileSpreadsheet, MessageCircle } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import type { Project } from "@/types/project";
-import { formatDateTime } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 type Props = { projects: Project[]; exportProjects: Project[]; typeLabels: Record<string, string>; selectedTypeLabel?: string };
@@ -80,17 +80,17 @@ export function EditableProjectsGrid({ projects, exportProjects, typeLabels, sel
       const { Workbook } = await import("exceljs");
       const workbook = new Workbook();
       const worksheet = workbook.addWorksheet("Proje Takip");
-      worksheet.mergeCells("A1:G1");
+      worksheet.mergeCells("A1:H1");
       worksheet.getCell("A1").value = reportTitle;
       worksheet.getCell("A1").font = { bold: true, size: 16 };
       worksheet.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
       worksheet.getRow(1).height = 28;
-      worksheet.addRow(["Tür", "Proje Adı", "Proje ID", "Lokasyon", "Proje Özeti", "Not", "Son Güncelleme"]);
+      worksheet.addRow(["Tür", "Proje Adı", "Proje ID", "Alınma Tarihi", "Lokasyon", "Proje Özeti", "Not", "Son Güncelleme"]);
       exportProjects.forEach(project => {
-        const row = worksheet.addRow([typeLabels[project.project_type] ?? project.project_type, project.name, project.project_code, project.location || "—", summary(project), project.progress_notes || project.description || "—", formatDateTime(project.updated_at)]);
+        const row = worksheet.addRow([typeLabels[project.project_type] ?? project.project_type, project.name, project.project_code, formatDate(project.received_at), project.location || "—", summary(project), project.progress_notes || project.description || "—", formatDateTime(project.updated_at)]);
         if (project.status === "completed") row.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDDEBFF" } };
       });
-      worksheet.columns = [{ width: 22 }, { width: 32 }, { width: 20 }, { width: 24 }, { width: 32 }, { width: 42 }, { width: 22 }];
+      worksheet.columns = [{ width: 22 }, { width: 32 }, { width: 20 }, { width: 16 }, { width: 24 }, { width: 32 }, { width: 42 }, { width: 22 }];
       worksheet.getRow(2).font = { bold: true, color: { argb: "FFFFFFFF" } };
       worksheet.getRow(2).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A5F" } };
       worksheet.eachRow((row, rowNumber) => row.eachCell(cell => {
@@ -98,7 +98,7 @@ export function EditableProjectsGrid({ projects, exportProjects, typeLabels, sel
         cell.alignment = { vertical: "middle", wrapText: true, horizontal: rowNumber === 1 ? "center" : "left" };
       }));
       worksheet.views = [{ state: "frozen", ySplit: 2 }];
-      worksheet.autoFilter = { from: "A2", to: "G2" };
+      worksheet.autoFilter = { from: "A2", to: "H2" };
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([new Uint8Array(buffer)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = URL.createObjectURL(blob);
@@ -123,9 +123,9 @@ export function EditableProjectsGrid({ projects, exportProjects, typeLabels, sel
     </div>
     <div className="overflow-x-auto">
       <table className="w-full min-w-[1100px] text-sm">
-        <thead className="border-b bg-muted/40"><tr><Th>Tür</Th><Th>Proje Adı</Th><Th>Proje ID</Th><Th>Lokasyon</Th><Th>Proje Özeti</Th><Th>Not</Th><Th>Son Güncelleme</Th></tr></thead>
+        <thead className="border-b bg-muted/40"><tr><Th>Tür</Th><Th>Proje Adı</Th><Th>Proje ID</Th><Th>Alınma Tarihi</Th><Th>Lokasyon</Th><Th>Proje Özeti</Th><Th>Not</Th><Th>Son Güncelleme</Th></tr></thead>
         <tbody>{projects.map(project => <tr key={project.id} className={project.status === "completed" ? "border-b border-blue-300 bg-blue-50 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40" : "border-b hover:bg-accent/30"}>
-          <Td>{typeLabels[project.project_type] ?? project.project_type}</Td><Td><Link href={`/projects/${project.id}`} className="font-medium text-primary hover:underline">{project.name}</Link></Td><Td>{project.project_code}</Td><Td>{project.location || "—"}</Td><Td>{summary(project)}</Td><Td><div className="max-w-[280px] whitespace-pre-wrap">{project.progress_notes || project.description || "—"}</div></Td><Td>{formatDateTime(project.updated_at)}</Td>
+          <Td>{typeLabels[project.project_type] ?? project.project_type}</Td><Td><Link href={`/projects/${project.id}`} className="font-medium text-primary hover:underline">{project.name}</Link></Td><Td>{project.project_code}</Td><Td>{formatDate(project.received_at)}</Td><Td>{project.location || "—"}</Td><Td>{summary(project)}</Td><Td><div className="max-w-[280px] whitespace-pre-wrap">{project.progress_notes || project.description || "—"}</div></Td><Td>{formatDateTime(project.updated_at)}</Td>
         </tr>)}</tbody>
       </table>
       {!projects.length && <p className="p-10 text-center text-muted-foreground">Filtrelere uygun proje bulunamadı.</p>}
@@ -133,8 +133,8 @@ export function EditableProjectsGrid({ projects, exportProjects, typeLabels, sel
     <div ref={reportRef} className="fixed left-[-10000px] top-0 w-[1400px] bg-white p-8 text-black">
       <h1 className="mb-5 text-center text-2xl font-bold">{reportTitle}</h1>
       <table className="w-full table-fixed border-collapse text-[13px]">
-        <thead><tr className="bg-slate-200"><ReportTh>Tür</ReportTh><ReportTh>Proje Adı</ReportTh><ReportTh>Proje ID</ReportTh><ReportTh>Lokasyon</ReportTh><ReportTh>Proje Özeti</ReportTh><ReportTh>Not</ReportTh><ReportTh>Son Güncelleme</ReportTh></tr></thead>
-        <tbody>{exportProjects.map(project => <tr key={project.id} className={project.status === "completed" ? "bg-blue-100" : "bg-white"}><ReportTd>{typeLabels[project.project_type] ?? project.project_type}</ReportTd><ReportTd>{project.name}</ReportTd><ReportTd>{project.project_code}</ReportTd><ReportTd>{project.location || "—"}</ReportTd><ReportTd>{summary(project)}</ReportTd><ReportTd>{project.progress_notes || project.description || "—"}</ReportTd><ReportTd>{formatDateTime(project.updated_at)}</ReportTd></tr>)}</tbody>
+        <thead><tr className="bg-slate-200"><ReportTh>Tür</ReportTh><ReportTh>Proje Adı</ReportTh><ReportTh>Proje ID</ReportTh><ReportTh>Alınma Tarihi</ReportTh><ReportTh>Lokasyon</ReportTh><ReportTh>Proje Özeti</ReportTh><ReportTh>Not</ReportTh><ReportTh>Son Güncelleme</ReportTh></tr></thead>
+        <tbody>{exportProjects.map(project => <tr key={project.id} className={project.status === "completed" ? "bg-blue-100" : "bg-white"}><ReportTd>{typeLabels[project.project_type] ?? project.project_type}</ReportTd><ReportTd>{project.name}</ReportTd><ReportTd>{project.project_code}</ReportTd><ReportTd>{formatDate(project.received_at)}</ReportTd><ReportTd>{project.location || "—"}</ReportTd><ReportTd>{summary(project)}</ReportTd><ReportTd>{project.progress_notes || project.description || "—"}</ReportTd><ReportTd>{formatDateTime(project.updated_at)}</ReportTd></tr>)}</tbody>
       </table>
     </div>
   </>;

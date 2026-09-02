@@ -118,7 +118,7 @@ export function ProjectsTable({
         cell:({row})=>row.original.project_type==="HP_ODAKLI"?"—":row.original.location,
       },
       {
-        id:"sheet_numbers",header:"Paftalar",cell:({row})=>row.original.sheet_numbers?.join(", ")||"—",
+        id:"sheet_numbers",header:"Paftalar",cell:({row})=>row.original.sheet_summaries?.length?<div className="flex min-w-[150px] flex-wrap gap-1">{row.original.sheet_summaries.map(sheet=><Link key={sheet.id} href={`/projects/${row.original.id}?sheet=${sheet.id}`} className="rounded-md bg-muted px-2 py-1 text-xs font-medium text-primary hover:underline">{sheet.sheet_no}</Link>)}</div>:"—",
       },
       {
         id:"matched_sheet_addresses",header:"Eşleşen Pafta Adresi",cell:({row})=>row.original.matched_sheets?.length?<div className="min-w-[240px] space-y-1">{row.original.matched_sheets.map(sheet=><div key={sheet.id} className="rounded-lg border bg-muted/30 px-2 py-1.5"><p className="text-xs font-semibold">{sheet.sheet_no||"Pafta numarası yok"}</p><p className="text-xs text-muted-foreground">{sheet.address}</p><p className="text-[11px] text-primary">{row.original.project_code} · {row.original.name}</p></div>)}</div>:"—",

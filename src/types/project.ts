@@ -47,6 +47,7 @@ export type Project = {
   is_single_sheet: boolean;
   matching_team_leaders?: string[];
   sheet_numbers?: string[];
+  sheet_summaries?: Array<{ id: string; sheet_no: string }>;
   matched_sheets?: Array<{ id: string; sheet_no: string | null; address: string | null }>;
   progress_percent: number;
   project_date: string | null;

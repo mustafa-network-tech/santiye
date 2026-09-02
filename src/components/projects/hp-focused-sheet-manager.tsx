@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import type { HpSheetStatus,Project,ProjectSheet } from "@/types/project";
@@ -18,10 +18,12 @@ const statuses:{value:HpSheetStatus;label:string;order:number}[]=[
  {value:"in_progress",label:"Devam Ediyor",order:2},{value:"completed",label:"Bitti",order:3},
 ];
 export function HpFocusedSheetManager({project,sheets,personnel,readOnly}:{project:Project;sheets:ProjectSheet[];personnel:Personnel[];readOnly:boolean}){
- const router=useRouter(),[adding,setAdding]=useState(false);
+ const router=useRouter(),searchParams=useSearchParams(),[adding,setAdding]=useState(false);
  const sorted=[...sheets].sort((a,b)=>(statuses.find(s=>s.value===a.manual_status)?.order??0)-(statuses.find(s=>s.value===b.manual_status)?.order??0)||(a.sheet_no??a.name).localeCompare(b.sheet_no??b.name,"tr"));
+ const selectedSheetId=searchParams.get("sheet"),sheetOrderKey=sorted.map(sheet=>sheet.id).join(",");
  const totalHp=sheets.reduce((sum,sheet)=>sum+(sheet.hp_count??0),0),completedHp=sheets.reduce((sum,sheet)=>sum+(sheet.manual_status==="completed"?(sheet.hp_count??0):0),0);
  const totalSheets=sheets.length,completedSheets=sheets.filter(sheet=>sheet.manual_status==="completed").length,remainingSheets=Math.max(0,totalSheets-completedSheets);
+ useEffect(()=>{const index=sorted.findIndex(sheet=>sheet.id===selectedSheetId);if(index<0)return;const rows=document.querySelectorAll<HTMLDetailsElement>("details.group");const row=rows[index];if(row){row.open=true;row.scrollIntoView({behavior:"smooth",block:"center"});}},[selectedSheetId,sheetOrderKey]);
  async function addSheet(){const client=createClient(),{data:{user}}=await client.auth.getUser();const {error}=await client.from("project_sheets").insert({project_id:project.id,name:`Pafta ${sheets.length+1}`,sheet_no:`Pafta ${sheets.length+1}`,manual_status:"not_started",tracks_cable:false,tracks_joint:false,tracks_obk:false,tracks_excavation:false,created_by:user?.id});if(error)return toast.error("Pafta eklenemedi");setAdding(false);router.refresh()}
  return <Card><CardHeader><CardTitle className="flex items-center justify-between gap-3 text-base"><span>HP Odaklı Paftalar</span><span className="text-blue-600">%{project.progress_percent??0}</span></CardTitle></CardHeader><CardContent className="space-y-4">
   <div className="grid gap-3 sm:grid-cols-3"><HpSummary label="Toplam Pafta" value={totalSheets}/><HpSummary label="Biten Pafta" value={completedSheets} completed/><HpSummary label="Kalan Pafta" value={remainingSheets}/></div>
