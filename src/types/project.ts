@@ -14,6 +14,7 @@ export type Project = {
   location: string;
   team_name: string | null;
   description: string | null;
+  image_url: string | null;
   status: ProjectStatus;
   received_at: string | null;
   start_date: string | null;
@@ -73,6 +74,7 @@ export type ProjectInsert = {
   project_type: string;
   location: string;
   description?: string | null;
+  image_url?: string | null;
   received_at?: string | null;
   tracks_obk?: boolean;
   tracks_excavation?: boolean;
@@ -110,6 +112,7 @@ export type ProjectUpdate = {
   project_type?: string;
   location?: string;
   description?: string | null;
+  image_url?: string | null;
   received_at?: string | null;
   status?: ProjectStatus;
   waiting_at?: string | null;

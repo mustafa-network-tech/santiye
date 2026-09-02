@@ -236,6 +236,7 @@ export class ProjectRepository {
       project_type: payload.project_type,
       location: payload.location.trim(),
       description: emptyToNull(payload.description),
+      image_url: emptyToNull(payload.image_url),
       status: isCorporateStyleProject(payload.project_type) ? (payload.status ?? "waiting") : "waiting",
       received_at: receivedAt,
       waiting_at: receivedAt,
@@ -261,6 +262,16 @@ export class ProjectRepository {
         .rpc("create_hp_project_with_sheets", { p_project: insertPayload, p_sheets: payload.initial_sheets ?? [] })
         .single();
       if (hpProjectError) throw hpProjectError;
+      if (payload.image_url) {
+        const { data: updatedProject, error: imageUrlError } = await this.supabase
+          .from("projects")
+          .update({ image_url: payload.image_url.trim() })
+          .eq("id", (hpProject as Project).id)
+          .select("*")
+          .single();
+        if (imageUrlError) throw imageUrlError;
+        return updatedProject as Project;
+      }
       return hpProject as Project;
     }
 
@@ -356,6 +367,8 @@ export class ProjectRepository {
       updatePayload.location = payload.location.trim();
     if (payload.description !== undefined)
       updatePayload.description = emptyToNull(payload.description);
+    if (payload.image_url !== undefined)
+      updatePayload.image_url = emptyToNull(payload.image_url);
     if (payload.received_at !== undefined)
       updatePayload.received_at = emptyToNull(payload.received_at);
     if (payload.status !== undefined) updatePayload.status = payload.status;

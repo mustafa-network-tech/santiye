@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArchiveRestore, Ban, Loader2, Pencil, Trash2 } from "lucide-react";
+import { ArchiveRestore, Ban, Copy, Eye, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Project, ProjectSheet, ProjectCabinet } from "@/types/project";
 import type { Personnel } from "@/types/work-plan";
@@ -40,6 +40,8 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [imageOpen, setImageOpen] = useState(false);
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const [cancellationReason, setCancellationReason] = useState("");
   const isBfOrGf = isBfOrGfProject(project.project_type);
   const isHpFocused = project.project_type === "HP_ODAKLI";
@@ -47,6 +49,16 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
   const isOngoing = isOngoingProjectStatus(project.status);
   const canCancel = !project.is_archived && !project.is_cancelled && (project.status === "waiting" || project.status === "in_progress");
   const progressCount = sheets.reduce((total, sheet) => total + sheet.progress.length, 0) + cabinets.reduce((total, cabinet) => total + cabinet.progress.length, 0);
+
+  async function handleCopyImageUrl() {
+    if (!project.image_url) return;
+    try {
+      await navigator.clipboard.writeText(project.image_url);
+      toast.success("Görsel URL kopyalandı.");
+    } catch {
+      toast.error("Görsel URL kopyalanamadı.");
+    }
+  }
 
   async function handleCancel() {
     if (cancellationReason.trim().length < 3) {
@@ -235,6 +247,42 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Proje Görseli</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {project.image_url ? (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => { setImageLoadFailed(false); setImageOpen(true); }}>
+                <Eye className="h-4 w-4" />
+                Göster
+              </Button>
+              <Button variant="outline" onClick={handleCopyImageUrl}>
+                <Copy className="h-4 w-4" />
+                URL Kopyala
+              </Button>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Görsel URL eklenmemiş.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={imageOpen} onOpenChange={setImageOpen}>
+        <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] max-w-[90vw] overflow-y-auto p-4 sm:p-6 [&>button]:flex [&>button]:h-10 [&>button]:w-10 [&>button]:items-center [&>button]:justify-center">
+          <DialogHeader>
+            <DialogTitle>Proje Görseli</DialogTitle>
+          </DialogHeader>
+          {imageLoadFailed ? (
+            <div className="flex min-h-48 items-center justify-center text-sm text-muted-foreground">Görsel yüklenemedi.</div>
+          ) : project.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={project.image_url} alt={`${project.name} proje görseli`} loading="lazy" className="mx-auto block max-h-[78vh] max-w-full object-contain" onError={() => setImageLoadFailed(true)} />
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       {!isHpFocused && <Card>
         <CardHeader>

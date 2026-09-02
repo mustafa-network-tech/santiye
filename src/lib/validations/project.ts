@@ -2,6 +2,14 @@ import { z } from "zod";
 import { isCorporateStyleProject } from "@/lib/constants/project";
 
 const triState = z.enum(["unset", "true", "false"]);
+const optionalImageUrl = z
+  .string()
+  .trim()
+  .max(2048, "Görsel URL en fazla 2048 karakter olabilir")
+  .refine(
+    (value) => value === "" || /^https?:\/\//i.test(value),
+    "Görsel URL http:// veya https:// ile başlamalı"
+  );
 
 /** Yeni proje: yalnız alınan tarih */
 export const projectCreateSchema = z.object({
@@ -27,6 +35,7 @@ export const projectCreateSchema = z.object({
     .max(5000, "Açıklama en fazla 5000 karakter olabilir")
     .optional()
     .or(z.literal("")),
+  image_url: optionalImageUrl,
   received_at: z.string().min(1, "Alınan tarih zorunlu"),
   status: z.enum(["waiting", "in_progress", "excavation_permit_waiting", "completed"]),
   project_date: z.string().optional().or(z.literal("")),
@@ -94,6 +103,7 @@ export const projectEditSchema = z
       .max(5000, "Açıklama en fazla 5000 karakter olabilir")
       .optional()
       .or(z.literal("")),
+    image_url: optionalImageUrl,
     received_at: z.string(),
     status: z.enum([
       "waiting",

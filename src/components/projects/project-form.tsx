@@ -115,6 +115,7 @@ function CreateProjectForm({
       project_type: typeOptions[0]?.key ?? "HP_ODAKLI",
       location: typeOptions[0]?.key === "HP_ODAKLI" ? "Adres belirtilmedi" : "",
       description: "",
+      image_url: "",
       received_at: todayISODate(),
       status: "waiting",
       project_date: "",
@@ -190,6 +191,7 @@ function CreateProjectForm({
         project_type: values.project_type,
         location: values.project_type === "HP_ODAKLI" ? (hpSheets[0]?.address.trim() || "Adres belirtilmedi") : values.location,
         description: values.description || null,
+        image_url: values.image_url || null,
         received_at: values.received_at || todayISODate(),
         tracks_obk:
           isBfOrGfProject(values.project_type) && values.tracks_obk,
@@ -356,6 +358,14 @@ function CreateProjectForm({
             {projectType !== "BGFD" && !isHpFocused && !isCorporate && <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("is_single_sheet")} onChange={e=>form.setValue("is_single_sheet",e.target.checked)}/><span><span className="block text-sm font-medium">Proje tek paftadan oluşuyor</span><span className="block text-xs text-muted-foreground">Tek pafta otomatik oluşturulur ve alanları proje kartında gösterilir.</span></span></label>}
 
             <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="image_url">Görsel URL</Label>
+              <Input id="image_url" type="url" placeholder="https://..." {...form.register("image_url")} />
+              {form.formState.errors.image_url && (
+                <p className="text-xs text-destructive">{form.formState.errors.image_url.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
               <Label htmlFor="description">{isCorporate ? "Not" : "Açıklama"}</Label>
               <Textarea id="description" {...form.register("description")} />
             </div>
@@ -388,6 +398,7 @@ function EditProjectForm({
       project_type: project.project_type,
       location: project.location ?? "",
       description: project.description ?? "",
+      image_url: project.image_url ?? "",
       received_at: project.received_at ?? "",
       status: project.status,
       tracks_obk: project.tracks_obk ?? false,
@@ -443,6 +454,7 @@ function EditProjectForm({
         project_type: values.project_type,
         location: values.location,
         description: values.description || null,
+        image_url: values.image_url || null,
         received_at: values.received_at,
         tracks_cable: isCorporate ? undefined : false,
         cable_pulled: isCorporate ? undefined : null,
@@ -649,6 +661,14 @@ function EditProjectForm({
                 </div>
               </div>
             )}
+
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="image_url">Görsel URL</Label>
+              <Input id="image_url" type="url" placeholder="https://..." {...form.register("image_url")} />
+              {form.formState.errors.image_url && (
+                <p className="text-xs text-destructive">{form.formState.errors.image_url.message}</p>
+              )}
+            </div>
 
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="description">{isCorporate ? "Not" : "Genel Açıklama"}</Label>
