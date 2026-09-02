@@ -248,7 +248,7 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
         </Card>
       </div>
 
-      <Card>
+      {!isHpFocused && <Card>
         <CardHeader>
           <CardTitle className="text-base">Proje Görseli</CardTitle>
         </CardHeader>
@@ -268,9 +268,9 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
             <p className="text-sm text-muted-foreground">Görsel URL eklenmemiş.</p>
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
-      <Dialog open={imageOpen} onOpenChange={setImageOpen}>
+      {!isHpFocused && <Dialog open={imageOpen} onOpenChange={setImageOpen}>
         <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] max-w-[90vw] overflow-y-auto p-4 sm:p-6 [&>button]:flex [&>button]:h-10 [&>button]:w-10 [&>button]:items-center [&>button]:justify-center">
           <DialogHeader>
             <DialogTitle>Proje Görseli</DialogTitle>
@@ -279,10 +279,10 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
             <div className="flex min-h-48 items-center justify-center text-sm text-muted-foreground">Görsel yüklenemedi.</div>
           ) : project.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={project.image_url} alt={`${project.name} proje görseli`} loading="lazy" className="mx-auto block max-h-[78vh] max-w-full object-contain" onError={() => setImageLoadFailed(true)} />
+            <img src={project.image_url} alt={`${project.name} proje görseli`} loading="lazy" referrerPolicy="no-referrer" className="mx-auto block max-h-[78vh] max-w-full object-contain" onError={() => setImageLoadFailed(true)} />
           ) : null}
         </DialogContent>
-      </Dialog>
+      </Dialog>}
 
       {!isHpFocused && <Card>
         <CardHeader>

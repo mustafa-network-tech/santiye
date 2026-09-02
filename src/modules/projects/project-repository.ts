@@ -262,15 +262,14 @@ export class ProjectRepository {
         .rpc("create_hp_project_with_sheets", { p_project: insertPayload, p_sheets: payload.initial_sheets ?? [] })
         .single();
       if (hpProjectError) throw hpProjectError;
-      if (payload.image_url) {
-        const { data: updatedProject, error: imageUrlError } = await this.supabase
-          .from("projects")
-          .update({ image_url: payload.image_url.trim() })
-          .eq("id", (hpProject as Project).id)
-          .select("*")
-          .single();
+      for (const sheet of payload.initial_sheets ?? []) {
+        if (!sheet.image_url) continue;
+        const { error: imageUrlError } = await this.supabase
+          .from("project_sheets")
+          .update({ image_url: sheet.image_url.trim() })
+          .eq("project_id", (hpProject as Project).id)
+          .eq("sheet_no", sheet.sheet_no.trim());
         if (imageUrlError) throw imageUrlError;
-        return updatedProject as Project;
       }
       return hpProject as Project;
     }
