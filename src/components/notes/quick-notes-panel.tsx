@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, FileDown, Loader2, Pencil, Plus, StickyNote, Trash2, X } from "lucide-react";
+import { BellRing, Check, FileDown, Loader2, Pencil, Plus, StickyNote, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { NotesRepository } from "@/modules/notes/notes-repository";
@@ -31,6 +31,7 @@ export function QuickNotesPanel({
 }) {
   const [open, setOpen] = useState(false);
   const [notes, setNotes] = useState(initialNotes);
+  const [currentDate, setCurrentDate] = useState(today());
   const [title, setTitle] = useState("");
   const [noteDate, setNoteDate] = useState(today());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -44,6 +45,7 @@ export function QuickNotesPanel({
       const nextDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
       timer = setTimeout(async () => {
         try {
+          setCurrentDate(today());
           setNotes(await new NotesRepository(createClient()).list());
         } catch (error) {
           console.error("Tarihi geçen notlar temizlenemedi", error);
@@ -118,8 +120,40 @@ export function QuickNotesPanel({
     }
   }
 
+  const todaysNotes = notes.filter((note) => note.note_date === currentDate);
+
   return (
-    <div className="fixed bottom-4 right-4 z-50 print:hidden">
+    <>
+      {todaysNotes.length > 0 && (
+        <section
+          onClick={() => setOpen(true)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") setOpen(true);
+          }}
+          role="button"
+          tabIndex={0}
+          className="fixed right-4 top-16 z-40 w-[min(22rem,calc(100vw-2rem))] cursor-pointer overflow-hidden rounded-xl border border-amber-300 bg-amber-50/95 text-left shadow-lg backdrop-blur transition hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:border-amber-700 dark:bg-amber-950/95 md:top-4 print:hidden"
+          aria-label={`Bugüne ait ${todaysNotes.length} notu aç`}
+        >
+          <div className="flex items-center gap-2 border-b border-amber-200 px-3 py-2 text-amber-900 dark:border-amber-800 dark:text-amber-100">
+            <BellRing className="h-4 w-4 shrink-0" />
+            <span className="text-xs font-bold uppercase tracking-wide">Bugünün Notları</span>
+            <span className="ml-auto rounded-full bg-amber-200 px-1.5 py-0.5 text-[10px] font-bold dark:bg-amber-800">
+              {todaysNotes.length}
+            </span>
+          </div>
+          <ul className="max-h-40 space-y-1 overflow-y-auto px-3 py-2">
+            {todaysNotes.map((note) => (
+              <li key={note.id} className="flex gap-2 text-sm font-medium text-amber-950 dark:text-amber-50">
+                <span className="text-amber-600 dark:text-amber-400">•</span>
+                <span className="min-w-0 break-words">{note.title}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <div className="fixed bottom-4 right-4 z-50 print:hidden">
       {open && (
         <section className="mb-3 flex h-[50vh] w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl sm:h-[33.333vh] sm:min-h-[280px] sm:w-[25vw] sm:min-w-[320px] sm:max-w-[420px]">
           <header className="flex items-center justify-between border-b bg-muted/40 px-4 py-3">
@@ -186,6 +220,7 @@ export function QuickNotesPanel({
           <StickyNote className="h-5 w-5" />
         </Button>
       )}
-    </div>
+      </div>
+    </>
   );
 }
