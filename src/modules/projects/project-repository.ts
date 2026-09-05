@@ -178,6 +178,14 @@ export class ProjectRepository {
       (!filters.excavationStatus || filters.excavationStatus === "all") &&
       (filters.archiveScope ?? "active") === "active";
 
+    // Completion chronology must take precedence over type and manual priority,
+    // including filtered lists. Undated active projects retain their usual order.
+    if (scope !== "cancelled") {
+      query = query
+        .order("completed_at", { ascending: false, nullsFirst: false })
+        .order("archived_at", { ascending: false, nullsFirst: false });
+    }
+
     if (usesDefaultProjectListOrder) {
       query = query
         .order("project_type_sort_order", { ascending: true })
@@ -189,7 +197,10 @@ export class ProjectRepository {
     if (!usesDefaultProjectListOrder && filters.projectType && isCorporateStyleProject(filters.projectType)) {
       query = query.order("status_sort_order", { ascending: true });
     }
-    const { data, error, count } = await query.order(sortBy, { ascending }).range(from, to);
+    const { data, error, count } = await query
+      .order(sortBy, { ascending })
+      .order("id", { ascending: true })
+      .range(from, to);
 
     if (error) throw error;
 
