@@ -19,9 +19,7 @@ export async function downloadInventoryStockExcel(options: {
     { header: "Ebat", key: "size", width: 14 },
     { header: "Malzeme ID", key: "materialCode", width: 18 },
     { header: "Birim", key: "unit", width: 10 },
-    { header: "Merkez Depo", key: "center", width: 14 },
-    { header: "Biga Deposu", key: "biga", width: 14 },
-    { header: "Toplam", key: "total", width: 14 },
+    { header: "Merkez Depo Stok", key: "center", width: 18 },
   ];
 
   const unitLabel = (unit: InventoryCatalog["unit"]) => INVENTORY_UNITS.find((item) => item.value === unit)?.label ?? unit;
@@ -32,22 +30,21 @@ export async function downloadInventoryStockExcel(options: {
       .sort((a, b) => a.material_name.localeCompare(b.material_name, "tr"));
     for (const catalog of catalogs) {
       const base = { category: category.label, materialName: catalog.material_name, materialType: catalog.material_type ?? "", size: catalog.size ?? "" };
-      const lots = options.materials.filter((item) => item.catalog_id === catalog.id);
+      // Yalnızca Merkez Depo stoğu raporlanır; Biga'ya tamamen sevk edilmiş ID'ler listelenmez.
+      const lots = options.materials.filter((item) => item.catalog_id === catalog.id && Number(item.stock_quantity) > 0);
       if (!lots.length) {
-        worksheet.addRow({ sequence: ++sequence, ...base, materialCode: "", unit: unitLabel(catalog.unit), center: 0, biga: 0, total: 0 });
+        worksheet.addRow({ sequence: ++sequence, ...base, materialCode: "", unit: unitLabel(catalog.unit), center: 0 });
         continue;
       }
       for (const lot of lots) {
-        const center = Number(lot.stock_quantity);
-        const biga = Number(lot.biga_stock_quantity);
-        worksheet.addRow({ sequence: ++sequence, ...base, materialCode: lot.material_code ?? "", unit: unitLabel(lot.unit), center, biga, total: center + biga });
+        worksheet.addRow({ sequence: ++sequence, ...base, materialCode: lot.material_code ?? "", unit: unitLabel(lot.unit), center: Math.round(Number(lot.stock_quantity)) });
       }
     }
   }
 
   worksheet.getRow(1).font = { bold: true };
   worksheet.getColumn("materialCode").numFmt = "@";
-  for (const key of ["center", "biga", "total"]) worksheet.getColumn(key).numFmt = "#,##0.###";
+  worksheet.getColumn("center").numFmt = "0";
   worksheet.eachRow((row, rowNumber) => {
     row.height = rowNumber === 1 ? 28 : 20;
     row.eachCell({ includeEmpty: true }, (cell) => {
@@ -60,7 +57,7 @@ export async function downloadInventoryStockExcel(options: {
       };
     });
     if (rowNumber > 1) {
-      for (const key of ["sequence", "center", "biga", "total"]) row.getCell(key).alignment = { vertical: "middle", horizontal: "right" };
+      for (const key of ["sequence", "center"]) row.getCell(key).alignment = { vertical: "middle", horizontal: "right" };
     }
   });
   worksheet.views = [{ state: "frozen", ySplit: 1 }];
