@@ -4,6 +4,7 @@ export const INVENTORY_STOCK_CATEGORIES: { value: InventoryStockCategory; label:
   { value: "fiber_cable", label: "Fiber Kablo Malzeme" },
   { value: "copper_network", label: "Bakır Şebeke Malzeme" },
   { value: "fiber_accessory", label: "Fiber Ek Malzeme" },
+  { value: "underground", label: "Yeraltı Malzeme" },
 ];
 
 export function getInventoryStockCategoryLabel(category: InventoryStockCategory | null) {

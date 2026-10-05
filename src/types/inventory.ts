@@ -3,7 +3,7 @@ export type InventoryMovementType = "in" | "out";
 export type InventoryLocation = "center" | "biga";
 export type InventoryMovementAction = "in" | "usage" | "transfer";
 export type InventoryMaterialCategory = "stock" | "equipment";
-export type InventoryStockCategory = "fiber_accessory" | "fiber_cable" | "copper_network";
+export type InventoryStockCategory = "fiber_accessory" | "fiber_cable" | "copper_network" | "underground";
 
 export type InventoryMaterial = {
   id: string;

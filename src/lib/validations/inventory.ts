@@ -9,7 +9,7 @@ export const inventoryMaterialSchema = z
   .object({
     material_name: z.string().trim().min(2, "Malzeme cinsi zorunlu").max(150),
     material_code: z.string().trim().max(80).optional().or(z.literal("")),
-    stock_category: z.enum(["fiber_accessory", "fiber_cable", "copper_network"]),
+    stock_category: z.enum(["fiber_accessory", "fiber_cable", "copper_network", "underground"]),
     unit: z.enum(["piece", "meter", "kilogram"]),
     initial_quantity: quantity,
     receipt_date: z.string().date("Giriş tarihi zorunlu"),

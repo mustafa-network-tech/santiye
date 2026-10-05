@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDownToLine, ArrowUpFromLine, Loader2, Plus, Send, Trash2 } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, FileSpreadsheet, Loader2, Plus, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { InventoryCatalog, InventoryLocation, InventoryMaterial, InventoryReceipt, InventoryShipment, InventoryStockCategory, InventoryUnit } from "@/types/inventory";
 import type { Personnel } from "@/types/work-plan";
 import { INVENTORY_STOCK_CATEGORIES, INVENTORY_UNITS, formatInventoryQuantity, getInventoryStockCategoryLabel } from "@/lib/constants/inventory";
+import { downloadInventoryStockExcel } from "@/lib/inventory-excel";
 import { createClient } from "@/lib/supabase/client";
 import { InventoryRepository } from "@/modules/inventory/inventory-repository";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ type StockView = "all" | "center" | "biga";
 type Line = { material_id: string; quantity: string };
 type ReceiptLine = { catalog_id: string; material_code: string; unit: InventoryUnit; quantity: string };
 const today = () => new Date().toLocaleDateString("en-CA");
+const CATEGORY_COLORS = ["bg-cyan-700", "bg-amber-700", "bg-violet-700", "bg-stone-700"];
 
 export function InventoryManager({ initialMaterials, initialCatalogs, initialShipments, initialReceipts, initialRequests, personnel, readOnly = false }: {
   initialMaterials: InventoryMaterial[]; initialCatalogs: InventoryCatalog[]; initialMovements: unknown[]; initialShipments: InventoryShipment[]; initialReceipts: InventoryReceipt[]; initialRequests: InventoryRequest[]; personnel: Personnel[]; readOnly?: boolean;
@@ -37,6 +39,7 @@ export function InventoryManager({ initialMaterials, initialCatalogs, initialShi
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [shipmentOpen, setShipmentOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [movement, setMovement] = useState<{ material: InventoryMaterial; type: "in" | "out" } | null>(null);
   const [deleteCatalogTarget, setDeleteCatalogTarget] = useState<InventoryCatalog | null>(null);
   const [deleteMaterialTarget, setDeleteMaterialTarget] = useState<InventoryMaterial | null>(null);
@@ -50,7 +53,7 @@ export function InventoryManager({ initialMaterials, initialCatalogs, initialShi
       if (stockView === "biga" && !lots.some((item) => Number(item.biga_stock_quantity) > 0)) return false;
       return !query || [catalog.material_name, catalog.material_type ?? "", catalog.size ?? "", ...lots.map((item) => item.material_code ?? "")].some((value) => value.toLocaleLowerCase("tr-TR").includes(query));
     }).sort((a, b) => {
-      const order = ["fiber_cable", "copper_network", "fiber_accessory"];
+      const order = INVENTORY_STOCK_CATEGORIES.map((item) => item.value);
       const categoryOrder = order.indexOf(a.catalog.stock_category) - order.indexOf(b.catalog.stock_category);
       return categoryOrder || a.catalog.material_name.localeCompare(b.catalog.material_name, "tr");
     });
@@ -67,13 +70,13 @@ export function InventoryManager({ initialMaterials, initialCatalogs, initialShi
   }
 
   return <div className="space-y-6">
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><h1 className="text-3xl font-semibold">Malzeme Stok</h1><p className="mt-1 text-sm text-muted-foreground">Malzeme kataloğu, irsaliye girişleri ve şube stokları</p></div>{!readOnly && <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setShipmentOpen(true)}><Send />Biga Sevkiyatı</Button><Button variant="outline" onClick={() => setReceiptOpen(true)}><ArrowDownToLine />İrsaliye ile Stok Girişi</Button><Button onClick={() => setCatalogOpen(true)}><Plus />Yeni Malzeme</Button></div>}</div>
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><h1 className="text-3xl font-semibold">Malzeme Stok</h1><p className="mt-1 text-sm text-muted-foreground">Malzeme kataloğu, irsaliye girişleri ve şube stokları</p></div><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setExportOpen(true)}><FileSpreadsheet />Excel Çıktı</Button>{!readOnly && <><Button variant="outline" onClick={() => setShipmentOpen(true)}><Send />Biga Sevkiyatı</Button><Button variant="outline" onClick={() => setReceiptOpen(true)}><ArrowDownToLine />İrsaliye ile Stok Girişi</Button><Button onClick={() => setCatalogOpen(true)}><Plus />Yeni Malzeme</Button></>}</div></div>
 
     <MaterialRequestsManager initialRequests={initialRequests} catalogs={catalogs} readOnly={readOnly} onChanged={async () => { const repository = new InventoryRepository(createClient()); await reload(repository); }} />
 
     <section className="space-y-4">
       <div className="flex flex-wrap gap-3" aria-label="Stok konumu">{([{ value: "all", label: "Tüm Katalog", color: "bg-zinc-700" }, { value: "center", label: "Merkez Depo", color: "bg-emerald-600" }, { value: "biga", label: "Biga Deposu", color: "bg-blue-600" }] as const).map((item) => <button key={item.value} type="button" onClick={() => setStockView(item.value)} className={`flex h-16 w-16 items-center justify-center rounded-full px-2 text-center text-[11px] font-semibold leading-tight text-white shadow-sm transition-transform hover:-translate-y-0.5 ${item.color} ${stockView === item.value ? "ring-2 ring-ring ring-offset-2" : "opacity-75"}`}>{item.label}</button>)}</div>
-      <div className="flex flex-wrap gap-3" aria-label="Malzeme kategorileri">{INVENTORY_STOCK_CATEGORIES.map((item, index) => <button key={item.value} type="button" title={item.label} onClick={() => setCategory(item.value)} className={`flex h-14 w-14 items-center justify-center rounded-full px-1 text-center text-[10px] font-bold leading-tight text-white shadow-sm transition-transform hover:-translate-y-0.5 ${index === 0 ? "bg-cyan-700" : index === 1 ? "bg-amber-700" : "bg-violet-700"} ${category === item.value ? "ring-2 ring-ring ring-offset-2" : "opacity-75"}`}>{item.label.replace(" Malzeme", "")}</button>)}</div>
+      <div className="flex flex-wrap gap-3" aria-label="Malzeme kategorileri">{INVENTORY_STOCK_CATEGORIES.map((item, index) => <button key={item.value} type="button" title={item.label} onClick={() => setCategory(item.value)} className={`flex h-14 w-14 items-center justify-center rounded-full px-1 text-center text-[10px] font-bold leading-tight text-white shadow-sm transition-transform hover:-translate-y-0.5 ${CATEGORY_COLORS[index % CATEGORY_COLORS.length]} ${category === item.value ? "ring-2 ring-ring ring-offset-2" : "opacity-75"}`}>{item.label.replace(" Malzeme", "")}</button>)}</div>
       <div className="grid gap-3 sm:grid-cols-[240px_1fr]"><Select value={category} onValueChange={(value: InventoryStockCategory | "all") => setCategory(value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Tüm Kategoriler</SelectItem>{INVENTORY_STOCK_CATEGORIES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Malzeme adı, türü, ebatı veya ID ara..." /></div>
 
       <div className="overflow-x-auto border-y"><table className="w-full min-w-[950px] text-left text-sm"><thead><tr className="border-b bg-muted/50 text-muted-foreground"><th className="px-3 py-3">Kategori</th><th className="px-3 py-3">Malzeme Adı</th><th className="px-3 py-3">Tür</th><th className="px-3 py-3">Ebat</th><th className="px-3 py-3">{stockView === "biga" ? "Biga Deposu Toplamı" : "Merkez Depo Toplamı"}</th><th className="px-3 py-3">ID Bazlı Stok</th>{!readOnly && <th className="px-3 py-3">İşlemler</th>}</tr></thead><tbody>{filtered.map(({ catalog, lots }) => { const visibleLots = stockView === "biga" ? lots.filter((lot) => Number(lot.biga_stock_quantity) > 0) : stockView === "center" ? lots.filter((lot) => Number(lot.stock_quantity) > 0) : lots; const field = stockView === "biga" ? "biga_stock_quantity" as const : "stock_quantity" as const; return <tr key={catalog.id} className="border-b last:border-0 align-top"><td className="px-3 py-3"><Badge className="bg-secondary text-secondary-foreground">{getInventoryStockCategoryLabel(catalog.stock_category)}</Badge></td><td className="px-3 py-3 font-semibold">{catalog.material_name}</td><td className="px-3 py-3">{catalog.material_type || "—"}</td><td className="px-3 py-3">{catalog.size || "—"}</td><td className="px-3 py-3 font-semibold">{formatTotals(visibleLots, field)}</td><td className="px-3 py-3"><div className="space-y-2">{visibleLots.map((lot) => <div key={lot.id} className="flex items-center gap-2"><span>{catalog.has_id && <strong>ID: {lot.material_code}</strong>}{catalog.has_id && " · "}{formatInventoryQuantity(lot[field], lot.unit)}</span>{!readOnly && Number(lot[field]) > 0 && <Button title="Bu stoktan düş" variant="ghost" size="icon" onClick={() => setMovement({ material: lot, type: "out" })}><ArrowUpFromLine /></Button>}{!readOnly && catalog.has_id && <Button title={`${lot.material_code || "Bu ID"} kaydını sil`} variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteMaterialTarget(lot)}><Trash2 /></Button>}</div>)}{!visibleLots.length && <span className="text-muted-foreground">{stockView === "all" ? "Henüz irsaliye girişi yok" : "Bu depoda stok yok"}</span>}</div></td>{!readOnly && <td className="px-3 py-3"><Button title="Malzemeyi tamamen sil" variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteCatalogTarget(catalog)}><Trash2 /></Button></td>}</tr>; })}</tbody></table></div>
@@ -81,6 +84,7 @@ export function InventoryManager({ initialMaterials, initialCatalogs, initialShi
     </section>
 
     <ReceiptHistory receipts={receipts} />
+    <ExportDialog key={exportOpen ? "open" : "closed"} open={exportOpen} setOpen={setExportOpen} initialCategory={category} catalogs={catalogs} materials={materials} />
     <ShipmentHistory shipments={shipments} />
     <CatalogDialog open={catalogOpen} setOpen={setCatalogOpen} loading={loading} onSave={async (payload) => { const ok = await run((repository) => repository.createCatalogMaterial(payload), "Malzeme kataloğa eklendi"); if (ok) setCatalogOpen(false); }} />
     <ReceiptDialog open={receiptOpen} setOpen={setReceiptOpen} catalogs={catalogs} loading={loading} onSave={async (payload) => { const ok = await run((repository) => repository.createReceipt(payload), "İrsaliye stoğa işlendi"); if (ok) setReceiptOpen(false); }} />
@@ -94,6 +98,22 @@ export function InventoryManager({ initialMaterials, initialCatalogs, initialShi
 function CatalogDialog({ open, setOpen, loading, onSave }: { open: boolean; setOpen: (open: boolean) => void; loading: boolean; onSave: (payload: { material_name: string; stock_category: InventoryStockCategory; material_type?: string; size?: string; unit: InventoryUnit; has_id: boolean; notes?: string }) => Promise<void> }) {
   const [data, setData] = useState({ material_name: "", stock_category: "fiber_cable" as InventoryStockCategory, material_type: "", size: "", unit: "meter" as InventoryUnit, has_id: true, notes: "" });
   return <Dialog open={open} onOpenChange={setOpen}><DialogContent><DialogHeader><DialogTitle>Yeni Malzeme Kaydı</DialogTitle></DialogHeader><form className="grid gap-4 sm:grid-cols-2" onSubmit={(event) => { event.preventDefault(); if (data.material_name.trim().length < 2) return toast.error("Malzeme adı zorunlu"); void onSave(data); }}><Field label="Kategori"><Select value={data.stock_category} onValueChange={(value: InventoryStockCategory) => setData({ ...data, stock_category: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{INVENTORY_STOCK_CATEGORIES.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select></Field><Field label="Malzeme Adı"><Input value={data.material_name} onChange={(e) => setData({ ...data, material_name: e.target.value })} /></Field><Field label="Tür"><Input value={data.material_type} onChange={(e) => setData({ ...data, material_type: e.target.value })} /></Field><Field label="Ebat"><Input value={data.size} onChange={(e) => setData({ ...data, size: e.target.value })} /></Field><Field label="Birim Cinsi"><Select value={data.unit} onValueChange={(value: InventoryUnit) => setData({ ...data, unit: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{INVENTORY_UNITS.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select></Field><Field label="ID Kullanımı"><Select value={data.has_id ? "yes" : "no"} onValueChange={(value) => setData({ ...data, has_id: value === "yes" })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="yes">ID Var</SelectItem><SelectItem value="no">ID Yok</SelectItem></SelectContent></Select></Field><div className="sm:col-span-2"><Field label="Not"><Textarea value={data.notes} onChange={(e) => setData({ ...data, notes: e.target.value })} /></Field></div><Button className="sm:col-span-2" disabled={loading}>{loading && <Loader2 className="animate-spin" />}Malzemeyi Kaydet</Button></form></DialogContent></Dialog>;
+}
+
+function ExportDialog({ open, setOpen, initialCategory, catalogs, materials }: { open: boolean; setOpen: (open: boolean) => void; initialCategory: InventoryStockCategory | "all"; catalogs: InventoryCatalog[]; materials: InventoryMaterial[] }) {
+  const allCategories = INVENTORY_STOCK_CATEGORIES.map((item) => item.value);
+  const [selected, setSelected] = useState<InventoryStockCategory[]>(() => initialCategory === "all" ? allCategories : [initialCategory]);
+  const [exporting, setExporting] = useState(false);
+  const allSelected = selected.length === allCategories.length;
+  const toggle = (value: InventoryStockCategory, checked: boolean) => setSelected((current) => checked ? allCategories.filter((item) => item === value || current.includes(item)) : current.filter((item) => item !== value));
+  async function exportExcel() {
+    if (!selected.length) return toast.error("En az bir kategori seçin");
+    setExporting(true);
+    try { await downloadInventoryStockExcel({ catalogs, materials, categories: selected, fileName: `malzeme-stok-${today()}.xlsx` }); setOpen(false); }
+    catch (error) { toast.error("Excel dosyası oluşturulamadı", { description: (error as Error)?.message }); }
+    finally { setExporting(false); }
+  }
+  return <Dialog open={open} onOpenChange={setOpen}><DialogContent><DialogHeader><DialogTitle>Malzeme Stok Excel Çıktısı</DialogTitle></DialogHeader><div className="space-y-3"><p className="text-sm text-muted-foreground">Excel dosyasına eklenecek malzeme kategorilerini seçin.</p><label className="flex items-center gap-2 border-b pb-3 font-semibold"><input type="checkbox" checked={allSelected} onChange={(event) => setSelected(event.target.checked ? allCategories : [])} className="h-4 w-4 accent-primary" />Tümünü Seç</label>{INVENTORY_STOCK_CATEGORIES.map((item) => <label key={item.value} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={selected.includes(item.value)} onChange={(event) => toggle(item.value, event.target.checked)} className="h-4 w-4 accent-primary" />{item.label}<span className="text-muted-foreground">({catalogs.filter((catalog) => catalog.stock_category === item.value).length} malzeme)</span></label>)}</div><Button className="w-full" disabled={exporting || !selected.length} onClick={exportExcel}>{exporting ? <Loader2 className="animate-spin" /> : <FileSpreadsheet />}Excel İndir</Button></DialogContent></Dialog>;
 }
 
 function ReceiptDialog({ open, setOpen, catalogs, loading, onSave }: { open: boolean; setOpen: (open: boolean) => void; catalogs: InventoryCatalog[]; loading: boolean; onSave: (payload: { receipt_date: string; received_by: string; dispatch_number: string; notes?: string; items: { catalog_id: string; material_code?: string; quantity: number }[] }) => Promise<void> }) {
