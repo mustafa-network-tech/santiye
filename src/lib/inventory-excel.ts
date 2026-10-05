@@ -16,7 +16,6 @@ export async function downloadInventoryStockExcel(options: {
     { header: "Kategori", key: "category", width: 22 },
     { header: "Malzeme Adı", key: "materialName", width: 32 },
     { header: "Tür", key: "materialType", width: 18 },
-    { header: "Ebat", key: "size", width: 14 },
     { header: "Malzeme ID", key: "materialCode", width: 18 },
     { header: "Birim", key: "unit", width: 10 },
     { header: "Merkez Depo Stok", key: "center", width: 18 },
@@ -29,7 +28,7 @@ export async function downloadInventoryStockExcel(options: {
       .filter((catalog) => catalog.stock_category === category.value)
       .sort((a, b) => a.material_name.localeCompare(b.material_name, "tr"));
     for (const catalog of catalogs) {
-      const base = { category: category.label, materialName: catalog.material_name, materialType: catalog.material_type ?? "", size: catalog.size ?? "" };
+      const base = { category: category.label, materialName: catalog.material_name, materialType: catalog.material_type ?? "" };
       // Yalnızca Merkez Depo stoğu raporlanır; Biga'ya tamamen sevk edilmiş ID'ler listelenmez.
       const lots = options.materials.filter((item) => item.catalog_id === catalog.id && Number(item.stock_quantity) > 0);
       if (!lots.length) {
