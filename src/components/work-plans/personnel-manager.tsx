@@ -101,6 +101,7 @@ export function PersonnelManager({
       employment_end_date: "",
       monthly_salary: 0,
       is_active: true,
+      include_in_work_plan: true,
       notes: "",
     },
   });
@@ -116,6 +117,7 @@ export function PersonnelManager({
       employment_end_date: "",
       monthly_salary: 0,
       is_active: true,
+      include_in_work_plan: true,
       notes: "",
     });
     setOpen(true);
@@ -132,6 +134,7 @@ export function PersonnelManager({
       employment_end_date: person.employment_end_date ?? "",
       monthly_salary: person.monthly_salary ?? 0,
       is_active: person.is_active,
+      include_in_work_plan: person.include_in_work_plan !== false,
       notes: person.notes ?? "",
     });
     setOpen(true);
@@ -523,6 +526,11 @@ export function PersonnelManager({
                         >
                           {person.is_active ? "Aktif" : "Pasif"}
                         </Badge>
+                        <Badge className={person.include_in_work_plan !== false
+                          ? "border border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300"
+                          : "border bg-background text-muted-foreground"}>
+                          {person.include_in_work_plan !== false ? "İş planında" : "İş planı dışı"}
+                        </Badge>
                         {assignedVehicle && (
                           <Badge className="border bg-background text-foreground">
                             {assignedVehicle.plate}
@@ -665,6 +673,20 @@ export function PersonnelManager({
                 </p>
               )}
             </div>
+            <label htmlFor="include_in_work_plan" className="flex cursor-pointer items-start gap-3 rounded-lg border p-4">
+              <input
+                id="include_in_work_plan"
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-primary"
+                {...form.register("include_in_work_plan")}
+              />
+              <span>
+                <span className="block text-sm font-medium">İş planına dahil et</span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  İşaret kapalıysa bu personel iş planındaki ekip şefi, ekip üyesi ve izinli/raporlu listelerinde gösterilmez.
+                </span>
+              </span>
+            </label>
             <div className="space-y-2">
               <Label htmlFor="phone">Telefon</Label>
               <Input id="phone" {...form.register("phone")} />

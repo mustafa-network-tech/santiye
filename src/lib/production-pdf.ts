@@ -1,4 +1,5 @@
-import type { ProductionEntry } from "@/types/production";
+import type { ProductionEntry, ProductionItem } from "@/types/production";
+import { formatInventoryQuantity } from "@/lib/constants/inventory";
 
 const PAGE_WIDTH_MM = 210;
 const PAGE_HEIGHT_MM = 297;
@@ -243,9 +244,7 @@ function buildPdfDom(entries: ProductionEntry[], dateLabel: string) {
         const lineNumber = document.createElement("strong");
         lineNumber.textContent = `${itemIndex + 1}:`;
         const description = document.createElement("span");
-        description.textContent = item.unit_snapshot === "SATIR" && Number(item.quantity) === 1
-          ? item.item_name_snapshot
-          : `${item.item_name_snapshot} — ${Number(item.quantity).toLocaleString("tr-TR")} ${item.unit_snapshot}`;
+        description.textContent = formatProductionItem(item);
         Object.assign(description.style, { whiteSpace: "pre-wrap", overflowWrap: "anywhere" });
         line.append(lineNumber, description);
         list.appendChild(line);
@@ -257,6 +256,20 @@ function buildPdfDom(entries: ProductionEntry[], dateLabel: string) {
     root.appendChild(team);
   });
   return root;
+}
+
+function formatProductionItem(item: ProductionItem) {
+  const description = item.unit_snapshot === "SATIR" && Number(item.quantity) === 1
+    ? item.item_name_snapshot
+    : `${item.item_name_snapshot} — ${Number(item.quantity).toLocaleString("tr-TR")} ${item.unit_snapshot}`;
+  if (!item.inventory_material_name_snapshot || item.inventory_quantity == null || !item.inventory_unit_snapshot) {
+    return description;
+  }
+  const materialCode = item.inventory_material_code_snapshot
+    ? ` (${item.inventory_material_code_snapshot})`
+    : "";
+  const location = item.inventory_source_location === "biga" ? "Biga Şube" : "Merkez Şantiye";
+  return `${description} · Malzeme: ${item.inventory_material_name_snapshot}${materialCode} · ${formatInventoryQuantity(item.inventory_quantity, item.inventory_unit_snapshot)} · ${location}`;
 }
 
 function formatPdfDate(date: string) {

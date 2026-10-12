@@ -7,6 +7,7 @@ import { ArchiveRestore, Ban, Copy, Eye, Loader2, Pencil, Trash2 } from "lucide-
 import { toast } from "sonner";
 import type { Project, ProjectSheet, ProjectCabinet } from "@/types/project";
 import type { Personnel } from "@/types/work-plan";
+import type { ProjectProductionProgress } from "@/types/production";
 import { ProjectSheetProgress } from "@/components/projects/project-sheet-progress";
 import { BgfdCabinetProgress } from "@/components/projects/bgfd-cabinet-progress";
 import { HpFocusedSheetManager } from "@/components/projects/hp-focused-sheet-manager";
@@ -18,6 +19,7 @@ import {
   isCorporateStyleProject,
 } from "@/lib/constants/project";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import { formatInventoryQuantity } from "@/lib/constants/inventory";
 import { getDisplayImageUrl } from "@/lib/project-image-url";
 import { createClient } from "@/lib/supabase/client";
 import { ProjectRepository } from "@/modules/projects/project-repository";
@@ -35,9 +37,10 @@ type Props = {
   sheets: ProjectSheet[];
   personnel: Personnel[];
   cabinets: ProjectCabinet[];
+  productionProgress: ProjectProductionProgress[];
 };
 
-export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets, readOnly = false }: Props) {
+export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets, productionProgress, readOnly = false }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -49,7 +52,7 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
   const tracksObk = isBfOrGf && project.tracks_obk;
   const isOngoing = isOngoingProjectStatus(project.status);
   const canCancel = !project.is_archived && !project.is_cancelled && (project.status === "waiting" || project.status === "in_progress");
-  const progressCount = sheets.reduce((total, sheet) => total + sheet.progress.length, 0) + cabinets.reduce((total, cabinet) => total + cabinet.progress.length, 0);
+  const progressCount = sheets.reduce((total, sheet) => total + sheet.progress.length, 0) + cabinets.reduce((total, cabinet) => total + cabinet.progress.length, 0) + productionProgress.length;
 
   async function handleCopyImageUrl() {
     if (!project.image_url) return;
@@ -312,6 +315,27 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
               </div>
             ))}
           </dl>
+        </CardContent>
+      </Card>}
+
+      {productionProgress.length > 0 && <Card>
+        <CardHeader><CardTitle className="text-base">Günlük İmalat İlerlemesi</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {productionProgress.map((progress) => <div key={progress.id} className="rounded-lg border p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 text-sm">
+              <strong>{formatDate(progress.work_date)}</strong>
+              <span>{progress.team_leader_name}</span>
+              <span className="text-xs text-muted-foreground">{progress.source === "work_plan" ? "İş planından" : "Manuel"}</span>
+            </div>
+            <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm">
+              {progress.items.map((item) => <li key={item.id} className="whitespace-pre-wrap">
+                {item.item_name_snapshot}
+                {item.inventory_material_name_snapshot && item.inventory_quantity != null && item.inventory_unit_snapshot
+                  ? ` · Malzeme: ${item.inventory_material_name_snapshot}${item.inventory_material_code_snapshot ? ` (${item.inventory_material_code_snapshot})` : ""} · ${formatInventoryQuantity(item.inventory_quantity, item.inventory_unit_snapshot)} · ${item.inventory_source_location === "biga" ? "Biga Şube" : "Merkez Şantiye"}`
+                  : ""}
+              </li>)}
+            </ol>
+          </div>)}
         </CardContent>
       </Card>}
 

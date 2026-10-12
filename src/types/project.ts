@@ -68,6 +68,12 @@ export type Project = {
   }>;
 };
 
+export type ProjectOption = {
+  id: string;
+  project_code: string;
+  name: string;
+};
+
 export type ProjectInsert = {
   project_code: string;
   name: string;

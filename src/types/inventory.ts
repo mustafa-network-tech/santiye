@@ -45,6 +45,8 @@ export type InventoryMovement = {
   target_location: InventoryLocation | null;
   project_name: string | null;
   project_code: string | null;
+  project_id: string | null;
+  production_item_id: string | null;
   team_personnel_ids: string[];
   team_personnel_names: string[];
   shipment_id: string | null;

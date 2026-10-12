@@ -33,6 +33,7 @@ import type {
   WorkPlanTeamSnapshot,
 } from "@/types/work-plan";
 import type { Vehicle } from "@/types/vehicle";
+import type { ProjectOption } from "@/types/project";
 import { createClient } from "@/lib/supabase/client";
 import { WorkPlanRepository } from "@/modules/work-plans/work-plan-repository";
 import { ensureChiefFirst } from "@/modules/work-plans/whatsapp-formatter";
@@ -59,6 +60,7 @@ import { WhatsAppPreview } from "@/components/work-plans/whatsapp-preview";
 
 type TeamDraft = {
   client_id: string;
+  project_id: string | null;
   project_code: string;
   project_name: string;
   team_type: string;
@@ -79,6 +81,7 @@ type TeamDraft = {
 type Props = {
   personnel: Personnel[];
   vehicles: Vehicle[];
+  projectOptions: ProjectOption[];
   initialDate?: string;
   existingPlanId?: string;
   initialTeams?: WorkPlanTeamSnapshot[];
@@ -96,6 +99,7 @@ function newClientId() {
 function emptyTeam(): TeamDraft {
   return {
     client_id: newClientId(),
+    project_id: null,
     project_code: "",
     project_name: "",
     team_type: "",
@@ -110,6 +114,7 @@ function emptyTeam(): TeamDraft {
 export function WorkPlanEditor({
   personnel,
   vehicles,
+  projectOptions,
   initialDate,
   existingPlanId,
   initialTeams,
@@ -124,6 +129,7 @@ export function WorkPlanEditor({
     if (initialTeams?.length) {
       return initialTeams.map((t) => ({
         client_id: t.id ?? newClientId(),
+        project_id: t.project_id ?? null,
         project_code: t.project_code === "-" ? "" : t.project_code,
         project_name: t.project_name,
         team_type: t.team_type,
@@ -153,7 +159,7 @@ export function WorkPlanEditor({
   );
 
   const activePersonnel = useMemo(
-    () => personnel.filter((p) => p.is_active),
+    () => personnel.filter((p) => p.is_active && p.include_in_work_plan !== false),
     [personnel]
   );
 
@@ -170,6 +176,34 @@ export function WorkPlanEditor({
   function updateTeam(clientId: string, patch: Partial<TeamDraft>) {
     setTeams((prev) =>
       prev.map((t) => (t.client_id === clientId ? { ...t, ...patch } : t))
+    );
+  }
+
+  function setProjectCode(clientId: string, projectCode: string) {
+    const normalized = projectCode.trim().toLocaleUpperCase("tr-TR");
+    const project = projectOptions.find(
+      (option) =>
+        option.project_code.trim().toLocaleUpperCase("tr-TR") === normalized
+    );
+
+    setTeams((current) =>
+      current.map((team) => {
+        if (team.client_id !== clientId) return team;
+        if (project) {
+          return {
+            ...team,
+            project_id: project.id,
+            project_code: project.project_code,
+            project_name: project.name,
+          };
+        }
+        return {
+          ...team,
+          project_id: null,
+          project_code: projectCode,
+          project_name: team.project_id ? "" : team.project_name,
+        };
+      })
     );
   }
 
@@ -406,22 +440,26 @@ export function WorkPlanEditor({
         return;
       }
 
+      const availablePersonnelIds = new Set(activePersonnel.map((person) => person.id));
       setTeams(
         latest.teams.map((team) => {
-          const currentChief = personnel.find(
+          const currentChief = activePersonnel.find(
             (person) => person.id === team.chief_personnel_id
           );
           return {
           client_id: newClientId(),
+          project_id: team.project_id ?? null,
           project_code: team.project_code === "-" ? "" : team.project_code,
           project_name: team.project_name,
           team_type: team.team_type,
           vehicle_plate: team.vehicle_plate,
-          chief_personnel_id: team.chief_personnel_id ?? "",
-          chief_name: currentChief?.full_name ?? team.chief_name,
-          chief_phone: currentChief?.phone ?? team.chief_phone,
-          members: ensureChiefFirst(team.members).map((member) => {
-            const currentPerson = personnel.find(
+          chief_personnel_id: currentChief?.id ?? "",
+          chief_name: currentChief?.full_name ?? "",
+          chief_phone: currentChief?.phone ?? "",
+          members: ensureChiefFirst(team.members.filter(
+            (member) => member.personnel_id && availablePersonnelIds.has(member.personnel_id)
+          )).map((member) => {
+            const currentPerson = activePersonnel.find(
               (person) => person.id === member.personnel_id
             );
             return {
@@ -449,6 +487,7 @@ export function WorkPlanEditor({
   function planTeams() {
     return teams.map((team, index) => ({
       sort_order: index,
+      project_id: team.project_id,
       project_code: team.project_code,
       project_name: team.project_name,
       team_type: team.team_type,
@@ -638,6 +677,11 @@ export function WorkPlanEditor({
 
   return (
     <div className="space-y-6">
+      <datalist id="work-plan-project-options">
+        {projectOptions.map((project) => (
+          <option key={project.id} value={project.project_code}>{project.name}</option>
+        ))}
+      </datalist>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">
@@ -796,9 +840,24 @@ export function WorkPlanEditor({
                   </datalist>
                 </div>
                 <div className="space-y-2">
+                  <Label>Proje ID</Label>
+                  <Input
+                    list="work-plan-project-options"
+                    value={team.project_code}
+                    onChange={(e) => setProjectCode(team.client_id, e.target.value)}
+                    placeholder="GF-102"
+                  />
+                  <p className={`text-xs ${team.project_id ? "text-emerald-600" : "text-muted-foreground"}`}>
+                    {team.project_id
+                      ? "Proje bulundu; adı otomatik dolduruldu."
+                      : "Opsiyonel · Kayıtlı proje ID'si girildiğinde ad otomatik gelir."}
+                  </p>
+                </div>
+                <div className="space-y-2">
                   <Label>Proje Adı</Label>
                   <Input
                     value={team.project_name}
+                    readOnly={Boolean(team.project_id)}
                     onChange={(e) =>
                       updateTeam(team.client_id, {
                         project_name: e.target.value,
@@ -806,19 +865,6 @@ export function WorkPlanEditor({
                     }
                     placeholder="Barbaros FTTH"
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label>Proje ID</Label>
-                  <Input
-                    value={team.project_code}
-                    onChange={(e) =>
-                      updateTeam(team.client_id, {
-                        project_code: e.target.value,
-                      })
-                    }
-                    placeholder="GF-102"
-                  />
-                  <p className="text-xs text-muted-foreground">Opsiyonel</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Ekip Şefi</Label>
@@ -830,6 +876,11 @@ export function WorkPlanEditor({
                       <SelectValue placeholder="Personel seçin" />
                     </SelectTrigger>
                     <SelectContent>
+                      {team.chief_personnel_id && !activePersonnel.some((person) => person.id === team.chief_personnel_id) && (
+                        <SelectItem value={team.chief_personnel_id}>
+                          {team.chief_name} · İş planı dışı mevcut kayıt
+                        </SelectItem>
+                      )}
                       {activePersonnel
                         .filter(
                           (person) =>

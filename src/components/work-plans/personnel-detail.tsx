@@ -259,6 +259,11 @@ export function PersonnelDetail({
                 >
                   {personnel.is_active ? "Aktif" : "Pasif"}
                 </Badge>
+                <Badge className={personnel.include_in_work_plan !== false
+                  ? "border border-blue-200 bg-blue-50 text-blue-700"
+                  : "border bg-background text-muted-foreground"}>
+                  {personnel.include_in_work_plan !== false ? "İş planında" : "İş planı dışı"}
+                </Badge>
                 {assignedVehiclePlate && (
                   <Badge className="border bg-background text-foreground">
                     {assignedVehiclePlate}
@@ -284,6 +289,9 @@ export function PersonnelDetail({
                 </span>
                 <span>
                   İşten Ayrılış: {formatDate(personnel.employment_end_date)}
+                </span>
+                <span>
+                  İş Planı Listesi: {personnel.include_in_work_plan !== false ? "Gösterilir" : "Gösterilmez"}
                 </span>
                 {!personnel.is_active && personnel.termination_reason && (
                   <span className="sm:col-span-2">

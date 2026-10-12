@@ -5,6 +5,7 @@ export type Personnel = {
   phone: string | null;
   tc_identity_number: string | null;
   is_active: boolean;
+  include_in_work_plan: boolean;
   employment_start_date: string | null;
   employment_end_date: string | null;
   termination_reason: string | null;
@@ -22,6 +23,7 @@ export type PersonnelInsert = {
   phone?: string | null;
   tc_identity_number?: string | null;
   is_active?: boolean;
+  include_in_work_plan?: boolean;
   employment_start_date?: string | null;
   employment_end_date?: string | null;
   termination_reason?: string | null;
@@ -55,6 +57,7 @@ export type WorkPlanMemberSnapshot = {
 export type WorkPlanTeamSnapshot = {
   id?: string;
   sort_order: number;
+  project_id: string | null;
   project_code: string;
   project_name: string;
   team_type: string;

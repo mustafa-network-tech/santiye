@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ProductionDefinition, ProductionEntry, ProductionSaveJob } from "@/types/production";
+import type { ProductionDefinition, ProductionEntry, ProductionSaveJob, ProjectProductionProgress } from "@/types/production";
 
 export class ProductionRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -17,6 +17,30 @@ export class ProductionRepository {
     const { data, error } = await this.supabase.from("production_entries").select(`*, production_jobs(*, production_items(*))`).gte("work_date", from).lte("work_date", to).order("work_date", { ascending: false });
     if (error) throw error;
     return (data ?? []).map((entry) => ({ ...entry, jobs: [...(entry.production_jobs ?? [])].sort((a,b) => a.sort_order-b.sort_order).map((job) => ({ ...job, items: [...(job.production_items ?? [])].sort((a,b) => a.sort_order-b.sort_order) })) })) as ProductionEntry[];
+  }
+  async listProjectProgress(projectId: string): Promise<ProjectProductionProgress[]> {
+    const { data, error } = await this.supabase
+      .from("production_jobs")
+      .select(`id,source,production_items(*),production_entries!inner(work_date,team_leader_personnel_id,team_leader_name_snapshot)`)
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map((row) => {
+      const entryValue = row.production_entries as unknown;
+      const entry = (Array.isArray(entryValue) ? entryValue[0] : entryValue) as {
+        work_date: string;
+        team_leader_personnel_id: string;
+        team_leader_name_snapshot: string;
+      };
+      return {
+        id: row.id as string,
+        work_date: entry.work_date,
+        team_leader_personnel_id: entry.team_leader_personnel_id,
+        team_leader_name: entry.team_leader_name_snapshot,
+        source: row.source as "work_plan" | "manual",
+        items: [...(row.production_items ?? [])].sort((a, b) => a.sort_order - b.sort_order),
+      };
+    }).sort((a, b) => b.work_date.localeCompare(a.work_date)) as ProjectProductionProgress[];
   }
   async saveEntry(input: { entry_id?: string | null; work_date: string; leader_id: string; leader_name: string; work_plan_id: string | null; jobs: ProductionSaveJob[] }): Promise<string> {
     const { data, error } = await this.supabase.rpc("save_production_entry", { p_entry_id: input.entry_id ?? null, p_work_date: input.work_date, p_team_leader_personnel_id: input.leader_id, p_team_leader_name: input.leader_name, p_source_work_plan_id: input.work_plan_id, p_jobs: input.jobs });

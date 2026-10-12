@@ -9,6 +9,7 @@ import type {
   Project,
   ProjectFilters,
   ProjectInsert,
+  ProjectOption,
   ProjectTrackingUpdate,
   ProjectUpdate,
   ProjectSheet,
@@ -22,6 +23,17 @@ function emptyToNull(value?: string | null): string | null {
 
 export class ProjectRepository {
   constructor(private readonly supabase: SupabaseClient) {}
+
+  async listOptions(): Promise<ProjectOption[]> {
+    const { data, error } = await this.supabase
+      .from("projects")
+      .select("id,project_code,name")
+      .eq("is_cancelled", false)
+      .eq("is_archived", false)
+      .order("project_code");
+    if (error) throw error;
+    return (data ?? []) as ProjectOption[];
+  }
 
   async list(filters: ProjectFilters = {}): Promise<PaginatedResult<Project>> {
     const { error: refreshError } = await this.supabase.rpc(

@@ -5,6 +5,7 @@ import { SettingsRepository } from "@/modules/settings/settings-repository";
 import { ProjectDetail } from "@/components/projects/project-detail";
 import { UserRepository } from "@/modules/users/user-repository";
 import { PersonnelRepository } from "@/modules/work-plans/personnel-repository";
+import { ProductionRepository } from "@/modules/productions/production-repository";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -25,13 +26,14 @@ export default async function ProjectDetailPage({ params }: Props) {
   const projectRepo = new ProjectRepository(supabase);
   const settingsRepo = new SettingsRepository(supabase);
 
-  const [project, customTypes, canWrite, sheets, personnel, cabinets] = await Promise.all([
+  const [project, customTypes, canWrite, sheets, personnel, cabinets, productionProgress] = await Promise.all([
     projectRepo.getById(id),
     settingsRepo.getCustomProjectTypes(),
     new UserRepository(supabase).canWrite("projects"),
     projectRepo.getSheets(id),
     new PersonnelRepository(supabase).list({ activeOnly: true }),
     projectRepo.getCabinets(id),
+    new ProductionRepository(supabase).listProjectProgress(id),
   ]);
 
   if (!project) notFound();
@@ -49,6 +51,7 @@ export default async function ProjectDetailPage({ params }: Props) {
       sheets={sheets}
       personnel={personnel}
       cabinets={cabinets}
+      productionProgress={productionProgress}
     />
   );
 }

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { WorkPlanRepository } from "@/modules/work-plans/work-plan-repository";
 import { PersonnelRepository } from "@/modules/work-plans/personnel-repository";
 import { VehicleRepository } from "@/modules/vehicles/vehicle-repository";
+import { ProjectRepository } from "@/modules/projects/project-repository";
 import { WorkPlanEditor } from "@/components/work-plans/work-plan-editor";
 import { todayISODate } from "@/lib/constants/project";
 
@@ -17,10 +18,11 @@ export const metadata = {
 export default async function EditWorkPlanPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
-  const [plan, personnel, vehicles] = await Promise.all([
+  const [plan, personnel, vehicles, projectOptions] = await Promise.all([
     new WorkPlanRepository(supabase).getById(id),
     new PersonnelRepository(supabase).list(),
     new VehicleRepository(supabase).list(),
+    new ProjectRepository(supabase).listOptions(),
   ]);
 
   if (!plan || plan.plan_date < todayISODate()) notFound();
@@ -29,6 +31,7 @@ export default async function EditWorkPlanPage({ params }: Props) {
     <WorkPlanEditor
       personnel={personnel}
       vehicles={vehicles}
+      projectOptions={projectOptions}
       existingPlanId={plan.id}
       initialDate={plan.plan_date}
       initialTeams={plan.teams}

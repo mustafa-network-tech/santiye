@@ -59,6 +59,7 @@ export class PersonnelRepository {
         phone: emptyToNull(payload.phone),
         tc_identity_number: emptyToNull(payload.tc_identity_number),
         is_active: payload.is_active ?? true,
+        include_in_work_plan: payload.include_in_work_plan ?? true,
         employment_start_date: emptyToNull(payload.employment_start_date),
         employment_end_date:
           payload.is_active === false
@@ -97,6 +98,8 @@ export class PersonnelRepository {
       );
     if (payload.is_active !== undefined)
       updatePayload.is_active = payload.is_active;
+    if (payload.include_in_work_plan !== undefined)
+      updatePayload.include_in_work_plan = payload.include_in_work_plan;
     if (payload.employment_start_date !== undefined)
       updatePayload.employment_start_date = emptyToNull(
         payload.employment_start_date
