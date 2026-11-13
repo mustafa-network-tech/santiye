@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { normalizeImageUrls } from "@/lib/project-image-urls";
 import {
   DEFAULT_PAGE_SIZE,
   getStageDateKey,
@@ -259,7 +260,8 @@ export class ProjectRepository {
       project_type: payload.project_type,
       location: payload.location.trim(),
       description: emptyToNull(payload.description),
-      image_url: emptyToNull(payload.image_url),
+      image_url: normalizeImageUrls(payload.image_urls ?? [payload.image_url])[0] ?? null,
+      image_urls: normalizeImageUrls(payload.image_urls ?? [payload.image_url]),
       status: isCorporateStyleProject(payload.project_type) ? (payload.status ?? "waiting") : "waiting",
       received_at: receivedAt,
       waiting_at: receivedAt,
@@ -286,10 +288,11 @@ export class ProjectRepository {
         .single();
       if (hpProjectError) throw hpProjectError;
       for (const sheet of payload.initial_sheets ?? []) {
-        if (!sheet.image_url) continue;
+        const sheetUrls = normalizeImageUrls(sheet.image_urls ?? [sheet.image_url]);
+        if (sheetUrls.length === 0) continue;
         const { error: imageUrlError } = await this.supabase
           .from("project_sheets")
-          .update({ image_url: sheet.image_url.trim() })
+          .update({ image_url: sheetUrls[0], image_urls: sheetUrls })
           .eq("project_id", (hpProject as Project).id)
           .eq("sheet_no", sheet.sheet_no.trim());
         if (imageUrlError) throw imageUrlError;
@@ -389,8 +392,13 @@ export class ProjectRepository {
       updatePayload.location = payload.location.trim();
     if (payload.description !== undefined)
       updatePayload.description = emptyToNull(payload.description);
-    if (payload.image_url !== undefined)
+    if (payload.image_urls !== undefined) {
+      const urls = normalizeImageUrls(payload.image_urls);
+      updatePayload.image_urls = urls;
+      updatePayload.image_url = urls[0] ?? null;
+    } else if (payload.image_url !== undefined) {
       updatePayload.image_url = emptyToNull(payload.image_url);
+    }
     if (payload.received_at !== undefined)
       updatePayload.received_at = emptyToNull(payload.received_at);
     if (payload.status !== undefined) updatePayload.status = payload.status;

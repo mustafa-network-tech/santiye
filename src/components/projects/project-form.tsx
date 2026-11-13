@@ -8,6 +8,8 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { ProjectRepository } from "@/modules/projects/project-repository";
+import { ImageUrlListInput } from "@/components/projects/image-url-list-input";
+import { findInvalidImageUrl, getRecordImageUrls, normalizeImageUrls } from "@/lib/project-image-urls";
 import {
   booleanToTriState,
   projectCreateSchema,
@@ -148,9 +150,10 @@ function CreateProjectForm({
   const isHpFocused = isHpFocusedProject(projectType);
   const isCorporate = isCorporateStyleProject(projectType);
   const hpSheetCount = Math.max(1, form.watch("sheet_count") || 1);
-  const [hpSheets,setHpSheets]=useState([{sheet_no:"",address:"",hp_count:0,notes:"",image_url:""}]);
+  const [imageUrls,setImageUrls]=useState<string[]>([""]);
+  const [hpSheets,setHpSheets]=useState([{sheet_no:"",address:"",hp_count:0,notes:"",image_urls:[""]}]);
 
-  useEffect(()=>{if(!isHpFocused)return;setHpSheets(current=>Array.from({length:hpSheetCount},(_,index)=>current[index]??{sheet_no:"",address:"",hp_count:0,notes:"",image_url:""}));},[hpSheetCount,isHpFocused]);
+  useEffect(()=>{if(!isHpFocused)return;setHpSheets(current=>Array.from({length:hpSheetCount},(_,index)=>current[index]??{sheet_no:"",address:"",hp_count:0,notes:"",image_urls:[""]}));},[hpSheetCount,isHpFocused]);
 
   useLocationSuggestions(locationValue, setLocationSuggestions);
 
@@ -165,6 +168,10 @@ function CreateProjectForm({
   );
 
   async function onSubmit(values: ProjectCreateValues) {
+    if (values.project_type !== "HP_ODAKLI" && findInvalidImageUrl(imageUrls)) {
+      toast.error("Görsel URL http:// veya https:// ile başlamalı");
+      return;
+    }
     setLoading(true);
     const supabase = createClient();
     const {
@@ -184,7 +191,7 @@ function CreateProjectForm({
       if (values.project_type === "HP_ODAKLI") {
         const normalizedSheetNumbers=hpSheets.map(sheet=>sheet.sheet_no.trim().toLocaleLowerCase("tr-TR"));
         if(new Set(normalizedSheetNumbers).size!==normalizedSheetNumbers.length){toast.error("Aynı pafta numarası bir projede birden fazla kullanılamaz");setLoading(false);return;}
-        if(hpSheets.some(sheet=>sheet.image_url.trim()&&!/^https?:\/\//i.test(sheet.image_url.trim()))){toast.error("Pafta görsel URL'si http:// veya https:// ile başlamalı");setLoading(false);return;}
+        if(hpSheets.some(sheet=>findInvalidImageUrl(sheet.image_urls))){toast.error("Pafta görsel URL'si http:// veya https:// ile başlamalı");setLoading(false);return;}
       }
       const created = await new ProjectRepository(supabase).create({
         project_code: values.project_code,
@@ -192,7 +199,8 @@ function CreateProjectForm({
         project_type: values.project_type,
         location: values.project_type === "HP_ODAKLI" ? (hpSheets[0]?.address.trim() || "Adres belirtilmedi") : values.location,
         description: values.description || null,
-        image_url: values.project_type === "HP_ODAKLI" ? null : values.image_url || null,
+        image_url: values.project_type === "HP_ODAKLI" ? null : normalizeImageUrls(imageUrls)[0] ?? null,
+        image_urls: values.project_type === "HP_ODAKLI" ? [] : normalizeImageUrls(imageUrls),
         received_at: values.received_at || todayISODate(),
         tracks_obk:
           isBfOrGfProject(values.project_type) && values.tracks_obk,
@@ -204,7 +212,7 @@ function CreateProjectForm({
         is_single_sheet: values.is_single_sheet,
         cabinet_counts: values.project_type === "BGFD" ? { T7: values.bgfd_t7, T9: values.bgfd_t9, T11: values.bgfd_t11, T21: values.bgfd_t21, T23: values.bgfd_t23 } : undefined,
         cabinet_sd_codes: values.project_type === "BGFD" ? { T7: values.bgfd_t7_sd.split(",").map(v=>v.trim()).filter(Boolean), T9: values.bgfd_t9_sd.split(",").map(v=>v.trim()).filter(Boolean), T11: values.bgfd_t11_sd.split(",").map(v=>v.trim()).filter(Boolean), T21: values.bgfd_t21_sd.split(",").map(v=>v.trim()).filter(Boolean), T23: values.bgfd_t23_sd.split(",").map(v=>v.trim()).filter(Boolean) } : undefined,
-        initial_sheets: values.project_type === "HP_ODAKLI" ? hpSheets.map(sheet=>({sheet_no:sheet.sheet_no.trim(),address:sheet.address.trim()||null,hp_count:Number(sheet.hp_count)||0,notes:sheet.notes.trim()||null,image_url:sheet.image_url.trim()||null})) : undefined,
+        initial_sheets: values.project_type === "HP_ODAKLI" ? hpSheets.map(sheet=>({sheet_no:sheet.sheet_no.trim(),address:sheet.address.trim()||null,hp_count:Number(sheet.hp_count)||0,notes:sheet.notes.trim()||null,image_url:normalizeImageUrls(sheet.image_urls)[0]??null,image_urls:normalizeImageUrls(sheet.image_urls)})) : undefined,
         status: isCorporate ? values.status : undefined,
         project_date: isCorporate ? values.project_date || null : null,
         priority_order: isCorporate && values.priority_order !== "" ? Number(values.priority_order) : null,
@@ -325,7 +333,7 @@ function CreateProjectForm({
               suggestions={filteredLocations}
             />}
 
-            {isHpFocused&&<div className="space-y-4 rounded-xl border p-4 md:col-span-2"><div className="space-y-2"><Label>Pafta Sayısı</Label><Input type="number" min="1" value={hpSheetCount} onChange={e=>form.setValue("sheet_count",Math.max(1,Number(e.target.value)))}/></div>{hpSheets.map((sheet,index)=><div key={index} className="grid gap-3 rounded-xl bg-muted/30 p-4 md:grid-cols-2"><p className="font-medium md:col-span-2">{hpSheetCount===1?"Pafta Bilgileri":`Pafta ${index+1}`}</p><div><Label>Pafta No *</Label><Input value={sheet.sheet_no} onChange={e=>setHpSheets(v=>v.map((s,i)=>i===index?{...s,sheet_no:e.target.value}:s))}/></div><div><Label>HP Adedi</Label><Input type="number" min="0" value={sheet.hp_count} onChange={e=>setHpSheets(v=>v.map((s,i)=>i===index?{...s,hp_count:Number(e.target.value)}:s))}/></div><div className="md:col-span-2"><Label>Adres Bilgisi</Label><Input value={sheet.address} onChange={e=>setHpSheets(v=>v.map((s,i)=>i===index?{...s,address:e.target.value}:s))}/></div><div className="md:col-span-2"><Label>Görsel URL</Label><Input type="url" placeholder="https://..." value={sheet.image_url} onChange={e=>setHpSheets(v=>v.map((s,i)=>i===index?{...s,image_url:e.target.value}:s))}/></div><div className="md:col-span-2"><Label>Not</Label><Textarea value={sheet.notes} onChange={e=>setHpSheets(v=>v.map((s,i)=>i===index?{...s,notes:e.target.value}:s))}/></div></div>)}</div>}
+            {isHpFocused&&<div className="space-y-4 rounded-xl border p-4 md:col-span-2"><div className="space-y-2"><Label>Pafta Sayısı</Label><Input type="number" min="1" value={hpSheetCount} onChange={e=>form.setValue("sheet_count",Math.max(1,Number(e.target.value)))}/></div>{hpSheets.map((sheet,index)=><div key={index} className="grid gap-3 rounded-xl bg-muted/30 p-4 md:grid-cols-2"><p className="font-medium md:col-span-2">{hpSheetCount===1?"Pafta Bilgileri":`Pafta ${index+1}`}</p><div><Label>Pafta No *</Label><Input value={sheet.sheet_no} onChange={e=>setHpSheets(v=>v.map((s,i)=>i===index?{...s,sheet_no:e.target.value}:s))}/></div><div><Label>HP Adedi</Label><Input type="number" min="0" value={sheet.hp_count} onChange={e=>setHpSheets(v=>v.map((s,i)=>i===index?{...s,hp_count:Number(e.target.value)}:s))}/></div><div className="md:col-span-2"><Label>Adres Bilgisi</Label><Input value={sheet.address} onChange={e=>setHpSheets(v=>v.map((s,i)=>i===index?{...s,address:e.target.value}:s))}/></div><div className="md:col-span-2"><Label>Görsel URL&apos;leri</Label><ImageUrlListInput values={sheet.image_urls} onChange={urls=>setHpSheets(v=>v.map((s,i)=>i===index?{...s,image_urls:urls}:s))}/></div><div className="md:col-span-2"><Label>Not</Label><Textarea value={sheet.notes} onChange={e=>setHpSheets(v=>v.map((s,i)=>i===index?{...s,notes:e.target.value}:s))}/></div></div>)}</div>}
 
             {isCorporate && <CorporateCreateFields form={form} personnel={personnel} />}
 
@@ -359,11 +367,8 @@ function CreateProjectForm({
             {projectType !== "BGFD" && !isHpFocused && !isCorporate && <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/30 p-4 md:col-span-2"><input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" checked={form.watch("is_single_sheet")} onChange={e=>form.setValue("is_single_sheet",e.target.checked)}/><span><span className="block text-sm font-medium">Proje tek paftadan oluşuyor</span><span className="block text-xs text-muted-foreground">Tek pafta otomatik oluşturulur ve alanları proje kartında gösterilir.</span></span></label>}
 
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="image_url">Görsel URL</Label>
-              <Input id="image_url" type="url" placeholder="https://..." {...form.register("image_url")} />
-              {form.formState.errors.image_url && (
-                <p className="text-xs text-destructive">{form.formState.errors.image_url.message}</p>
-              )}
+              <Label>Görsel URL&apos;leri</Label>
+              <ImageUrlListInput values={imageUrls} onChange={setImageUrls} />
             </div>
 
             {!isHpFocused && <div className="space-y-2 md:col-span-2">
@@ -391,6 +396,7 @@ function EditProjectForm({
   setShowLocationSuggestions,
   router,
 }: SharedProps & { project: Project }) {
+  const [imageUrls, setImageUrls] = useState<string[]>(() => getRecordImageUrls(project));
   const form = useForm<ProjectEditValues>({
     resolver: zodResolver(projectEditSchema),
     defaultValues: {
@@ -436,6 +442,10 @@ function EditProjectForm({
   );
 
   async function onSubmit(values: ProjectEditValues) {
+    if (findInvalidImageUrl(imageUrls)) {
+      toast.error("Görsel URL http:// veya https:// ile başlamalı");
+      return;
+    }
     setLoading(true);
     const supabase = createClient();
     const {
@@ -455,7 +465,7 @@ function EditProjectForm({
         project_type: values.project_type,
         location: values.location,
         description: values.description || null,
-        image_url: isHpFocused ? undefined : values.image_url || null,
+        image_urls: isHpFocused ? undefined : normalizeImageUrls(imageUrls),
         received_at: values.received_at,
         tracks_cable: isCorporate ? undefined : false,
         cable_pulled: isCorporate ? undefined : null,
@@ -664,11 +674,8 @@ function EditProjectForm({
             )}
 
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="image_url">Görsel URL</Label>
-              <Input id="image_url" type="url" placeholder="https://..." {...form.register("image_url")} />
-              {form.formState.errors.image_url && (
-                <p className="text-xs text-destructive">{form.formState.errors.image_url.message}</p>
-              )}
+              <Label>Görsel URL&apos;leri</Label>
+              <ImageUrlListInput values={imageUrls} onChange={setImageUrls} />
             </div>
 
             <div className="space-y-2 md:col-span-2">

@@ -347,11 +347,7 @@ export function MonthlyAttendanceTable({
     }
   }
 
-  function buildExportRows() {
-    return initialData.personnel.map((personnel) => {
-      const row: Record<string, string | number> = {
-        Personel: personnel.full_name,
-      };
+  function getExportTotals(personnel: MonthlyAttendancePersonnel) {
       const totals = { ...EMPTY_TOTALS, ...personnel.totals };
       let sundayWorked = 0;
       days.forEach((day) => {
@@ -364,14 +360,11 @@ export function MonthlyAttendanceTable({
         }
         const status = getDisplayStatus(personnel.id, day.isoDate);
         if (day.isSunday && status === "worked") sundayWorked += 1;
-        row[`${String(day.day).padStart(2, "0")} ${day.dayName}`] = status
-          ? getAttendanceMeta(status).symbol
-          : "";
       });
-      row[PAYABLE_DAYS_LABEL] =
-        totals.worked + totals.weekly_rest + sundayWorked;
-      return row;
-    });
+      return {
+        ...totals,
+        payableDays: totals.worked + totals.weekly_rest + sundayWorked,
+      };
   }
 
   async function exportExcel() {
@@ -418,38 +411,50 @@ export function MonthlyAttendanceTable({
       import("jspdf"),
       import("jspdf-autotable"),
     ]);
-    const rows = buildExportRows();
-    const headers =
-      rows.length > 0
-        ? Object.keys(rows[0])
-        : [
-            "Personel",
-            ...days.map(
-              (day) => `${String(day.day).padStart(2, "0")} ${day.dayName}`
-            ),
-            PAYABLE_DAYS_LABEL,
-          ];
-    const body = rows.map((row) => headers.map((header) => row[header] ?? ""));
+    const headers = [
+      "Sıra No",
+      "Ad Soyad",
+      "Çalıştığı Gün",
+      "Çalışmadığı Gün",
+      "İzinli Gün",
+      "Mazeretsiz Gelmedi",
+      "Raporlu Gün",
+      PAYABLE_DAYS_LABEL,
+    ];
+    const body = initialData.personnel.map((personnel, index) => {
+      const totals = getExportTotals(personnel);
+      return [
+        index + 1,
+        personnel.full_name,
+        totals.worked,
+        totals.absent,
+        totals.leave,
+        totals.unexcused_absence,
+        totals.medical_report,
+        totals.payableDays,
+      ];
+    });
     const document = new jsPDF({
       orientation: "landscape",
       unit: "mm",
-      format: "a3",
+      format: "a4",
     });
-    document.setFontSize(14);
+    document.setFontSize(15);
     document.text(
-      `${MONTH_NAMES[initialData.month - 1]} ${initialData.year} Puantaj`,
+      `${MONTH_NAMES[initialData.month - 1]} ${initialData.year} Personel Puantaj Özeti`,
       14,
-      12
+      15
     );
     autoTable(document, {
       head: [headers],
       body,
-      startY: 17,
-      styles: { fontSize: 6, cellPadding: 1 },
+      startY: 21,
+      styles: { fontSize: 9, cellPadding: 2, halign: "center", valign: "middle" },
       headStyles: { fillColor: [30, 64, 175] },
+      columnStyles: { 1: { halign: "left", cellWidth: 48 } },
     });
     document.save(
-      `puantaj-${initialData.year}-${String(initialData.month).padStart(2, "0")}.pdf`
+      `patron-puantaj-ozeti-${initialData.year}-${String(initialData.month).padStart(2, "0")}.pdf`
     );
   }
 
@@ -482,6 +487,10 @@ export function MonthlyAttendanceTable({
             <FileSpreadsheet className="h-4 w-4" />
             Aylık Puantaj Excel İndir
           </Button>
+          <Button variant="outline" onClick={exportPdf}>
+            <FileDown className="h-4 w-4" />
+            Patron PDF Raporu
+          </Button>
           {!historyMode && (
             <Button asChild variant="outline">
               <Link href="/attendance/history">
@@ -493,10 +502,6 @@ export function MonthlyAttendanceTable({
 
           {historyMode && (
             <>
-              <Button variant="outline" onClick={exportPdf}>
-                <FileDown className="h-4 w-4" />
-                PDF Oluştur
-              </Button>
               {!readOnly && (
                 <Button
                   variant={editingEnabled ? "secondary" : "outline"}

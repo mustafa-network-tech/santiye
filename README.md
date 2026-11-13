@@ -58,3 +58,6 @@ src/
   providers/     # Theme + React Query
   types/         # Paylaşılan tipler
 
+## Supabase
+
+Supabase hesabı: oner334480

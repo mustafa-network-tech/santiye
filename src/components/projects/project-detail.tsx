@@ -1,5 +1,6 @@
 "use client";
 
+import { getRecordImageUrls } from "@/lib/project-image-urls";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -54,11 +55,13 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
   const canCancel = !project.is_archived && !project.is_cancelled && (project.status === "waiting" || project.status === "in_progress");
   const progressCount = sheets.reduce((total, sheet) => total + sheet.progress.length, 0) + cabinets.reduce((total, cabinet) => total + cabinet.progress.length, 0) + productionProgress.length;
 
+  const imageUrls = getRecordImageUrls(project);
+
   async function handleCopyImageUrl() {
-    if (!project.image_url) return;
+    if (imageUrls.length === 0) return;
     try {
-      await navigator.clipboard.writeText(project.image_url);
-      toast.success("Görsel URL kopyalandı.");
+      await navigator.clipboard.writeText(imageUrls.join("\n"));
+      toast.success(imageUrls.length > 1 ? "Görsel URL'leri kopyalandı." : "Görsel URL kopyalandı.");
     } catch {
       toast.error("Görsel URL kopyalanamadı.");
     }
@@ -257,15 +260,15 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
           <CardTitle className="text-base">Proje Görseli</CardTitle>
         </CardHeader>
         <CardContent>
-          {project.image_url ? (
+          {imageUrls.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => { setImageLoadFailed(false); setImageOpen(true); }}>
                 <Eye className="h-4 w-4" />
-                Göster
+                {imageUrls.length > 1 ? `Göster (${imageUrls.length})` : "Göster"}
               </Button>
               <Button variant="outline" onClick={handleCopyImageUrl}>
                 <Copy className="h-4 w-4" />
-                URL Kopyala
+                {imageUrls.length > 1 ? "URL'leri Kopyala" : "URL Kopyala"}
               </Button>
             </div>
           ) : (
@@ -281,10 +284,14 @@ export function ProjectDetail({ project, typeLabel, sheets, personnel, cabinets,
           </DialogHeader>
           {imageLoadFailed ? (
             <div className="flex min-h-48 items-center justify-center text-sm text-muted-foreground">Görsel yüklenemedi.</div>
-          ) : project.image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={getDisplayImageUrl(project.image_url)} alt={`${project.name} proje görseli`} loading="lazy" referrerPolicy="no-referrer" className="mx-auto block max-h-[78vh] max-w-full object-contain" onError={() => setImageLoadFailed(true)} />
-          ) : null}
+          ) : (
+            <div className="space-y-4">
+              {imageUrls.map((url, index) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={url} src={getDisplayImageUrl(url)} alt={`${project.name} proje görseli ${index + 1}`} loading="lazy" referrerPolicy="no-referrer" className="mx-auto block max-h-[78vh] max-w-full object-contain" onError={() => setImageLoadFailed(true)} />
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>}
 
